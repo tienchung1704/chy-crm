@@ -122,12 +122,17 @@ export default function ProductDetailClient({ product, relatedProducts = [], ini
     ? matchingVariants.reduce((sum, v) => sum + v.stock, 0)
     : product.stockQuantity;
 
-  // Use variant price if size is selected and it has an override
+  // Use variant price based on selected size + color combination
   let currentVariant = null;
-  if (selectedSizeId) {
-     currentVariant = product.variants.find(v => v.sizeId === selectedSizeId);
+  if (selectedSizeId && selectedColorId) {
+    // Both selected: find exact match
+    currentVariant = product.variants.find(v => v.sizeId === selectedSizeId && v.colorId === selectedColorId);
+  } else if (selectedSizeId) {
+    // Only size selected: find first variant for this size
+    currentVariant = product.variants.find(v => v.sizeId === selectedSizeId);
   } else if (selectedColorId) {
-     currentVariant = product.variants.find(v => v.colorId === selectedColorId);
+    // Only color selected: find first variant for this color
+    currentVariant = product.variants.find(v => v.colorId === selectedColorId);
   }
   
   if (currentVariant && currentVariant.price) {

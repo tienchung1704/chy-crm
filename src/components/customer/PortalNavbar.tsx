@@ -3,7 +3,6 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useState, useRef, useEffect } from 'react';
-import Image from 'next/image';
 interface Props {
   user: {
     name: string;
@@ -70,14 +69,9 @@ export default function PortalNavbar({ user }: Props) {
       <div className="w-[80%] mx-auto px-4">
         <div className="flex justify-between items-center h-16">
           {/* Brand */}
-          <Link href="/portal">
-            <Image
-              src="/logo.png"
-              alt="Logo"
-              width={100}
-              height={100}
-              style={{ height: 'auto' }}
-            />
+          <Link href="/portal" style={{ display: 'flex', alignItems: 'baseline', textDecoration: 'none' }}>
+            <span style={{ fontSize: '28px', fontWeight: 800, color: '#1e3a5f', letterSpacing: '-1px' }}>CHY</span>
+            <span style={{ fontSize: '10px', fontWeight: 700, color: '#3b82f6', marginLeft: '1px' }}>.vn</span>
           </Link>
 
           {/* Desktop Nav Links */}

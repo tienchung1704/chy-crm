@@ -542,18 +542,16 @@ export default function ProductsClient({ products, categories, initialWishlistId
                         </h3>
 
                         {/* Price Section */}
-                        <div className="mb-3">
-                          <div className="flex items-baseline gap-2">
-                            <span className="text-lg font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+                        <div className="mb-3 overflow-hidden">
+                          <div className="flex items-baseline whitespace-nowrap overflow-hidden">
+                            <span className={`${minPrice === maxPrice ? 'text-lg' : 'text-[13px] sx:text-sm sm:text-base lg:text-lg'} font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent truncate tracking-tighter`}>
                               {displayPriceRangeString}
                             </span>
                           </div>
                           {hasDiscount && (
-                            <div className="mt-0.5">
-                              <span className="text-xs text-gray-400 line-through font-medium">
-                                {minOriginalPrice === maxOriginalPrice
-                                  ? formatCurrency(minOriginalPrice)
-                                  : `${formatCurrency(minOriginalPrice)} - ${formatCurrency(maxOriginalPrice)}`}
+                            <div className="mt-0.5 whitespace-nowrap overflow-hidden">
+                              <span className="text-[11px] text-gray-400 line-through font-medium opacity-80 truncate tracking-tighter">
+                                {formatCurrency(maxOriginalPrice)}
                               </span>
                             </div>
                           )}
@@ -561,7 +559,7 @@ export default function ProductsClient({ products, categories, initialWishlistId
 
                         {/* Stock & Sold Info */}
                         {!outOfStock && (
-                          <div className="mb-3 flex items-center justify-between text-[11px] text-gray-500 bg-gray-50/50 px-2.5 py-1.5 rounded-lg">
+                          <div className="mb-3 flex items-center justify-between text-[11px] text-gray-500">
                             <span>Còn lại: <strong className="text-gray-700">{product.stockQuantity}</strong></span>
                             <span>Đã bán: <strong className="text-gray-700">{product.soldCount}</strong></span>
                           </div>
