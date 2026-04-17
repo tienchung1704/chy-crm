@@ -38,16 +38,13 @@ export default function ProfileForm({ user }: ProfileFormProps) {
     dob: user.dob || '',
     addressStreet: user.addressStreet || '',
     addressWard: user.addressWard || '',
-    addressDistrict: user.addressDistrict || '',
     addressProvince: user.addressProvince || '',
   });
 
   // Address dropdown state
   const [provinces, setProvinces] = useState<AddressOption[]>([]);
-  const [districts, setDistricts] = useState<AddressOption[]>([]);
   const [wards, setWards] = useState<AddressOption[]>([]);
   const [loadingProvinces, setLoadingProvinces] = useState(false);
-  const [loadingDistricts, setLoadingDistricts] = useState(false);
   const [loadingWards, setLoadingWards] = useState(false);
 
   // Password change
@@ -71,10 +68,9 @@ export default function ProfileForm({ user }: ProfileFormProps) {
       .catch(() => setLoadingProvinces(false));
   }, []);
 
-  // Fetch districts when province changes
-  const fetchDistricts = useCallback(async (provinceName: string) => {
+  // Fetch wards when province changes
+  const fetchWards = useCallback(async (provinceName: string) => {
     if (!provinceName) {
-      setDistricts([]);
       setWards([]);
       return;
     }
@@ -82,30 +78,9 @@ export default function ProfileForm({ user }: ProfileFormProps) {
     const province = provinces.find(p => p.name === provinceName);
     if (!province) return;
 
-    setLoadingDistricts(true);
-    try {
-      const res = await fetch(`/api/address?type=districts&provinceCode=${province.code}`);
-      const data = await res.json();
-      setDistricts(data);
-    } catch {
-      setDistricts([]);
-    } finally {
-      setLoadingDistricts(false);
-    }
-  }, [provinces]);
-
-  // Fetch wards when district changes
-  const fetchWards = useCallback(async (districtName: string) => {
-    if (!districtName) {
-      setWards([]);
-      return;
-    }
-    const district = districts.find(d => d.name === districtName);
-    if (!district) return;
-
     setLoadingWards(true);
     try {
-      const res = await fetch(`/api/address?type=wards&districtCode=${district.code}`);
+      const res = await fetch(`/api/address?type=wards&provinceCode=${province.code}`);
       const data = await res.json();
       setWards(data);
     } catch {
@@ -113,21 +88,14 @@ export default function ProfileForm({ user }: ProfileFormProps) {
     } finally {
       setLoadingWards(false);
     }
-  }, [districts]);
+  }, [provinces]);
 
-  // Load districts for existing province on initial load
+  // Load wards for existing province on initial load
   useEffect(() => {
     if (form.addressProvince && provinces.length > 0) {
-      fetchDistricts(form.addressProvince);
+      fetchWards(form.addressProvince);
     }
-  }, [provinces]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Load wards for existing district on initial load
-  useEffect(() => {
-    if (form.addressDistrict && districts.length > 0) {
-      fetchWards(form.addressDistrict);
-    }
-  }, [districts]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [provinces, fetchWards, form.addressProvince]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -138,20 +106,9 @@ export default function ProfileForm({ user }: ProfileFormProps) {
     setForm(prev => ({
       ...prev,
       addressProvince: value,
-      addressDistrict: '',
       addressWard: '',
     }));
     setWards([]);
-    fetchDistricts(value);
-  };
-
-  const handleDistrictChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const value = e.target.value;
-    setForm(prev => ({
-      ...prev,
-      addressDistrict: value,
-      addressWard: '',
-    }));
     fetchWards(value);
   };
 
@@ -228,7 +185,12 @@ export default function ProfileForm({ user }: ProfileFormProps) {
     }
   };
 
+  const [confirmDeleteInput, setConfirmDeleteInput] = useState('');
+
+  const isConfirmValid = confirmDeleteInput === user.name || confirmDeleteInput === user.phone;
+
   const handleDeleteAccount = async () => {
+    if (!isConfirmValid) return;
     setDeleteLoading(true);
 
     try {
@@ -261,16 +223,15 @@ export default function ProfileForm({ user }: ProfileFormProps) {
         {/* Personal Info Form */}
         <div className="bg-white rounded-xl shadow-sm p-6">
           <div className="mb-6">
-            <h3 className="text-lg font-bold text-gray-800">📝 Thông tin cá nhân</h3>
+            <h3 className="text-lg font-bold text-gray-800">Thông tin cá nhân</h3>
             <p className="text-xs text-gray-600 mt-1">Cập nhật thông tin liên hệ của bạn</p>
           </div>
 
           {message && (
-            <div className={`p-4 rounded-lg mb-4 ${
-              message.type === 'success' 
-                ? 'bg-green-50 text-green-700 border border-green-200' 
-                : 'bg-red-50 text-red-700 border border-red-200'
-            }`}>
+            <div className={`p-4 rounded-lg mb-4 ${message.type === 'success'
+              ? 'bg-green-50 text-green-700 border border-green-200'
+              : 'bg-red-50 text-red-700 border border-red-200'
+              }`}>
               {message.text}
             </div>
           )}
@@ -367,55 +328,29 @@ export default function ProfileForm({ user }: ProfileFormProps) {
                 <h4 className="text-sm font-bold text-gray-800">Địa chỉ giao hàng</h4>
               </div>
 
-              {/* Province & District */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2" htmlFor="profile-address-province">
-                    Tỉnh/Thành phố
-                  </label>
-                  <div className="relative">
-                    <select
-                      className={selectClass}
-                      id="profile-address-province"
-                      value={form.addressProvince}
-                      onChange={handleProvinceChange}
-                      disabled={loadingProvinces}
-                    >
-                      <option value="">— Chọn tỉnh/thành phố —</option>
-                      {provinces.map(p => (
-                        <option key={p.code} value={p.name}>{p.name}</option>
-                      ))}
-                    </select>
-                    {loadingProvinces ? (
-                      <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-indigo-400 animate-spin" />
-                    ) : (
-                      <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-                    )}
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2" htmlFor="profile-address-district">
-                    Quận/Huyện
-                  </label>
-                  <div className="relative">
-                    <select
-                      className={selectClass}
-                      id="profile-address-district"
-                      value={form.addressDistrict}
-                      onChange={handleDistrictChange}
-                      disabled={!form.addressProvince || loadingDistricts}
-                    >
-                      <option value="">— Chọn quận/huyện —</option>
-                      {districts.map(d => (
-                        <option key={d.code} value={d.name}>{d.name}</option>
-                      ))}
-                    </select>
-                    {loadingDistricts ? (
-                      <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-indigo-400 animate-spin" />
-                    ) : (
-                      <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-                    )}
-                  </div>
+              {/* Province */}
+              <div className="mb-4">
+                <label className="block text-sm font-semibold text-gray-700 mb-2" htmlFor="profile-address-province">
+                  Tỉnh/Thành phố
+                </label>
+                <div className="relative">
+                  <select
+                    className={selectClass}
+                    id="profile-address-province"
+                    value={form.addressProvince}
+                    onChange={handleProvinceChange}
+                    disabled={loadingProvinces}
+                  >
+                    <option value="">— Chọn tỉnh/thành phố —</option>
+                    {provinces.map(p => (
+                      <option key={p.code} value={p.name}>{p.name}</option>
+                    ))}
+                  </select>
+                  {loadingProvinces ? (
+                    <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-indigo-400 animate-spin" />
+                  ) : (
+                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                  )}
                 </div>
               </div>
 
@@ -430,7 +365,7 @@ export default function ProfileForm({ user }: ProfileFormProps) {
                     id="profile-address-ward"
                     value={form.addressWard}
                     onChange={handleWardChange}
-                    disabled={!form.addressDistrict || loadingWards}
+                    disabled={!form.addressProvince || loadingWards}
                   >
                     <option value="">— Chọn phường/xã —</option>
                     {wards.map(w => (
@@ -462,12 +397,12 @@ export default function ProfileForm({ user }: ProfileFormProps) {
               </div>
 
               {/* Address Preview */}
-              {(form.addressStreet || form.addressWard || form.addressDistrict || form.addressProvince) && (
+              {(form.addressStreet || form.addressWard || form.addressProvince) && (
                 <div className="mt-3 px-4 py-3 bg-indigo-50 border border-indigo-100 rounded-lg">
                   <div className="flex items-start gap-2">
                     <MapPin className="w-4 h-4 text-indigo-500 mt-0.5 flex-shrink-0" />
                     <p className="text-sm text-indigo-700">
-                      {[form.addressStreet, form.addressWard, form.addressDistrict, form.addressProvince]
+                      {[form.addressStreet, form.addressWard, form.addressProvince]
                         .filter(Boolean)
                         .join(', ')}
                     </p>
@@ -487,107 +422,111 @@ export default function ProfileForm({ user }: ProfileFormProps) {
           </form>
         </div>
 
-        {/* Change Password Form */}
-        <div className="bg-white rounded-xl shadow-sm p-6">
-          <div className="mb-6">
-            <h3 className="text-lg font-bold text-gray-800">🔒 Đổi mật khẩu</h3>
-            <p className="text-xs text-gray-600 mt-1">Cập nhật mật khẩu đăng nhập của bạn</p>
-          </div>
+        {/* Right Column: Password & Delete Account */}
+        <div className="flex flex-col h-full space-y-6">
+          {/* Change Password Form */}
+          <div className="bg-white rounded-xl shadow-sm p-6">
+            <div className="mb-6">
+              <h3 className="text-lg font-bold text-gray-800">🔒 Đổi mật khẩu</h3>
+              <p className="text-xs text-gray-600 mt-1">Cập nhật mật khẩu đăng nhập của bạn</p>
+            </div>
 
-          {passwordMsg && (
-            <div className={`p-4 rounded-lg mb-4 ${
-              passwordMsg.type === 'success' 
-                ? 'bg-green-50 text-green-700 border border-green-200' 
+            {passwordMsg && (
+              <div className={`p-4 rounded-lg mb-4 ${passwordMsg.type === 'success'
+                ? 'bg-green-50 text-green-700 border border-green-200'
                 : 'bg-red-50 text-red-700 border border-red-200'
-            }`}>
-              {passwordMsg.text}
-            </div>
-          )}
+                }`}>
+                {passwordMsg.text}
+              </div>
+            )}
 
-          <form onSubmit={handlePasswordSubmit} className="space-y-4">
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2" htmlFor="profile-current-password">
-                Mật khẩu hiện tại
-              </label>
-              <input
-                className={inputClass}
-                type="password"
-                id="profile-current-password"
-                value={passwordForm.currentPassword}
-                onChange={e => setPasswordForm({ ...passwordForm, currentPassword: e.target.value })}
-                required
-              />
-            </div>
+            <form onSubmit={handlePasswordSubmit} className="space-y-4">
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2" htmlFor="profile-current-password">
+                  Mật khẩu hiện tại
+                </label>
+                <input
+                  className={inputClass}
+                  type="password"
+                  id="profile-current-password"
+                  value={passwordForm.currentPassword}
+                  onChange={e => setPasswordForm({ ...passwordForm, currentPassword: e.target.value })}
+                  required
+                />
+              </div>
 
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2" htmlFor="profile-new-password">
-                Mật khẩu mới
-              </label>
-              <input
-                className={inputClass}
-                type="password"
-                id="profile-new-password"
-                value={passwordForm.newPassword}
-                onChange={e => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
-                required
-                minLength={6}
-              />
-            </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2" htmlFor="profile-new-password">
+                  Mật khẩu mới
+                </label>
+                <input
+                  className={inputClass}
+                  type="password"
+                  id="profile-new-password"
+                  value={passwordForm.newPassword}
+                  onChange={e => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
+                  required
+                  minLength={6}
+                />
+              </div>
 
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2" htmlFor="profile-confirm-password">
-                Xác nhận mật khẩu mới
-              </label>
-              <input
-                className={inputClass}
-                type="password"
-                id="profile-confirm-password"
-                value={passwordForm.confirmPassword}
-                onChange={e => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
-                required
-                minLength={6}
-              />
-            </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2" htmlFor="profile-confirm-password">
+                  Xác nhận mật khẩu mới
+                </label>
+                <input
+                  className={inputClass}
+                  type="password"
+                  id="profile-confirm-password"
+                  value={passwordForm.confirmPassword}
+                  onChange={e => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
+                  required
+                  minLength={6}
+                />
+              </div>
 
-            <button
-              type="submit"
-              className="w-full px-6 py-3 bg-gray-700 text-white font-semibold rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              disabled={passwordLoading}
-              id="profile-password-btn"
-            >
-              {passwordLoading ? 'Đang xử lý...' : '🔒 Đổi mật khẩu'}
-            </button>
-          </form>
-        </div>
-      </div>
-
-      {/* Delete Account Section */}
-      <div className="bg-red-50 border border-red-200 rounded-xl p-6 mt-6">
-        <div className="flex items-start justify-between">
-          <div>
-            <h3 className="text-lg font-bold text-red-800 flex items-center gap-2">
-              <Trash2 className="w-5 h-5" />
-              Xóa tài khoản
-            </h3>
-            <p className="text-sm text-red-600 mt-2">
-              Sau khi xóa, tài khoản của bạn sẽ bị vô hiệu hóa và không thể đăng nhập lại. 
-              Tất cả dữ liệu sẽ được lưu trữ nhưng không thể truy cập.
-            </p>
+              <button
+                type="submit"
+                className="w-full px-6 py-3 bg-gray-700 text-white font-semibold rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={passwordLoading}
+                id="profile-password-btn"
+              >
+                {passwordLoading ? 'Đang xử lý...' : '🔒 Đổi mật khẩu'}
+              </button>
+            </form>
           </div>
-          <button
-            onClick={() => setShowDeleteModal(true)}
-            className="px-4 py-2 bg-red-600 text-white font-semibold rounded-lg hover:bg-red-700 transition-colors flex items-center gap-2 whitespace-nowrap"
-          >
-            <Trash2 className="w-4 h-4" />
-            Xóa tài khoản
-          </button>
+
+          {/* Delete Account Section - White BG, Red Border, Bottom-Right Button */}
+          <div className="bg-rose-50 border border-red-200 rounded-xl p-8 flex-grow flex flex-col justify-between shadow-sm">
+            <div className="text-left">
+              <h3 className="text-base font-bold text-red-600 flex items-center gap-2 mb-2">
+                <Trash2 className="w-5 h-5" />
+                Xóa tài khoản
+              </h3>
+              <p className="text-xs text-red-600/70 leading-relaxed max-w-sm font-medium">
+                Sau khi xóa, tài khoản của bạn sẽ bị vô hiệu hóa và không thể đăng nhập lại.
+                Tất cả dữ liệu sẽ được lưu trữ nhưng không thể truy cập.
+              </p>
+            </div>
+            <div className="flex justify-end mt-4">
+              <button
+                onClick={() => {
+                  setConfirmDeleteInput(''); // Reset on open
+                  setShowDeleteModal(true);
+                }}
+                className="px-6 py-2.5 bg-red-600 text-white text-xs font-bold rounded-lg hover:bg-red-700 transition-all flex items-center justify-center gap-2 whitespace-nowrap shadow-md shadow-red-100 active:scale-95"
+              >
+                Xóa tài khoản
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 
       {/* Delete Confirmation Modal */}
       {showDeleteModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md animate-fade-in-up">
             <div className="flex items-center justify-between p-6 border-b border-gray-100">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
@@ -605,11 +544,25 @@ export default function ProfileForm({ user }: ProfileFormProps) {
 
             <div className="p-6">
               <p className="text-gray-700 mb-4">
-                Bạn có chắc chắn muốn xóa tài khoản <span className="font-bold">{user.name}</span>?
+                Bạn có chắc chắn muốn xóa tài khoản?
               </p>
-              <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg p-3">
+              <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg p-3 mb-6">
                 ⚠️ Hành động này sẽ vô hiệu hóa tài khoản của bạn. Bạn sẽ không thể đăng nhập lại và tất cả dữ liệu sẽ không thể truy cập.
               </p>
+              
+              <div className="space-y-3">
+                <label className="block text-sm font-medium text-gray-600">
+                  Nhập <span className="font-bold text-gray-900">"{user.name}"</span> hoặc <span className="font-bold text-gray-900">"{user.phone}"</span> để xác nhận:
+                </label>
+                <input
+                  type="text"
+                  className={inputClass}
+                  placeholder="Nhập tên hoặc số điện thoại..."
+                  value={confirmDeleteInput}
+                  onChange={(e) => setConfirmDeleteInput(e.target.value)}
+                  autoFocus
+                />
+              </div>
             </div>
 
             <div className="flex gap-3 p-6 border-t border-gray-100">
@@ -622,8 +575,12 @@ export default function ProfileForm({ user }: ProfileFormProps) {
               </button>
               <button
                 onClick={handleDeleteAccount}
-                disabled={deleteLoading}
-                className="flex-1 px-4 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                disabled={deleteLoading || !isConfirmValid}
+                className={`flex-1 px-4 py-3 rounded-lg font-medium transition-all flex items-center justify-center gap-2 ${
+                  isConfirmValid 
+                    ? 'bg-red-600 text-white hover:bg-red-700 shadow-lg shadow-red-100' 
+                    : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                }`}
               >
                 {deleteLoading ? (
                   <>
@@ -633,7 +590,7 @@ export default function ProfileForm({ user }: ProfileFormProps) {
                 ) : (
                   <>
                     <Trash2 className="w-4 h-4" />
-                    Xóa tài khoản
+                    Xác nhận xóa
                   </>
                 )}
               </button>

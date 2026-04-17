@@ -57,11 +57,7 @@ async function getOrder(id: string) {
 }
 
 function fmt(amount: number) {
-  return new Intl.NumberFormat('vi-VN', {
-    style: 'currency',
-    currency: 'VND',
-    maximumFractionDigits: 0,
-  }).format(amount);
+  return new Intl.NumberFormat('vi-VN').format(amount) + ' đ';
 }
 
 function fmtDate(d: Date) {
@@ -76,6 +72,7 @@ function fmtDate(d: Date) {
 
 const statusMap: Record<string, { cls: string; label: string }> = {
   PENDING: { cls: 'bg-orange-100 text-orange-700', label: 'Chờ duyệt' },
+  PACKAGING: { cls: 'bg-purple-100 text-purple-700', label: 'Đang đóng hàng' },
   CONFIRMED: { cls: 'bg-cyan-100 text-cyan-700', label: 'Đang giao' },
   COMPLETED: { cls: 'bg-green-100 text-green-700', label: 'Hoàn thành' },
   CANCELLED: { cls: 'bg-red-100 text-red-700', label: 'Đã hủy' },
@@ -123,7 +120,6 @@ export default async function OrderDetailPage(props: {
   const fullAddress = [
     order.user.addressStreet,
     order.user.addressWard,
-    order.user.addressDistrict,
     order.user.addressProvince,
   ]
     .filter(Boolean)
@@ -242,7 +238,7 @@ export default async function OrderDetailPage(props: {
                   </span>
                 </div>
               )}
-              <div className="border-t pt-3 flex justify-between text-lg font-bold text-gray-900">
+              <div className="pt-3 flex justify-between text-lg font-bold text-gray-900">
                 <span>Tổng cộng:</span>
                 <span className="text-blue-600">{fmt(order.totalAmount)}</span>
               </div>

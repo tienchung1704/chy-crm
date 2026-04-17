@@ -42,11 +42,9 @@ export default function CheckoutClient({ user, item }: CheckoutClientProps) {
   
   // Address Dropdown states
   const [provinces, setProvinces] = useState<AddressOption[]>([]);
-  const [districts, setDistricts] = useState<AddressOption[]>([]);
   const [wards, setWards] = useState<AddressOption[]>([]);
   
   const [province, setProvince] = useState(user.addressProvince || '');
-  const [district, setDistrict] = useState(user.addressDistrict || '');
   const [ward, setWard] = useState(user.addressWard || '');
 
   // Vouchers and Points
@@ -65,47 +63,27 @@ export default function CheckoutClient({ user, item }: CheckoutClientProps) {
       .then(setProvinces).catch(console.error);
   }, []);
 
-  const fetchDistricts = useCallback(async (provinceName: string) => {
-    if (!provinceName) { setDistricts([]); setWards([]); return; }
+  const fetchWards = useCallback(async (provinceName: string) => {
+    if (!provinceName) { setWards([]); return; }
     const p = provinces.find(x => x.name === provinceName);
-    if (!p) {
-      // If not yet loaded, we might need code or wait, but usually name is enough to find code
-      return;
-    }
+    if (!p) return;
     try {
-      const res = await fetch(`/api/address?type=districts&provinceCode=${p.code}`);
-      setDistricts(await res.json());
+      const res = await fetch(`/api/address?type=wards&provinceCode=${p.code}`);
+      setWards(await res.json());
     } catch {}
   }, [provinces]);
 
-  const fetchWards = useCallback(async (districtName: string) => {
-    if (!districtName) { setWards([]); return; }
-    const d = districts.find(x => x.name === districtName);
-    if (!d) return;
-    try {
-      const res = await fetch(`/api/address?type=wards&districtCode=${d.code}`);
-      setWards(await res.json());
-    } catch {}
-  }, [districts]);
-
   // Initial load logic for saved address
   useEffect(() => {
-    if (provinces.length && province && !districts.length) {
-      fetchDistricts(province);
+    if (provinces.length && province && !wards.length) {
+      fetchWards(province);
     }
-  }, [provinces, province, fetchDistricts, districts.length]);
-
-  useEffect(() => {
-    if (districts.length && district && !wards.length) {
-      fetchWards(district);
-    }
-  }, [districts, district, fetchWards, wards.length]);
+  }, [provinces, province, fetchWards, wards.length]);
 
   const handleImportSavedAddress = () => {
     setName(user.name || '');
     setPhone(user.phone || '');
     setProvince(user.addressProvince || '');
-    setDistrict(user.addressDistrict || '');
     setWard(user.addressWard || '');
     setStreet(user.addressStreet || '');
   };
@@ -141,7 +119,7 @@ export default function CheckoutClient({ user, item }: CheckoutClientProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name || !phone || !province || !district || !ward || !street) {
+    if (!name || !phone || !province || !ward || !street) {
       alert('Vui lòng điền đầy đủ thông tin giao hàng');
       return;
     }
@@ -162,7 +140,6 @@ export default function CheckoutClient({ user, item }: CheckoutClientProps) {
           name, phone, note,
           addressStreet: street,
           addressWard: ward,
-          addressDistrict: district,
           addressProvince: province,
           voucherId: selectedVoucherId || undefined,
           useCommissionPoints: useCommissionPoints
@@ -219,24 +196,17 @@ export default function CheckoutClient({ user, item }: CheckoutClientProps) {
           </div>
 
           <div className="space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Tỉnh/Thành phố *</label>
-                <select className="w-full border border-gray-300 rounded-lg focus:ring-indigo-500 px-4 py-2.5" value={province} onChange={e => { setProvince(e.target.value); setDistrict(''); setWard(''); fetchDistricts(e.target.value); }} required>
+                <select className="w-full border border-gray-300 rounded-lg focus:ring-indigo-500 px-4 py-2.5" value={province} onChange={e => { setProvince(e.target.value); setWard(''); fetchWards(e.target.value); }} required>
                   <option value="">Chọn Tỉnh/Thành</option>
                   {provinces.map(p => <option key={p.code} value={p.name}>{p.name}</option>)}
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Quận/Huyện *</label>
-                <select className="w-full border border-gray-300 rounded-lg focus:ring-indigo-500 disabled:bg-gray-100 px-4 py-2.5" value={district} onChange={e => { setDistrict(e.target.value); setWard(''); fetchWards(e.target.value); }} disabled={!province} required>
-                  <option value="">Chọn Quận/Huyện</option>
-                  {districts.map(d => <option key={d.code} value={d.name}>{d.name}</option>)}
-                </select>
-              </div>
-              <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Phường/Xã *</label>
-                <select className="w-full border border-gray-300 rounded-lg focus:ring-indigo-500 disabled:bg-gray-100 px-4 py-2.5" value={ward} onChange={e => setWard(e.target.value)} disabled={!district} required>
+                <select className="w-full border border-gray-300 rounded-lg focus:ring-indigo-500 disabled:bg-gray-100 px-4 py-2.5" value={ward} onChange={e => setWard(e.target.value)} disabled={!province} required>
                   <option value="">Chọn Phường/Xã</option>
                   {wards.map(w => <option key={w.code} value={w.name}>{w.name}</option>)}
                 </select>

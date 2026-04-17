@@ -33,7 +33,7 @@ function loadWards() {
 
 // GET /api/address?type=provinces
 // GET /api/address?type=districts&provinceCode=01
-// GET /api/address?type=wards&districtCode=001
+// GET /api/address?type=wards&provinceCode=01
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const type = searchParams.get('type');
@@ -48,26 +48,21 @@ export async function GET(req: NextRequest) {
     }
 
     if (type === 'districts') {
-      const provinceCode = searchParams.get('provinceCode');
-      if (!provinceCode) {
-        return NextResponse.json({ error: 'provinceCode is required' }, { status: 400 });
-      }
-      const data = loadDistricts();
-      const districts = Object.values(data)
-        .filter(d => d.parent_code === provinceCode)
-        .map(d => ({ code: d.code, name: d.name_with_type }))
-        .sort((a, b) => a.name.localeCompare(b.name, 'vi'));
-      return NextResponse.json(districts);
+      // Return empty because districts were removed July 1, 2025
+      return NextResponse.json([]);
     }
 
     if (type === 'wards') {
       const districtCode = searchParams.get('districtCode');
-      if (!districtCode) {
-        return NextResponse.json({ error: 'districtCode is required' }, { status: 400 });
+      const provinceCode = searchParams.get('provinceCode');
+      const parentCode = provinceCode || districtCode;
+
+      if (!parentCode) {
+        return NextResponse.json({ error: 'provinceCode is required' }, { status: 400 });
       }
       const data = loadWards();
       const wards = Object.values(data)
-        .filter(w => w.parent_code === districtCode)
+        .filter(w => w.parent_code === parentCode)
         .map(w => ({ code: w.code, name: w.name_with_type }))
         .sort((a, b) => a.name.localeCompare(b.name, 'vi'));
       return NextResponse.json(wards);

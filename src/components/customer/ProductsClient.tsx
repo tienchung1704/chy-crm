@@ -549,7 +549,8 @@ export default function ProductsClient({ products, categories, initialWishlistId
                             </span>
                           </div>
                           {hasDiscount && (
-                            <div className="mt-0.5 whitespace-nowrap overflow-hidden">
+                            <div className="mt-0.5 whitespace-nowrap overflow-hidden flex items-center gap-1">
+                              <span className="text-[10px] text-gray-400 font-medium">Giá gốc:</span>
                               <span className="text-[11px] text-gray-400 line-through font-medium opacity-80 truncate tracking-tighter">
                                 {formatCurrency(maxOriginalPrice)}
                               </span>

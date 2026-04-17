@@ -114,6 +114,13 @@ export async function POST(req: NextRequest) {
     // Set session
     await setSession(user.id, user.role);
 
+    // Sync Pancake orders on registration if it's a customer
+    if (user.role === 'CUSTOMER') {
+      console.log(`[Register] Triggering Pancake sync for new user ${user.id} with phone ${phone}`);
+      const { syncPancakeOrdersForUser } = await import('@/services/pancakeService');
+      syncPancakeOrdersForUser(phone, user.id).catch(e => console.error('Pancake sync error on register:', e));
+    }
+
     // New users go to onboarding, admins go to admin panel
     const redirect = user.role === 'ADMIN' ? '/admin' : '/onboarding';
 

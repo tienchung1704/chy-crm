@@ -1,5 +1,6 @@
 import prisma from '@/lib/prisma';
 import { getSession } from '@/lib/auth';
+import { Rank } from '@prisma/client';
 import Link from 'next/link';
 import TrackingButton from '@/components/customer/TrackingButton';
 
@@ -57,7 +58,21 @@ export default async function PortalDashboard() {
   if (!user) return null;
 
   const spentInLast30Days = spentLast30Days._sum.totalAmount || 0;
-  const progress = rankProgress[user.rank];
+  
+  // Calculate effective UI rank based on current spending
+  let effectiveRank: Rank = user.rank as Rank;
+  let progress = rankProgress[effectiveRank];
+  
+  // Virtually upgrade if spending meets the next rank's target
+  while (progress && progress.target > 0 && spentInLast30Days >= progress.target) {
+    if (progress.next !== 'MAX') {
+      effectiveRank = progress.next as Rank;
+      progress = rankProgress[effectiveRank as string];
+    } else {
+      break;
+    }
+  }
+
   const pct = progress.target > 0 ? Math.min(100, (spentInLast30Days / progress.target) * 100) : 100;
 
   return (
@@ -100,31 +115,35 @@ export default async function PortalDashboard() {
       <div className="bg-white p-6 rounded-xl shadow-sm mt-6">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-bold">🏆 Tiến trình hạng thành viên</h3>
-          <span className={`px-3.5 py-1 rounded-full text-sm font-semibold ${
-            user.rank === 'MEMBER' ? 'bg-gray-100 text-gray-700' :
-            user.rank === 'SILVER' ? 'bg-gray-200 text-gray-800' :
-            user.rank === 'GOLD' ? 'bg-yellow-100 text-yellow-800' :
-            user.rank === 'DIAMOND' ? 'bg-blue-100 text-blue-800' :
-            'bg-purple-100 text-purple-800'
+          <span className={`px-3.5 py-1 rounded-full text-sm font-semibold shadow-sm border ${
+            effectiveRank === 'MEMBER' ? 'bg-gray-50 text-gray-700 border-gray-200' :
+            effectiveRank === 'SILVER' ? 'bg-gray-100 text-gray-800 border-gray-300' :
+            effectiveRank === 'GOLD' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+            effectiveRank === 'DIAMOND' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+            'bg-purple-50 text-purple-700 border-purple-200'
           }`}>
-            {user.rank}
+            {effectiveRank}
           </span>
         </div>
-        <div className="mb-2">
-          <div className="flex justify-between text-xs text-gray-600 mb-2">
+        <div className="mb-3">
+          <div className="flex justify-between text-xs font-medium text-gray-700 mb-2">
             <span>{fmt(spentInLast30Days)}</span>
             {progress.target > 0 && <span>{fmt(progress.target)} → {progress.next}</span>}
           </div>
-          <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+          <div className="h-2.5 bg-gray-100 rounded-full overflow-hidden shadow-inner">
             <div 
-              className="h-full bg-gradient-to-r from-blue-500 to-purple-600 rounded-full transition-all duration-1000"
+              className="h-full bg-gradient-to-r from-blue-500 to-indigo-600 rounded-full transition-all duration-1000"
               style={{ width: `${pct}%` }}
             />
           </div>
         </div>
-        {progress.target > 0 && (
-          <p className="text-xs text-gray-600">
-            Còn {fmt(Math.max(0, progress.target - spentInLast30Days))} nữa để lên hạng {progress.next} (trong 30 ngày)
+        {progress.target > 0 ? (
+          <p className="text-xs text-gray-600 font-medium">
+            🔥 Còn <span className="text-indigo-600 font-bold">{fmt(Math.max(0, progress.target - spentInLast30Days))}</span> nữa để lên hạng <span className="font-bold">{progress.next}</span> (trong 30 ngày)
+          </p>
+        ) : (
+          <p className="text-xs text-green-600 font-semibold flex items-center gap-1">
+            🎉 Chúc mừng bạn đã đạt cấp bậc cao nhất!
           </p>
         )}
       </div>

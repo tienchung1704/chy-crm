@@ -24,7 +24,6 @@ export async function POST(req: NextRequest) {
       phone,
       addressStreet,
       addressWard,
-      addressDistrict,
       addressProvince,
       note,
       voucherId,
@@ -43,7 +42,7 @@ export async function POST(req: NextRequest) {
         phone: phone || undefined,
         addressStreet,
         addressWard,
-        addressDistrict,
+        addressDistrict: null, // CLEAR DISTRICT
         addressProvince,
       }
     });

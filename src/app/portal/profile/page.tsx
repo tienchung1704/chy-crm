@@ -1,5 +1,6 @@
 import prisma from '@/lib/prisma';
 import { getSession } from '@/lib/auth';
+import { Rank } from '@prisma/client';
 import ProfileForm from './ProfileForm';
 
 export default async function ProfilePage() {
@@ -34,6 +35,46 @@ export default async function ProfilePage() {
 
   const refereeCount = await prisma.user.count({ where: { referrerId: session.id } });
 
+  // Calculate 30 days ago
+  const now = new Date();
+  const vietnamOffset = 7 * 60;
+  const localOffset = now.getTimezoneOffset();
+  const offsetDiff = vietnamOffset + localOffset;
+  const thirtyDaysAgo = new Date(now.getTime() + offsetDiff * 60 * 1000);
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+  thirtyDaysAgo.setHours(0, 0, 0, 0);
+
+  // Get total spent in last 30 days
+  const spentLast30Days = await prisma.order.aggregate({
+    where: {
+      userId: session.id,
+      status: 'COMPLETED',
+      createdAt: { gte: thirtyDaysAgo },
+    },
+    _sum: { totalAmount: true },
+  });
+  
+  const spentInLast30Days = spentLast30Days._sum.totalAmount || 0;
+  
+  const rankProgress: Record<string, { next: Rank | 'MAX', target: number }> = {
+    MEMBER: { next: 'SILVER', target: 2000000 },
+    SILVER: { next: 'GOLD', target: 5000000 },
+    GOLD: { next: 'DIAMOND', target: 10000000 },
+    DIAMOND: { next: 'PLATINUM', target: 20000000 },
+    PLATINUM: { next: 'MAX', target: 0 },
+  };
+
+  let effectiveRank: Rank = user.rank as Rank;
+  let progress = rankProgress[effectiveRank as string];
+  while (progress && progress.target > 0 && spentInLast30Days >= progress.target) {
+    if (progress.next !== 'MAX') {
+      effectiveRank = progress.next as Rank;
+      progress = rankProgress[effectiveRank as string];
+    } else {
+      break;
+    }
+  }
+
   return (
     <>
       <div className="mb-8">
@@ -60,13 +101,14 @@ export default async function ProfilePage() {
           <div>
             <h2 className="text-2xl font-bold text-gray-800">{user.name}</h2>
             <div className="flex items-center gap-3 mt-2">
-              <span className={`px-3.5 py-1 rounded-full text-sm font-semibold ${user.rank === 'MEMBER' ? 'bg-gray-100 text-gray-700' :
-                user.rank === 'SILVER' ? 'bg-gray-200 text-gray-800' :
-                  user.rank === 'GOLD' ? 'bg-yellow-100 text-yellow-800' :
-                    user.rank === 'DIAMOND' ? 'bg-blue-100 text-blue-800' :
-                      'bg-purple-100 text-purple-800'
-                }`}>
-                {user.rank}
+              <span className={`px-3.5 py-1 rounded-full text-sm font-semibold shadow-sm border ${
+                effectiveRank === 'MEMBER' ? 'bg-gray-50 text-gray-700 border-gray-200' :
+                effectiveRank === 'SILVER' ? 'bg-gray-100 text-gray-800 border-gray-300' :
+                effectiveRank === 'GOLD' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                effectiveRank === 'DIAMOND' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                'bg-purple-50 text-purple-700 border-purple-200'
+              }`}>
+                {effectiveRank}
               </span>
               <span className="text-sm text-gray-600">
                 Thành viên từ {new Intl.DateTimeFormat('vi-VN', { month: 'long', year: 'numeric' }).format(new Date(user.createdAt))}

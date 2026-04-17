@@ -11,6 +11,7 @@ interface OrderStatusManagerProps {
 
 const statusOptions = [
   { value: 'PENDING', label: 'Chờ duyệt', color: 'orange' },
+  { value: 'PACKAGING', label: 'Đang đóng hàng', color: 'purple' },
   { value: 'CONFIRMED', label: 'Đang giao', color: 'cyan' },
   { value: 'COMPLETED', label: 'Hoàn thành', color: 'green' },
   { value: 'CANCELLED', label: 'Đã hủy', color: 'red' },

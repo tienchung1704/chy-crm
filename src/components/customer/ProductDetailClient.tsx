@@ -352,9 +352,12 @@ export default function ProductDetailClient({ product, relatedProducts = [], ini
                   {formatCurrency(currentPrice)}
                 </span>
                 {hasDiscount && (
-                  <span className="text-base text-gray-400 line-through mb-1">
-                    {formatCurrency(product.originalPrice)}
-                  </span>
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <span className="text-sm text-gray-400">Giá gốc:</span>
+                    <span className="text-base text-gray-400 line-through">
+                      {formatCurrency(product.originalPrice)}
+                    </span>
+                  </div>
                 )}
               </div>
 

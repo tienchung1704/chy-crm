@@ -160,6 +160,7 @@ model Order {
   paymentStatus    PaymentStatus      @default(UNPAID) @map("payment_status")
   paidAt           DateTime?          @map("paid_at")
   note             String?            @db.Text
+  metadata         Json?
   createdAt        DateTime           @default(now())
   updatedAt        DateTime           @updatedAt
   commissions      CommissionLedger[]
@@ -430,6 +431,7 @@ enum CampaignCategory {
 enum OrderStatus {
   PENDING
   CONFIRMED
+  PACKAGING
   COMPLETED
   CANCELLED
   REFUNDED

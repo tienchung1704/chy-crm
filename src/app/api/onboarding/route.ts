@@ -57,6 +57,13 @@ export async function POST(req: NextRequest) {
       },
     });
 
+    // Trigger Pancake sync asynchronously in the background if they provided a phone
+    if (phone) {
+      console.log(`[Onboarding] Triggering Pancake sync for user ${payload.userId} with phone ${phone}`);
+      const { syncPancakeOrdersForUser } = await import('@/services/pancakeService');
+      syncPancakeOrdersForUser(phone, payload.userId).catch(e => console.error('Pancake sync error:', e));
+    }
+
     return NextResponse.json({
       message: 'Onboarding completed successfully',
       user: updatedUser,

@@ -51,7 +51,7 @@ export async function PUT(req: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { name, email, phone, gender, dob, addressStreet, addressWard, addressDistrict, addressProvince } = await req.json();
+    const { name, email, phone, gender, dob, addressStreet, addressWard, addressProvince } = await req.json();
 
     if (!name) {
       return NextResponse.json({ error: 'Tên không được để trống' }, { status: 400 });
@@ -88,7 +88,7 @@ export async function PUT(req: Request) {
         dob: dob ? new Date(dob) : null,
         addressStreet: addressStreet || null,
         addressWard: addressWard || null,
-        addressDistrict: addressDistrict || null,
+        addressDistrict: null, // CLEAR DISTRICT
         addressProvince: addressProvince || null,
       },
     });

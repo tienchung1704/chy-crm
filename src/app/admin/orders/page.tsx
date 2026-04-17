@@ -43,6 +43,7 @@ function fmtDate(d: Date) {
 
 const statusMap: Record<string, { cls: string; label: string }> = {
   PENDING: { cls: 'badge-warning', label: 'Chờ duyệt' },
+  PACKAGING: { cls: 'badge-purple', label: 'Đang đóng hàng' },
   CONFIRMED: { cls: 'badge-info', label: 'Đang giao' },
   COMPLETED: { cls: 'badge-success', label: 'Hoàn thành' },
   CANCELLED: { cls: 'badge-danger', label: 'Đã hủy' },
@@ -90,6 +91,7 @@ export default async function OrdersPage(props: { searchParams: Promise<{ page?:
           >
             <option value="">Tất cả trạng thái</option>
             <option value="PENDING">Chờ duyệt</option>
+            <option value="PACKAGING">Đang đóng hàng</option>
             <option value="CONFIRMED">Đang giao</option>
             <option value="COMPLETED">Hoàn thành</option>
             <option value="CANCELLED">Đã hủy</option>
@@ -176,6 +178,7 @@ export default async function OrdersPage(props: { searchParams: Promise<{ page?:
                     <td className="px-6 py-4">
                       <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
                         st.cls === 'badge-warning' ? 'bg-orange-100 text-orange-700' :
+                        st.cls === 'badge-purple' ? 'bg-purple-100 text-purple-700' :
                         st.cls === 'badge-info' ? 'bg-cyan-100 text-cyan-700' :
                         st.cls === 'badge-success' ? 'bg-green-100 text-green-700' :
                         'bg-red-100 text-red-700'

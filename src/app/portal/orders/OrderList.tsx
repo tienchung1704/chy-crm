@@ -33,25 +33,38 @@ export default function OrderList({ orders }: { orders: Order[] }) {
   };
 
   const handleReorder = async (order: Order) => {
+    const mainItem = order.items.find(i => !i.isGift);
+    if (!mainItem) return;
+    
     setReordering(order.id);
     try {
-      // Add all items from the order to cart
-      for (const item of order.items) {
-        if (!item.isGift) {
-          await fetch('/api/portal/cart', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              productId: item.product.id,
-              quantity: item.quantity,
-            }),
-          });
-        }
+      const res = await fetch('/api/portal/checkout/check-stock', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          productId: mainItem.product.id,
+          size: mainItem.size,
+          color: mainItem.color,
+          quantity: mainItem.quantity,
+        }),
+      });
+      const data = await res.json();
+      
+      if (res.ok && data.success) {
+        // Build checkout query
+        const query = new URLSearchParams({
+          productId: mainItem.product.id,
+          quantity: mainItem.quantity.toString(),
+        });
+        if (mainItem.size) query.append('size', mainItem.size);
+        if (mainItem.color) query.append('color', mainItem.color);
+        
+        router.push(`/portal/checkout?${query.toString()}`);
+      } else {
+        alert(data.error || 'Sản phẩm này đã hết hàng!');
       }
-      alert('Đã thêm sản phẩm vào giỏ hàng!');
-      router.push('/portal/cart');
     } catch (error) {
-      alert('Có lỗi xảy ra khi thêm vào giỏ hàng');
+      alert('Có lỗi xảy ra khi kiểm tra tồn kho');
     } finally {
       setReordering(null);
     }
@@ -64,6 +77,8 @@ export default function OrderList({ orders }: { orders: Order[] }) {
     switch (status) {
       case 'COMPLETED':
         return <span className="px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700">Đã hoàn thành</span>;
+      case 'PACKAGING':
+        return <span className="px-3 py-1 rounded-full text-xs font-semibold bg-purple-100 text-purple-700">Đang đóng hàng</span>;
       case 'PENDING':
         return <span className="px-3 py-1 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-700">Đang xử lý</span>;
       case 'CANCELLED':
@@ -177,12 +192,14 @@ export default function OrderList({ orders }: { orders: Order[] }) {
                                   </div>
                                 </div>
                               </div>
-                              <div className="font-bold text-sm">
-                                {item.isGift ? (
-                                  <span className="bg-green-100 text-green-700 px-2 py-1 rounded-full text-xs">Quà tặng</span>
-                                ) : (
-                                  fmt(item.price * item.quantity)
-                                )}
+                              <div className="flex items-center gap-6">
+                                <div className="font-bold text-sm">
+                                  {item.isGift ? (
+                                    <span className="bg-green-100 text-green-700 px-2 py-1 rounded-full text-xs">Quà tặng</span>
+                                  ) : (
+                                    fmt(item.price * item.quantity)
+                                  )}
+                                </div>
                               </div>
                             </div>
                           ))}
