@@ -1,4 +1,4 @@
-﻿import { NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import jwt from 'jsonwebtoken';
 
@@ -6,11 +6,11 @@ const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-change-me';
 const ACCESS_TOKEN_NAME = 'crm_access_token';
 const REFRESH_TOKEN_NAME = 'crm_refresh_token';
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const accessToken = request.cookies.get(ACCESS_TOKEN_NAME)?.value;
   const refreshToken = request.cookies.get(REFRESH_TOKEN_NAME)?.value;
 
-  // Skip middleware for public routes
+  // Skip proxy for public routes
   const publicPaths = ['/login', '/api/auth/login', '/api/auth/register', '/api/auth/google', '/api/auth/refresh'];
   if (publicPaths.some(path => request.nextUrl.pathname.startsWith(path))) {
     return NextResponse.next();
@@ -100,4 +100,3 @@ export const config = {
     '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 };
-
