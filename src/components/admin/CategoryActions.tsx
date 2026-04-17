@@ -1,0 +1,278 @@
+'use client';
+
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+
+interface Category {
+  id: string;
+  name: string;
+  parentId?: string | null;
+}
+
+interface CategoryActionsProps {
+  categories?: Category[];
+}
+
+export default function CategoryActions({ categories = [] }: CategoryActionsProps) {
+  const [showModal, setShowModal] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const router = useRouter();
+
+  const [form, setForm] = useState({
+    name: '',
+    slug: '',
+    description: '',
+    level: '1', // 1 = root, 2-4 = child levels
+    parentId: '',
+    sortOrder: '0',
+    isActive: true,
+  });
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+
+    try {
+      const res = await fetch('/api/categories', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...form,
+          sortOrder: parseInt(form.sortOrder) || 0,
+          parentId: form.parentId || null,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+
+      setShowModal(false);
+      setForm({
+        name: '',
+        slug: '',
+        description: '',
+        level: '1',
+        parentId: '',
+        sortOrder: '0',
+        isActive: true,
+      });
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Lỗi tạo danh mục');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const update = (field: string, value: string | boolean) => {
+    setForm(prev => {
+      const newForm = { ...prev, [field]: value };
+      
+      // Auto-generate slug from name
+      if (field === 'name' && typeof value === 'string') {
+        newForm.slug = value
+          .toLowerCase()
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '')
+          .replace(/đ/g, 'd')
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/^-+|-+$/g, '');
+      }
+      
+      // Reset parentId when level changes to 1 (root)
+      if (field === 'level' && value === '1') {
+        newForm.parentId = '';
+      }
+      
+      return newForm;
+    });
+  };
+
+  // Filter available parent categories based on selected level
+  const getAvailableParents = () => {
+    const level = parseInt(form.level);
+    if (level === 1) return []; // Root level has no parent
+    
+    // For level 2, show only root categories (level 1)
+    // For level 3, show only level 2 categories, etc.
+    return categories.filter(cat => {
+      // Calculate category level by checking if it has parent
+      const isRoot = !cat.parentId;
+      if (level === 2) return isRoot; // Level 2 needs root parents
+      // For level 3+, we'd need to track actual levels in DB
+      // For now, show all non-root categories for level 3+
+      return !isRoot;
+    });
+  };
+
+  return (
+    <>
+      <button 
+        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition-colors" 
+        onClick={() => setShowModal(true)}
+      >
+        + Tạo Danh mục
+      </button>
+
+      {showModal && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" 
+          onClick={(e) => { if (e.target === e.currentTarget) setShowModal(false); }}
+        >
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <h2 className="text-xl font-bold text-gray-800">Tạo Danh mục mới</h2>
+              <button 
+                className="text-gray-400 hover:text-gray-600 text-2xl leading-none" 
+                onClick={() => setShowModal(false)}
+              >
+                ✕
+              </button>
+            </div>
+            <form onSubmit={handleSubmit}>
+              <div className="p-6 space-y-4">
+                {error && (
+                  <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-center gap-2">
+                    <span>⚠</span>
+                    <span>{error}</span>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="cat-name">
+                      Tên danh mục *
+                    </label>
+                    <input 
+                      id="cat-name" 
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" 
+                      required
+                      value={form.name} 
+                      onChange={e => update('name', e.target.value)}
+                      placeholder="VD: Áo thun, Quần jean" 
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="cat-slug">
+                      Slug *
+                    </label>
+                    <input 
+                      id="cat-slug" 
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono text-sm" 
+                      required
+                      value={form.slug} 
+                      onChange={e => update('slug', e.target.value)}
+                      placeholder="ao-thun" 
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="cat-level">
+                      Cấp độ *
+                    </label>
+                    <select 
+                      id="cat-level" 
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      value={form.level} 
+                      onChange={e => update('level', e.target.value)}
+                    >
+                      <option value="1">Cấp 1 (Root - Cao nhất)</option>
+                      <option value="2">Cấp 2</option>
+                      <option value="3">Cấp 3</option>
+                      <option value="4">Cấp 4</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="cat-parent">
+                      Danh mục cha
+                    </label>
+                    {form.level === '1' ? (
+                      <input
+                        type="text"
+                        disabled
+                        value="-- Không có (Root) --"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-500"
+                      />
+                    ) : (
+                      <select 
+                        id="cat-parent" 
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        value={form.parentId} 
+                        onChange={e => update('parentId', e.target.value)}
+                      >
+                        <option value="">-- Chọn danh mục cha --</option>
+                        {getAvailableParents().map(cat => (
+                          <option key={cat.id} value={cat.id}>{cat.name}</option>
+                        ))}
+                      </select>
+                    )}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="cat-sort">
+                    Thứ tự sắp xếp
+                  </label>
+                  <input 
+                    id="cat-sort" 
+                    type="number" 
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    value={form.sortOrder} 
+                    onChange={e => update('sortOrder', e.target.value)}
+                    placeholder="0" 
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Số nhỏ hơn sẽ hiển thị trước</p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="cat-desc">
+                    Mô tả
+                  </label>
+                  <textarea 
+                    id="cat-desc" 
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" 
+                    rows={3}
+                    value={form.description} 
+                    onChange={e => update('description', e.target.value)}
+                    placeholder="Mô tả chi tiết danh mục..." 
+                  />
+                </div>
+
+                <label className="flex items-center gap-2 cursor-pointer text-sm">
+                  <input 
+                    type="checkbox" 
+                    className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                    checked={form.isActive}
+                    onChange={e => update('isActive', e.target.checked)} 
+                  />
+                  <span className="text-gray-700">Kích hoạt danh mục</span>
+                </label>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 p-6 border-t border-gray-200">
+                <button 
+                  type="button" 
+                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium transition-colors" 
+                  onClick={() => setShowModal(false)}
+                >
+                  Hủy
+                </button>
+                <button 
+                  type="submit" 
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed" 
+                  disabled={loading}
+                >
+                  {loading ? 'Đang tạo...' : 'Tạo Danh mục'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
