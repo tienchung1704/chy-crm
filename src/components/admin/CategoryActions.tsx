@@ -90,21 +90,27 @@ export default function CategoryActions({ categories = [] }: CategoryActionsProp
     });
   };
 
+  // Calculate actual level of a category by traversing parent chain
+  const getCategoryLevel = (cat: Category): number => {
+    let level = 1;
+    let current = cat;
+    while (current.parentId) {
+      level++;
+      const parent = categories.find(c => c.id === current.parentId);
+      if (!parent) break;
+      current = parent;
+    }
+    return level;
+  };
+
   // Filter available parent categories based on selected level
   const getAvailableParents = () => {
-    const level = parseInt(form.level);
-    if (level === 1) return []; // Root level has no parent
+    const targetLevel = parseInt(form.level);
+    if (targetLevel === 1) return []; // Root level has no parent
     
-    // For level 2, show only root categories (level 1)
-    // For level 3, show only level 2 categories, etc.
-    return categories.filter(cat => {
-      // Calculate category level by checking if it has parent
-      const isRoot = !cat.parentId;
-      if (level === 2) return isRoot; // Level 2 needs root parents
-      // For level 3+, we'd need to track actual levels in DB
-      // For now, show all non-root categories for level 3+
-      return !isRoot;
-    });
+    // For level N, show only categories at level N-1
+    const parentLevel = targetLevel - 1;
+    return categories.filter(cat => getCategoryLevel(cat) === parentLevel);
   };
 
   return (

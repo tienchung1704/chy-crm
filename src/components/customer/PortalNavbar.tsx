@@ -74,8 +74,9 @@ export default function PortalNavbar({ user }: Props) {
             <Image
               src="/logo.png"
               alt="Logo"
-              width={24}
-              height={24}
+              width={100}
+              height={100}
+              style={{ height: 'auto' }}
             />
           </Link>
 

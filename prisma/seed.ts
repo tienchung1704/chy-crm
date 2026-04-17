@@ -7,21 +7,21 @@ import bcrypt from 'bcryptjs';
 const prisma = new PrismaClient();
 
 async function main() {
-  const email = 'admin@chy-crm.com';
-  const name = 'admin@chy-crm.com';
+  const phone = '0909090909';
   const password = 'admin123*';
+  const name = 'admin';
 
   const hashedPassword = await bcrypt.hash(password, 10);
 
   const admin = await prisma.user.upsert({
-    where: { email },
+    where: { phone },
     update: {
       password: hashedPassword,
       name: name,
       role: 'ADMIN',
     },
     create: {
-      email,
+      phone,
       name,
       password: hashedPassword,
       role: 'ADMIN',
