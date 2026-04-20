@@ -4,7 +4,7 @@ import OrderStatusManager from '@/components/admin/OrderStatusManager';
 import OrderReadStatusManager from '@/components/admin/OrderReadStatusManager';
 
 async function getOrder(id: string) {
-  return prisma.order.findUnique({
+  const order = await prisma.order.findUnique({
     where: { id },
     include: {
       user: {
@@ -55,6 +55,8 @@ async function getOrder(id: string) {
       },
     },
   });
+  
+  return order as typeof order & { customerNote: string | null };
 }
 
 function fmt(amount: number) {
