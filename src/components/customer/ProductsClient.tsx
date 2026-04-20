@@ -1,9 +1,11 @@
 'use client';
 
 import { useState, useCallback, useEffect } from 'react';
-import { Heart, ShoppingCart, Sparkles, Eye, Star, Search, Share2 } from 'lucide-react';
+import { Heart, ShoppingCart, Eye, Star, Search, Share2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import CategoryFilter from './CategoryFilter';
+
+const ITEMS_PER_PAGE = 24;
 
 interface Category {
   id: string;
@@ -46,6 +48,7 @@ export default function ProductsClient({ products, categories, initialWishlistId
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
 
   // Get min and max prices dynamically
   const prices = products.flatMap(p => {
@@ -76,6 +79,11 @@ export default function ProductsClient({ products, categories, initialWishlistId
     }, 300);
     return () => clearTimeout(handler);
   }, [searchQuery]);
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [debouncedSearchQuery, selectedCategoryId, priceRange]);
 
   // Filter products by selected category (including all child categories)
   const getChildCategoryIds = (categoryId: string): string[] => {
@@ -118,6 +126,40 @@ export default function ProductsClient({ products, categories, initialWishlistId
 
     return true;
   });
+
+  // Pagination
+  const totalPages = Math.ceil(filteredProducts.length / ITEMS_PER_PAGE);
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const endIndex = startIndex + ITEMS_PER_PAGE;
+  const currentProducts = filteredProducts.slice(startIndex, endIndex);
+
+  const goToPage = (page: number) => {
+    if (page >= 1 && page <= totalPages) {
+      setCurrentPage(page);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
+
+  const renderPageNumbers = () => {
+    const pages = [];
+    const maxVisible = 5;
+    
+    if (totalPages <= maxVisible) {
+      for (let i = 1; i <= totalPages; i++) {
+        pages.push(i);
+      }
+    } else {
+      if (currentPage <= 3) {
+        pages.push(1, 2, 3, 4, '...', totalPages);
+      } else if (currentPage >= totalPages - 2) {
+        pages.push(1, '...', totalPages - 3, totalPages - 2, totalPages - 1, totalPages);
+      } else {
+        pages.push(1, '...', currentPage - 1, currentPage, currentPage + 1, '...', totalPages);
+      }
+    }
+    
+    return pages;
+  };
 
   const showToast = useCallback((message: string, type: 'success' | 'error' = 'success') => {
     setToast({ message, type });
@@ -290,6 +332,11 @@ export default function ProductsClient({ products, categories, initialWishlistId
               <div className="text-sm text-gray-500 whitespace-nowrap">
                 Tìm thấy <span className="font-bold text-indigo-600">{filteredProducts.length}</span> sản phẩm
               </div>
+              {totalPages > 1 && (
+                <div className="text-sm text-gray-500 whitespace-nowrap">
+                  Trang <span className="font-bold text-indigo-600">{currentPage}</span> / {totalPages}
+                </div>
+              )}
               <div className="flex items-center gap-1.5 text-sm font-medium bg-rose-50 text-rose-600 px-3 py-1.5 rounded-full whitespace-nowrap">
                 <Heart className="w-4 h-4 fill-rose-500" />
                 {wishlistIds.size}
@@ -412,8 +459,9 @@ export default function ProductsClient({ products, categories, initialWishlistId
                 </p>
               </div>
             ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-5">
-                {filteredProducts.map(product => {
+              <>
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-5">
+                  {currentProducts.map(product => {
                   const finalPrices = [product.salePrice || product.originalPrice];
                   const originalPrices = [product.originalPrice];
                   
@@ -455,15 +503,15 @@ export default function ProductsClient({ products, categories, initialWishlistId
                       onClick={() => router.push(`/portal/products/${product.slug}`)}
                     >
                       {/* Product Image */}
-                      <div className="relative aspect-square bg-gradient-to-br from-gray-50 to-gray-100 overflow-hidden">
+                      <div className="relative bg-gradient-to-br from-gray-50 to-gray-100 overflow-hidden" style={{ paddingBottom: 'calc(100% + 15px)' }}>
                         {product.imageUrl ? (
                           <img
                             src={product.imageUrl}
                             alt={product.name}
-                            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500 ease-out"
+                            className="absolute inset-0 w-full h-full object-cover group-hover:scale-110 transition-transform duration-500 ease-out"
                           />
                         ) : (
-                          <div className="w-full h-full flex items-center justify-center">
+                          <div className="absolute inset-0 w-full h-full flex items-center justify-center">
                             <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-100 to-purple-100 flex items-center justify-center">
                               <ShoppingCart className="w-8 h-8 text-blue-300" />
                             </div>
@@ -528,8 +576,8 @@ export default function ProductsClient({ products, categories, initialWishlistId
 
                       {/* Product Info */}
                       <div className="p-4 flex flex-col flex-1">
-                        {/* Store Info */}
-                        {product.store && (
+                        {/* Store Info - Only show if product belongs to a store (not admin/main store) */}
+                        {product.store && !product.store.slug.startsWith('main-store') && (
                           <div className="flex items-center gap-1.5 mb-2">
                             <div className="w-4 h-4 rounded-full bg-gray-100 flex items-center justify-center overflow-hidden flex-shrink-0">
                               {product.store.logoUrl ? (
@@ -590,6 +638,59 @@ export default function ProductsClient({ products, categories, initialWishlistId
                   );
                 })}
               </div>
+
+              {/* Pagination */}
+              {totalPages > 1 && (
+                <div className="mt-8 bg-white rounded-xl shadow-sm p-6">
+                  <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                    <div className="text-sm text-gray-600">
+                      Hiển thị {startIndex + 1} - {Math.min(endIndex, filteredProducts.length)} trong tổng số {filteredProducts.length} sản phẩm
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => goToPage(currentPage - 1)}
+                        disabled={currentPage === 1}
+                        className="px-3 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-1"
+                      >
+                        <ChevronLeft className="w-4 h-4" />
+                        Trước
+                      </button>
+                      
+                      <div className="flex items-center gap-1">
+                        {renderPageNumbers().map((page, index) => (
+                          page === '...' ? (
+                            <span key={`ellipsis-${index}`} className="px-3 py-2 text-gray-500">
+                              ...
+                            </span>
+                          ) : (
+                            <button
+                              key={page}
+                              onClick={() => goToPage(page as number)}
+                              className={`px-3 py-2 rounded-lg font-medium transition-colors ${
+                                currentPage === page
+                                  ? 'bg-indigo-600 text-white'
+                                  : 'text-gray-700 hover:bg-gray-100'
+                              }`}
+                            >
+                              {page}
+                            </button>
+                          )
+                        ))}
+                      </div>
+
+                      <button
+                        onClick={() => goToPage(currentPage + 1)}
+                        disabled={currentPage === totalPages}
+                        className="px-3 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-1"
+                      >
+                        Sau
+                        <ChevronRight className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </>
             )}
           </div>
         </div>

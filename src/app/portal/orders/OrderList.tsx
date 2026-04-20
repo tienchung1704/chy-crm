@@ -2,11 +2,12 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ShoppingCart, ChevronDown, ChevronUp } from 'lucide-react';
+import { ShoppingCart, ChevronDown, ChevronUp, Star } from 'lucide-react';
+import OrderReviewForm from '@/components/customer/OrderReviewForm';
 
 type OrderItem = {
   id: string;
-  product: { id: string; name: string; imageUrl: string | null };
+  product: { id: string; name: string; imageUrl: string | null } | null; // Allow null for deleted products
   quantity: number;
   price: number;
   isGift: boolean;
@@ -28,6 +29,7 @@ type Order = {
 export default function OrderList({ orders }: { orders: Order[] }) {
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
   const [reordering, setReordering] = useState<string | null>(null);
+  const [reviewingOrder, setReviewingOrder] = useState<Order | null>(null);
   const router = useRouter();
 
   const toggleRow = (id: string) => {
@@ -36,8 +38,8 @@ export default function OrderList({ orders }: { orders: Order[] }) {
 
   const handleReorder = async (order: Order) => {
     const mainItem = order.items.find(i => !i.isGift);
-    if (!mainItem) {
-      alert('Không thể mua lại đơn hàng này (không tìm thấy sản phẩm gốc)');
+    if (!mainItem || !mainItem.product) {
+      alert('Không thể mua lại đơn hàng này (sản phẩm không còn tồn tại)');
       return;
     }
     
@@ -78,6 +80,12 @@ export default function OrderList({ orders }: { orders: Order[] }) {
   const fmt = (n: number) =>
     new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 }).format(n);
 
+  const handleReviewSuccess = () => {
+    setReviewingOrder(null);
+    // Refresh page to update review status
+    router.refresh();
+  };
+
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'COMPLETED':
@@ -115,7 +123,21 @@ export default function OrderList({ orders }: { orders: Order[] }) {
   }
 
   return (
-    <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+    <>
+      {/* Review Form Modal */}
+      {reviewingOrder && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <OrderReviewForm
+              order={reviewingOrder}
+              onSuccess={handleReviewSuccess}
+              onCancel={() => setReviewingOrder(null)}
+            />
+          </div>
+        </div>
+      )}
+
+      <div className="bg-white rounded-xl shadow-sm overflow-hidden">
       <div className="overflow-x-auto">
         <table className="w-full">
           <thead className="bg-gray-50">
@@ -124,6 +146,7 @@ export default function OrderList({ orders }: { orders: Order[] }) {
               <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Ngày đặt</th>
               <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Tổng tiền</th>
               <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Trạng thái</th>
+              <th className="px-6 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">Đánh giá</th>
               <th className="px-6 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">Mua lại</th>
               <th className="px-6 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">Chi tiết</th>
             </tr>
@@ -142,7 +165,7 @@ export default function OrderList({ orders }: { orders: Order[] }) {
                     size: null,
                     color: null
                   }))
-                : order.items;
+                : (order.items || []); // Fix: Đảm bảo luôn có array
 
               return (
                 <React.Fragment key={order.id}>
@@ -162,6 +185,21 @@ export default function OrderList({ orders }: { orders: Order[] }) {
                     </td>
                     <td className="px-6 py-4 font-bold text-gray-800">{fmt(order.totalAmount)}</td>
                     <td className="px-6 py-4">{getStatusBadge(order.status)}</td>
+                    <td className="px-6 py-4 text-center">
+                      {(order.status === 'COMPLETED' || order.status === 'DELIVERED') && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setReviewingOrder(order);
+                          }}
+                          className="inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-yellow-50 hover:bg-yellow-100 text-yellow-700 text-sm font-medium rounded-lg transition-all border border-yellow-200"
+                          title="Đánh giá đơn hàng"
+                        >
+                          <Star className="w-4 h-4" />
+                          Đánh giá
+                        </button>
+                      )}
+                    </td>
                     <td className="px-6 py-4 text-center">
                       <button
                         onClick={(e) => {
@@ -187,56 +225,65 @@ export default function OrderList({ orders }: { orders: Order[] }) {
                   </tr>
                   {expandedRow === order.id && (
                     <tr className="bg-gray-50">
-                      <td colSpan={6} className="p-0">
+                      <td colSpan={7} className="p-0">
                         <div className="p-6 border-b border-gray-200 animate-fadeIn">
                           <h4 className="text-sm font-semibold mb-3 text-gray-800">
-                            Sản phẩm trong đơn
+                            Sản phẩm ({displayItems.length})
                           </h4>
                           <div className="flex flex-col gap-3">
                             {displayItems.length === 0 && (
                               <div className="text-sm text-gray-500 italic">Không có chi tiết sản phẩm</div>
                             )}
-                            {displayItems.map(item => (
-                              <div
-                                key={item.id}
-                                className="flex items-center justify-between bg-white p-3 rounded-lg border border-gray-200"
-                              >
-                                <div className="flex items-center gap-4">
-                                  <div className="w-10 h-10 rounded bg-gradient-to-br from-blue-100 to-purple-100 flex items-center justify-center overflow-hidden border border-gray-200">
-                                    {item.product.imageUrl ? (
-                                      <img
-                                        src={item.product.imageUrl}
-                                        alt={item.product.name}
-                                        className="w-full h-full object-cover"
-                                      />
-                                    ) : (
-                                      <span className="text-xs text-gray-400">IMG</span>
-                                    )}
+                            {displayItems.map(item => {
+                              // Handle deleted products
+                              const productName = item.product?.name || '[Sản phẩm đã bị xóa]';
+                              const productImage = item.product?.imageUrl;
+                              const hasValidImage = productImage && typeof productImage === 'string' && productImage.length > 0;
+                              
+                              return (
+                                <div
+                                  key={item.id}
+                                  className="flex items-center justify-between bg-white p-3 rounded-lg border border-gray-200"
+                                >
+                                  <div className="flex items-center gap-4">
+                                    <div className="w-10 h-10 rounded bg-gradient-to-br from-blue-100 to-purple-100 flex items-center justify-center overflow-hidden border border-gray-200">
+                                      {hasValidImage ? (
+                                        <img
+                                          src={productImage}
+                                          alt={productName}
+                                          className="w-full h-full object-cover"
+                                        />
+                                      ) : (
+                                        <span className="text-xs text-gray-400">📦</span>
+                                      )}
+                                    </div>
+                                    <div>
+                                      <div className={`font-semibold text-sm ${item.product ? 'text-gray-800' : 'text-gray-500 italic'}`}>
+                                        {productName}
+                                      </div>
+                                      <div className="text-xs text-gray-600">
+                                        Số lượng: {item.quantity}
+                                        {(item.size || item.color) && (
+                                          <span className="ml-2">
+                                            {item.size && <span>• Size: {item.size}</span>}
+                                            {item.color && <span>• Màu: {item.color}</span>}
+                                          </span>
+                                        )}
+                                      </div>
+                                    </div>
                                   </div>
-                                  <div>
-                                    <div className="font-semibold text-sm text-gray-800">{item.product.name}</div>
-                                    <div className="text-xs text-gray-600">
-                                      Số lượng: {item.quantity}
-                                      {(item.size || item.color) && (
-                                        <span className="ml-2">
-                                          {item.size && <span>• Size: {item.size}</span>}
-                                          {item.color && <span>• Màu: {item.color}</span>}
-                                        </span>
+                                  <div className="flex items-center gap-6">
+                                    <div className="font-bold text-sm">
+                                      {item.isGift ? (
+                                        <span className="bg-green-100 text-green-700 px-2 py-1 rounded-full text-xs">Quà tặng</span>
+                                      ) : (
+                                        fmt(item.price * item.quantity)
                                       )}
                                     </div>
                                   </div>
                                 </div>
-                                <div className="flex items-center gap-6">
-                                  <div className="font-bold text-sm">
-                                    {item.isGift ? (
-                                      <span className="bg-green-100 text-green-700 px-2 py-1 rounded-full text-xs">Quà tặng</span>
-                                    ) : (
-                                      fmt(item.price * item.quantity)
-                                    )}
-                                  </div>
-                                </div>
-                              </div>
-                            ))}
+                              );
+                            })}
                           </div>
                         </div>
                       </td>
@@ -249,5 +296,6 @@ export default function OrderList({ orders }: { orders: Order[] }) {
         </table>
       </div>
     </div>
+    </>
   );
 }

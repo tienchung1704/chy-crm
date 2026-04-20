@@ -20,6 +20,15 @@ export default async function PortalOrdersPage() {
     orderBy: { createdAt: 'desc' },
   });
 
+  // Serialize dates for client component
+  const serializedOrders = orders.map(order => ({
+    ...order,
+    createdAt: order.createdAt.toISOString(),
+    updatedAt: order.updatedAt.toISOString(),
+    paidAt: order.paidAt?.toISOString() || null,
+    items: order.items || [], // Ensure items array is always present
+  }));
+
   return (
     <>
       <div className="mb-8">
@@ -27,7 +36,7 @@ export default async function PortalOrdersPage() {
         <p className="text-gray-600 text-sm">Theo dõi lịch sử mua sắm và quà tặng</p>
       </div>
 
-      <OrderList orders={orders} />
+      <OrderList orders={serializedOrders as any} />
     </>
   );
 }

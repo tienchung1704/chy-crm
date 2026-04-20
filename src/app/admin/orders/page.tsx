@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { getSession } from '@/lib/auth';
 import OrderSearchInput from '@/components/admin/OrderSearchInput';
 import OrderStatusFilter from '@/components/admin/OrderStatusFilter';
+import CreateOrderButton from '@/components/admin/CreateOrderButton';
 
 async function getOrders(params: { page?: string; status?: string; paymentMethod?: string; search?: string }, storeId: string | null, role: string | null) {
   const page = parseInt(params.page || '1');
@@ -110,8 +111,11 @@ export default async function OrdersPage(props: { searchParams: Promise<{ page?:
           <h1 className="text-3xl font-bold text-gray-900 tracking-tight">Đơn hàng</h1>
           <p className="text-gray-500 mt-1 text-sm font-medium">Quản lý và theo dõi hiệu quả kinh doanh</p>
         </div>
-        <div className="w-full md:w-80">
-          <OrderSearchInput />
+        <div className="flex items-center gap-3">
+          <div className="w-full md:w-80">
+            <OrderSearchInput />
+          </div>
+          <CreateOrderButton />
         </div>
       </div>
 

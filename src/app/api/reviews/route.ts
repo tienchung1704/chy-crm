@@ -41,6 +41,11 @@ export async function GET(req: NextRequest) {
               avatarUrl: true,
             },
           },
+          product: {
+            select: {
+              name: true,
+            },
+          },
         },
       }),
       prisma.review.count({ where }),

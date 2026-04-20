@@ -34,25 +34,25 @@ export default function Footer() {
             </h3>
             <ul className="space-y-3">
               <li>
-                <Link href="#" className="text-sm text-gray-600 hover:text-indigo-600 transition-colors relative inline-block group">
+                <Link href="/portal/support/about" className="text-sm text-gray-600 hover:text-indigo-600 transition-colors relative inline-block group">
                   Thông tin cơ bản
                   <span className="absolute -bottom-0.5 left-0 w-0 h-[1.5px] bg-indigo-600 transition-all duration-300 group-hover:w-full"></span>
                 </Link>
               </li>
               <li>
-                <Link href="#" className="text-sm text-gray-600 hover:text-indigo-600 transition-colors relative inline-block group">
+                <Link href="/portal/support/contact" className="text-sm text-gray-600 hover:text-indigo-600 transition-colors relative inline-block group">
                   Liên hệ hỗ trợ
                   <span className="absolute -bottom-0.5 left-0 w-0 h-[1.5px] bg-indigo-600 transition-all duration-300 group-hover:w-full"></span>
                 </Link>
               </li>
               <li>
-                <Link href="#" className="text-sm text-gray-600 hover:text-indigo-600 transition-colors relative inline-block group">
+                <Link href="/portal/support/order-guide" className="text-sm text-gray-600 hover:text-indigo-600 transition-colors relative inline-block group">
                   Hướng dẫn đặt hàng
                   <span className="absolute -bottom-0.5 left-0 w-0 h-[1.5px] bg-indigo-600 transition-all duration-300 group-hover:w-full"></span>
                 </Link>
               </li>
               <li>
-                <Link href="#" className="text-sm text-gray-600 hover:text-indigo-600 transition-colors relative inline-block group">
+                <Link href="/portal/orders" className="text-sm text-gray-600 hover:text-indigo-600 transition-colors relative inline-block group">
                   Theo dõi đơn hàng
                   <span className="absolute -bottom-0.5 left-0 w-0 h-[1.5px] bg-indigo-600 transition-all duration-300 group-hover:w-full"></span>
                 </Link>
@@ -73,25 +73,25 @@ export default function Footer() {
             </h3>
             <ul className="space-y-3">
               <li>
-                <Link href="#" className="text-sm text-gray-600 hover:text-indigo-600 transition-colors relative inline-block group">
+                <Link href="/portal/policies/points" className="text-sm text-gray-600 hover:text-indigo-600 transition-colors relative inline-block group">
                   Chính sách tích điểm - Tiêu điểm
                   <span className="absolute -bottom-0.5 left-0 w-0 h-[1.5px] bg-indigo-600 transition-all duration-300 group-hover:w-full"></span>
                 </Link>
               </li>
               <li>
-                <Link href="#" className="text-sm text-gray-600 hover:text-indigo-600 transition-colors relative inline-block group">
+                <Link href="/portal/policies/refund" className="text-sm text-gray-600 hover:text-indigo-600 transition-colors relative inline-block group">
                   Chính sách hoàn tiền
                   <span className="absolute -bottom-0.5 left-0 w-0 h-[1.5px] bg-indigo-600 transition-all duration-300 group-hover:w-full"></span>
                 </Link>
               </li>
               <li>
-                <Link href="#" className="text-sm text-gray-600 hover:text-indigo-600 transition-colors relative inline-block group">
+                <Link href="/portal/policies/shipping" className="text-sm text-gray-600 hover:text-indigo-600 transition-colors relative inline-block group">
                   Chính sách giao hàng
                   <span className="absolute -bottom-0.5 left-0 w-0 h-[1.5px] bg-indigo-600 transition-all duration-300 group-hover:w-full"></span>
                 </Link>
               </li>
               <li>
-                <Link href="#" className="text-sm text-gray-600 hover:text-indigo-600 transition-colors relative inline-block group">
+                <Link href="/portal/policies/privacy" className="text-sm text-gray-600 hover:text-indigo-600 transition-colors relative inline-block group">
                   Chính sách bảo mật
                   <span className="absolute -bottom-0.5 left-0 w-0 h-[1.5px] bg-indigo-600 transition-all duration-300 group-hover:w-full"></span>
                 </Link>

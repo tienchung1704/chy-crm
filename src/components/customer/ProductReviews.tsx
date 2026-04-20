@@ -17,6 +17,9 @@ interface Review {
     name: string;
     avatarUrl: string | null;
   };
+  product: {
+    name: string;
+  };
 }
 
 interface ReviewStatistics {
@@ -103,7 +106,7 @@ export default function ProductReviews({ productId, productName, userCompletedOr
 
       {/* Statistics Section */}
       {statistics && statistics.totalReviews > 0 && (
-        <div className="bg-rose-50 rounded-2xl p-6 mb-8">
+        <div className="bg-white rounded-2xl p-6 mb-8 border border-gray-200">
           <div className="flex flex-col md:flex-row gap-8">
             {/* Average Rating */}
             <div className="flex flex-col items-center justify-center md:border-r border-gray-200 md:pr-8">
@@ -277,12 +280,23 @@ export default function ProductReviews({ productId, productName, userCompletedOr
 
                 {/* Review Content */}
                 <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-2">
+                  <div className="flex items-center gap-2 mb-2 flex-wrap">
                     <span className="font-semibold text-gray-900">{review.user.name}</span>
                     {review.isVerifiedPurchase && (
                       <span className="flex items-center gap-1 px-2 py-0.5 bg-green-50 text-green-600 text-xs font-medium rounded">
                         <Check className="w-3 h-3" />
                         Đã mua hàng
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Product Info */}
+                  <div className="text-sm text-gray-600 mb-2">
+                    <span className="font-medium">Sản phẩm:</span> {review.product.name}
+                    {(review.color || review.size) && (
+                      <span className="ml-2">
+                        {review.color && <span>• Màu: {review.color}</span>}
+                        {review.size && <span className="ml-2">• Size: {review.size}</span>}
                       </span>
                     )}
                   </div>
@@ -300,13 +314,6 @@ export default function ProductReviews({ productId, productName, userCompletedOr
                       />
                     ))}
                   </div>
-
-                  {/* Size/Color */}
-                  {(review.size || review.color) && (
-                    <div className="text-sm text-gray-600 mb-2">
-                      Màu sắc: {review.color || 'Không có'}, Kích thước: {review.size || 'Không có'}
-                    </div>
-                  )}
 
                   {/* Comment */}
                   {review.comment && (

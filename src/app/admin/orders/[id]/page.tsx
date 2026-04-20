@@ -270,9 +270,21 @@ export default async function OrderDetailPage(props: {
             )}
 
             {order.note && (
-              <div className="mt-4 pt-4">
-                <h3 className="font-semibold text-gray-800 mb-2">Ghi chú:</h3>
+              <div className="mt-4 pt-4 border-t border-gray-200">
+                <h3 className="font-semibold text-gray-800 mb-2">Ghi chú nội bộ:</h3>
                 <p className="text-gray-600 text-sm">{order.note}</p>
+              </div>
+            )}
+
+            {order.customerNote && (
+              <div className="mt-4 pt-4 border-t border-gray-200">
+                <h3 className="font-semibold text-gray-800 mb-2 flex items-center gap-2">
+                  <span>💬</span>
+                  Ghi chú từ khách hàng:
+                </h3>
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                  <p className="text-gray-700 text-sm italic">&ldquo;{order.customerNote}&rdquo;</p>
+                </div>
               </div>
             )}
           </div>

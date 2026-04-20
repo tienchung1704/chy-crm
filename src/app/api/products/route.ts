@@ -49,7 +49,7 @@ export async function POST(req: NextRequest) {
 
     // Check if SKU already exists (if provided)
     if (sku) {
-      const existingSku = await prisma.product.findUnique({ where: { sku } });
+      const existingSku = await prisma.product.findFirst({ where: { sku } });
       if (existingSku) {
         return NextResponse.json({ error: 'SKU đã tồn tại' }, { status: 400 });
       }

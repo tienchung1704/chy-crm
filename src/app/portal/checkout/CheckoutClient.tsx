@@ -268,6 +268,18 @@ export default function CheckoutClient({ user, items, store, cartMode }: Checkou
               <label className="block text-sm font-medium text-gray-700 mb-1">Số nhà, Tên đường *</label>
               <input type="text" className="w-full border border-gray-300 rounded-lg focus:ring-indigo-500 px-4 py-2.5 outline-none" placeholder="Số nhà, đường phố..." value={street} onChange={e=>setStreet(e.target.value)} required />
             </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Ghi chú đơn hàng (tùy chọn)</label>
+              <textarea 
+                className="w-full border border-gray-300 rounded-lg focus:ring-indigo-500 px-4 py-2.5 outline-none resize-none" 
+                placeholder="Ví dụ: Giao hàng giờ hành chính, gọi trước 15 phút..."
+                rows={3}
+                value={note} 
+                onChange={e=>setNote(e.target.value)}
+                maxLength={500}
+              />
+              <div className="text-xs text-gray-500 mt-1 text-right">{note.length}/500 ký tự</div>
+            </div>
           </div>
         </div>
 

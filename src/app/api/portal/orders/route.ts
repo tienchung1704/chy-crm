@@ -36,19 +36,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Cart is empty' }, { status: 400 });
     }
 
-    // Update user info
-    await prisma.user.update({
-      where: { id: session.id },
-      data: {
-        name: name || undefined,
-        phone: phone || undefined,
-        addressStreet,
-        addressWard,
-        addressDistrict: null, // CLEAR DISTRICT
-        addressProvince,
-      }
-    });
-
+    // Get user info (không update user, chỉ lấy thông tin)
     const user = await prisma.user.findUnique({ where: { id: session.id } });
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
@@ -58,7 +46,10 @@ export async function POST(req: NextRequest) {
     let subtotal = 0;
     const orderItemsToCreate = [];
 
+    console.log('Processing items:', items);
+
     for (const item of items) {
+      console.log('Processing item:', item);
       const product = await prisma.product.findUnique({
         where: { id: item.productId },
         include: { variants: { include: { size: true, color: true } } }
@@ -109,7 +100,10 @@ export async function POST(req: NextRequest) {
         size: item.size || null,
         color: item.color || null
       });
+      console.log('Added item to order:', orderItemsToCreate[orderItemsToCreate.length - 1]);
     }
+
+    console.log('Total items to create:', orderItemsToCreate.length, orderItemsToCreate);
 
     // Handle discounts
     let discountAmount = 0;
@@ -181,10 +175,19 @@ export async function POST(req: NextRequest) {
     const orderStoreId = firstProduct?.storeId || null;
 
     // Create Order
+    console.log('Creating order with items:', orderItemsToCreate);
     const order = await prisma.order.create({
       data: {
         userId: user.id,
         orderCode: generateOrderCode(),
+        
+        // Lưu thông tin giao hàng vào order (không update user)
+        shippingName: name || user.name,
+        shippingPhone: phone || user.phone,
+        shippingStreet: addressStreet,
+        shippingWard: addressWard,
+        shippingProvince: addressProvince,
+        
         subtotal,
         discountAmount,
         shippingFee: parsedShippingFee,
@@ -192,6 +195,7 @@ export async function POST(req: NextRequest) {
         paymentMethod,
         paymentStatus: 'UNPAID',
         note,
+        customerNote: note, // Lưu ghi chú của user
         source: 'PORTAL_DIRECT',
         storeId: orderStoreId,
         items: {

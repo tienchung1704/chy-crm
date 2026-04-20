@@ -105,6 +105,7 @@ model Category {
   slug        String     @unique
   description String?    @db.Text
   parentId    String?    @map("parent_id")
+  externalId  String?    @map("external_id") // Pancake category ID
   sortOrder   Int        @default(0) @map("sort_order")
   isActive    Boolean    @default(true) @map("is_active")
   createdAt   DateTime   @default(now())
@@ -114,6 +115,7 @@ model Category {
   products    Product[]  @relation("categorytoproduct")
 
   @@index([parentId])
+  @@index([externalId])
   @@map("categories")
 }
 
@@ -177,7 +179,8 @@ model Product {
   id             String          @id @default(uuid())
   name           String
   slug           String          @unique
-  sku            String?         @unique
+  sku            String?
+  externalId     String?         @map("external_id") // Pancake product ID
   imageUrl       String?         @map("image_url") @db.Text
   description    String?         @db.Text
   isComboSet     Boolean         @default(false) @map("is_combo_set")
@@ -203,6 +206,8 @@ model Product {
   store          Store?          @relation(fields: [storeId], references: [id], onDelete: SetNull)
 
   @@index([storeId])
+  @@index([sku])
+  @@index([externalId])
   @@map("products")
 }
 
@@ -211,6 +216,14 @@ model Order {
   userId           String             @map("user_id")
   orderCode        String             @unique @map("order_code")
   source           String?
+  
+  // Thông tin giao hàng (không update vào user)
+  shippingName     String?            @map("shipping_name")
+  shippingPhone    String?            @map("shipping_phone")
+  shippingStreet   String?            @map("shipping_street") @db.Text
+  shippingWard     String?            @map("shipping_ward")
+  shippingProvince String?            @map("shipping_province")
+  
   subtotal         Float
   discountAmount   Float              @default(0) @map("discount_amount")
   shippingFee      Float              @default(0) @map("shipping_fee")
@@ -221,6 +234,7 @@ model Order {
   paymentStatus    PaymentStatus      @default(UNPAID) @map("payment_status")
   paidAt           DateTime?          @map("paid_at")
   note             String?            @db.Text
+  customerNote     String?            @map("customer_note") @db.Text
   metadata         Json?
   isRead           Boolean            @default(false) @map("is_read")
   createdAt        DateTime           @default(now())

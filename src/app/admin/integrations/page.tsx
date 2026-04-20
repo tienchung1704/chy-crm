@@ -38,6 +38,9 @@ export default function IntegrationsPage() {
   const [formIsActive, setFormIsActive] = useState(false);
   const [formMetadata, setFormMetadata] = useState<any>({});
   const [isSaving, setIsSaving] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncMessage, setSyncMessage] = useState('');
+  const [isSyncingCategories, setIsSyncingCategories] = useState(false);
 
   // Note: For simplicity in this UI, we assume MODERATOR. Admin can pass storeId.
   // In a real scenario, we'd fetch the user's role and display a store selector if ADMIN.
@@ -114,6 +117,69 @@ export default function IntegrationsPage() {
     }
   };
 
+  const syncPancakeProducts = async () => {
+    if (!confirm('Đồng bộ tất cả sản phẩm từ Pancake? Quá trình này có thể mất vài phút.')) {
+      return;
+    }
+
+    setIsSyncing(true);
+    setSyncMessage('Đang đồng bộ sản phẩm...');
+
+    try {
+      const res = await fetch('/api/admin/integrations/sync-products', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ storeId: selectedStoreId }),
+      });
+
+      const data = await res.json();
+      
+      if (res.ok) {
+        setSyncMessage(data.message || 'Đồng bộ thành công!');
+        setTimeout(() => setSyncMessage(''), 5000);
+      } else {
+        setSyncMessage(data.error || 'Lỗi khi đồng bộ sản phẩm');
+        setTimeout(() => setSyncMessage(''), 5000);
+      }
+    } catch (error) {
+      setSyncMessage('Lỗi kết nối khi đồng bộ');
+      setTimeout(() => setSyncMessage(''), 5000);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  const syncPancakeCategories = async () => {
+    if (!confirm('Đồng bộ tất cả danh mục từ Pancake?')) {
+      return;
+    }
+
+    setIsSyncingCategories(true);
+    setSyncMessage('Đang đồng bộ danh mục...');
+
+    try {
+      const res = await fetch('/api/admin/integrations/sync-categories', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+
+      const data = await res.json();
+      
+      if (res.ok) {
+        setSyncMessage(data.message || 'Đồng bộ danh mục thành công!');
+        setTimeout(() => setSyncMessage(''), 5000);
+      } else {
+        setSyncMessage(data.error || 'Lỗi khi đồng bộ danh mục');
+        setTimeout(() => setSyncMessage(''), 5000);
+      }
+    } catch (error) {
+      setSyncMessage('Lỗi kết nối khi đồng bộ danh mục');
+      setTimeout(() => setSyncMessage(''), 5000);
+    } finally {
+      setIsSyncingCategories(false);
+    }
+  };
+
   if (loading) return <div className="p-8 text-center text-gray-500">Đang tải cấu hình kết nối...</div>;
 
   return (
@@ -126,6 +192,76 @@ export default function IntegrationsPage() {
           <p className="text-gray-600">Đồng bộ trung tâm với các nền tảng bán hàng và vận chuyển.</p>
         </div>
       </div>
+
+      {/* Sync message banner */}
+      {syncMessage && (
+        <div className={`p-4 rounded-xl border ${syncMessage.includes('thành công') || syncMessage.includes('Đã đồng bộ') ? 'bg-green-50 border-green-200 text-green-800' : syncMessage.includes('Đang') ? 'bg-blue-50 border-blue-200 text-blue-800' : 'bg-red-50 border-red-200 text-red-800'}`}>
+          <p className="font-semibold">{syncMessage}</p>
+        </div>
+      )}
+
+      {/* Pancake Sync Buttons */}
+      {integrations.some(i => i.platform === 'PANCAKE' && i.isActive) && (
+        <div className="space-y-4">
+          {/* Category Sync */}
+          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-2xl p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="font-bold text-gray-800 text-lg mb-1 flex items-center gap-2">
+                  📂 Đồng bộ danh mục Pancake
+                </h3>
+                <p className="text-gray-600 text-sm">Lấy tất cả danh mục từ Pancake (bao gồm cả danh mục con)</p>
+              </div>
+              <button
+                onClick={syncPancakeCategories}
+                disabled={isSyncingCategories}
+                className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              >
+                {isSyncingCategories ? (
+                  <>
+                    <span className="animate-spin">⏳</span>
+                    Đang đồng bộ...
+                  </>
+                ) : (
+                  <>
+                    <span>🔄</span>
+                    Đồng bộ danh mục
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+
+          {/* Product Sync */}
+          <div className="bg-gradient-to-r from-orange-50 to-amber-50 border border-orange-200 rounded-2xl p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="font-bold text-gray-800 text-lg mb-1 flex items-center gap-2">
+                  🥞 Đồng bộ sản phẩm Pancake
+                </h3>
+                <p className="text-gray-600 text-sm">Lấy tất cả sản phẩm từ Pancake và lưu vào hệ thống</p>
+              </div>
+              <button
+                onClick={syncPancakeProducts}
+                disabled={isSyncing}
+                className="px-6 py-3 bg-orange-600 hover:bg-orange-700 text-white rounded-xl font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              >
+                {isSyncing ? (
+                  <>
+                    <span className="animate-spin">⏳</span>
+                    Đang đồng bộ...
+                  </>
+                ) : (
+                  <>
+                    <span>🔄</span>
+                    Đồng bộ sản phẩm
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {PLATFORMS.map(platform => {
