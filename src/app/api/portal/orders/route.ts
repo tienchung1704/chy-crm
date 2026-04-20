@@ -19,6 +19,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const {
       items, // { productId, quantity, size, color }[]
+      cartItemIds, // optional: cart item IDs to remove after checkout
       paymentMethod,
       name,
       phone,
@@ -27,7 +28,8 @@ export async function POST(req: NextRequest) {
       addressProvince,
       note,
       voucherId,
-      useCommissionPoints = false // Now a boolean
+      useCommissionPoints = false,
+      shippingFee: clientShippingFee = 0
     } = body;
 
     if (!items || items.length === 0) {
@@ -170,9 +172,13 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const shippingFee = 0; // Assuming free shipping for now
-    let totalAmount = subtotal - discountAmount + shippingFee;
+    const parsedShippingFee = parseFloat(clientShippingFee) || 0;
+    let totalAmount = subtotal - discountAmount + parsedShippingFee;
     if (totalAmount < 0) totalAmount = 0;
+
+    // Determine storeId from first product
+    const firstProduct = await prisma.product.findUnique({ where: { id: items[0].productId } });
+    const orderStoreId = firstProduct?.storeId || null;
 
     // Create Order
     const order = await prisma.order.create({
@@ -181,12 +187,13 @@ export async function POST(req: NextRequest) {
         orderCode: generateOrderCode(),
         subtotal,
         discountAmount,
-        shippingFee,
+        shippingFee: parsedShippingFee,
         totalAmount,
         paymentMethod,
         paymentStatus: 'UNPAID',
         note,
         source: 'PORTAL_DIRECT',
+        storeId: orderStoreId,
         items: {
           create: orderItemsToCreate
         },
@@ -200,6 +207,13 @@ export async function POST(req: NextRequest) {
         } : {})
       }
     });
+
+    // Clean up cart items if coming from cart checkout
+    if (cartItemIds && Array.isArray(cartItemIds) && cartItemIds.length > 0) {
+      await prisma.cartItem.deleteMany({
+        where: { id: { in: cartItemIds } }
+      });
+    }
 
     return NextResponse.json({ success: true, orderId: order.id, orderCode: order.orderCode });
   } catch (error) {

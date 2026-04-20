@@ -46,6 +46,7 @@ export default function ProductActions({ categories = [] }: ProductActionsProps)
     originalPrice: '',
     salePrice: '',
     stockQuantity: '0',
+    weight: '500',
     imageUrl: '',
     categoryLevel1: '',
     categoryLevel2: '',
@@ -126,6 +127,7 @@ export default function ProductActions({ categories = [] }: ProductActionsProps)
           stockQuantity: form.variants.length > 0 
             ? form.variants.reduce((acc, v) => acc + (parseInt(v.stock) || 0), 0)
             : (parseInt(form.stockQuantity) || 0),
+          weight: parseInt(form.weight) || 500,
           categoryIds,
         }),
       });
@@ -142,6 +144,7 @@ export default function ProductActions({ categories = [] }: ProductActionsProps)
         originalPrice: '',
         salePrice: '',
         stockQuantity: '0',
+        weight: '500',
         imageUrl: '',
         categoryLevel1: '',
         categoryLevel2: '',
@@ -286,7 +289,7 @@ export default function ProductActions({ categories = [] }: ProductActionsProps)
                   />
                 </div>
 
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-4 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="prod-price">
                       Giá gốc (VNĐ) *
@@ -312,6 +315,19 @@ export default function ProductActions({ categories = [] }: ProductActionsProps)
                       value={form.salePrice} 
                       onChange={e => update('salePrice', e.target.value)}
                       placeholder="249000" 
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="prod-weight">
+                      Trọng lượng (g)
+                    </label>
+                    <input 
+                      id="prod-weight" 
+                      type="number" 
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      value={form.weight} 
+                      onChange={e => update('weight', e.target.value)}
+                      placeholder="500" 
                     />
                   </div>
                   <div>

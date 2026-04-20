@@ -49,6 +49,7 @@ model User {
   wishlists          Wishlist[]
   reviews            Review[]
   cart               Cart?
+  store              Store?
   referrer           User?              @relation("ReferralNetwork", fields: [referrerId], references: [id])
   referees           User[]             @relation("ReferralNetwork")
 
@@ -116,6 +117,62 @@ model Category {
   @@map("categories")
 }
 
+model Store {
+  id          String    @id @default(uuid())
+  name        String
+  slug        String    @unique
+  logoUrl     String?   @map("logo_url")
+  description String?   @db.Text
+  isActive    Boolean   @default(false) @map("is_active")
+  isBanned    Boolean   @default(false) @map("is_banned")
+  bannedReason String?  @map("banned_reason") @db.Text
+  ownerId     String    @unique @map("owner_id")
+
+  // Địa chỉ Shop (cho ViettelPost tính phí ship)
+  addressStreet   String?  @map("address_street")
+  addressWard     String?  @map("address_ward")
+  addressDistrict String?  @map("address_district")
+  addressProvince String?  @map("address_province")
+  phone           String?
+  email           String?
+
+  // Thanh toán
+  allowCOD        Boolean  @default(true) @map("allow_cod")
+  bankName        String?  @map("bank_name")
+  bankAccountNo   String?  @map("bank_account_no")
+  bankOwnerName   String?  @map("bank_owner_name")
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  owner          User              @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  products       Product[]
+  vouchers       Voucher[]
+  orders         Order[]
+  integrations   StoreIntegration[]
+
+  @@map("stores")
+}
+
+model StoreIntegration {
+  id          String   @id @default(uuid())
+  storeId     String   @map("store_id")
+  platform    String   // PANCAKE, SHOPEE, TIKTOK, LAZADA, ZALO, etc.
+  apiKey      String?  @map("api_key") @db.Text
+  apiSecret   String?  @map("api_secret") @db.Text
+  shopId      String?  @map("shop_id")
+  accessToken String?  @map("access_token") @db.Text
+  isActive    Boolean  @default(false) @map("is_active")
+  metadata    Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  store       Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@unique([storeId, platform])
+  @@map("store_integrations")
+}
+
 model Product {
   id             String          @id @default(uuid())
   name           String
@@ -128,6 +185,7 @@ model Product {
   salePrice      Float?          @map("sale_price")
   stockQuantity  Int             @default(0) @map("stock_quantity")
   soldCount      Int             @default(0) @map("sold_count")
+  weight         Int             @default(500)
   flashSaleEnd   DateTime?       @map("flash_sale_end")
   isGiftItem     Boolean         @default(false) @map("is_gift_item")
   isActive       Boolean         @default(true) @map("is_active")
@@ -141,7 +199,10 @@ model Product {
   wishlists      Wishlist[]
   variants       ProductVariant[]
   reviews        Review[]
+  storeId        String?         @map("store_id")
+  store          Store?          @relation(fields: [storeId], references: [id], onDelete: SetNull)
 
+  @@index([storeId])
   @@map("products")
 }
 
@@ -161,15 +222,19 @@ model Order {
   paidAt           DateTime?          @map("paid_at")
   note             String?            @db.Text
   metadata         Json?
+  isRead           Boolean            @default(false) @map("is_read")
   createdAt        DateTime           @default(now())
   updatedAt        DateTime           @updatedAt
   commissions      CommissionLedger[]
   items            OrderItem[]
   appliedVouchers  OrderVoucher[]
-  user             User               @relation(fields: [userId], references: [id])
+  user             User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  storeId          String?            @map("store_id")
+  store            Store?             @relation(fields: [storeId], references: [id], onDelete: SetNull)
 
   @@index([userId, createdAt])
   @@index([status])
+  @@index([storeId])
   @@map("orders")
 }
 
@@ -229,7 +294,10 @@ model Voucher {
   promotionRules     PromotionRule[]  @relation("CashbackVoucher")
   userVouchers       UserVoucher[]
   spinPrizes         SpinPrize[]      @relation("SpinVoucherTemplate")
+  storeId            String?          @map("store_id")
+  store              Store?           @relation(fields: [storeId], references: [id], onDelete: SetNull)
 
+  @@index([storeId])
   @@map("vouchers")
 }
 
@@ -242,7 +310,7 @@ model UserVoucher {
   expiresAt     DateTime?      @map("expires_at")
   createdAt     DateTime       @default(now())
   appliedOrders OrderVoucher[]
-  user          User           @relation(fields: [userId], references: [id])
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
   voucher       Voucher        @relation(fields: [voucherId], references: [id])
 
   @@index([userId, voucherId])
@@ -285,7 +353,7 @@ model CommissionLedger {
   reversedAt DateTime?        @map("reversed_at")
   createdAt  DateTime         @default(now())
   order      Order            @relation(fields: [orderId], references: [id])
-  user       User             @relation("CommissionEarner", fields: [userId], references: [id])
+  user       User             @relation("CommissionEarner", fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, createdAt])
   @@index([orderId])
@@ -350,7 +418,7 @@ model SpinHistory {
   won       Boolean   @default(false)
   createdAt DateTime  @default(now())
   prize     SpinPrize @relation(fields: [prizeId], references: [id])
-  user      User      @relation(fields: [userId], references: [id])
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, createdAt])
   @@index([prizeId], map: "spin_histories_prize_id_fkey")
@@ -369,7 +437,7 @@ model Notification {
   sentAt    DateTime?           @map("sent_at")
   error     String?             @db.Text
   createdAt DateTime            @default(now())
-  user      User                @relation(fields: [userId], references: [id])
+  user      User                @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, createdAt])
   @@index([status, channel])
@@ -395,6 +463,7 @@ model NotificationTemplate {
 enum Role {
   ADMIN
   STAFF
+  MODERATOR
   CUSTOMER
 }
 
@@ -430,8 +499,15 @@ enum CampaignCategory {
 
 enum OrderStatus {
   PENDING
+  WAITING_FOR_GOODS
   CONFIRMED
   PACKAGING
+  WAITING_FOR_SHIPPING
+  SHIPPED
+  DELIVERED
+  PAYMENT_COLLECTED
+  RETURNING
+  EXCHANGING
   COMPLETED
   CANCELLED
   REFUNDED

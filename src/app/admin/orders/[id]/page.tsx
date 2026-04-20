@@ -1,6 +1,7 @@
 import prisma from '@/lib/prisma';
 import Link from 'next/link';
 import OrderStatusManager from '@/components/admin/OrderStatusManager';
+import OrderReadStatusManager from '@/components/admin/OrderReadStatusManager';
 
 async function getOrder(id: string) {
   return prisma.order.findUnique({
@@ -127,6 +128,7 @@ export default async function OrderDetailPage(props: {
 
   return (
     <>
+      <OrderReadStatusManager orderId={order.id} isRead={order.isRead} />
       <div className="mb-6">
         <Link
           href="/admin/orders"
@@ -245,7 +247,7 @@ export default async function OrderDetailPage(props: {
             </div>
 
             {order.appliedVouchers.length > 0 && (
-              <div className="mt-4 pt-4 border-t">
+              <div className="mt-4 pt-4">
                 <h3 className="font-semibold text-gray-800 mb-2">
                   Voucher đã áp dụng:
                 </h3>
@@ -268,7 +270,7 @@ export default async function OrderDetailPage(props: {
             )}
 
             {order.note && (
-              <div className="mt-4 pt-4 border-t">
+              <div className="mt-4 pt-4">
                 <h3 className="font-semibold text-gray-800 mb-2">Ghi chú:</h3>
                 <p className="text-gray-600 text-sm">{order.note}</p>
               </div>

@@ -13,11 +13,21 @@ export async function PUT(
     }
 
     const payload = verifyToken(token);
-    if (!payload || (payload.role !== 'ADMIN' && payload.role !== 'STAFF')) {
+    if (!payload || !['ADMIN', 'STAFF', 'MODERATOR'].includes(payload.role)) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
     const { id } = await params;
+
+    // RBAC: If Moderator, ensure they own the product
+    if (payload.role === 'MODERATOR') {
+      const store = await prisma.store.findUnique({ where: { ownerId: payload.userId } });
+      const targetProd = await prisma.product.findUnique({ where: { id } });
+      if (!store || targetProd?.storeId !== store.id) {
+        return NextResponse.json({ error: 'Không quyền truy cập' }, { status: 403 });
+      }
+    }
+
     const body = await req.json();
     const {
       name,
@@ -27,6 +37,7 @@ export async function PUT(
       originalPrice,
       salePrice,
       stockQuantity,
+      weight,
       imageUrl,
       categoryIds,
       isComboSet,
@@ -63,6 +74,7 @@ export async function PUT(
         originalPrice,
         salePrice: salePrice || null,
         stockQuantity: stockQuantity || 0,
+        weight: weight || 500,
         imageUrl: imageUrl || null,
         isComboSet: isComboSet || false,
         isGiftItem: isGiftItem || false,
@@ -112,11 +124,20 @@ export async function DELETE(
     }
 
     const payload = verifyToken(token);
-    if (!payload || (payload.role !== 'ADMIN' && payload.role !== 'STAFF')) {
+    if (!payload || !['ADMIN', 'STAFF', 'MODERATOR'].includes(payload.role)) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
     const { id } = await params;
+
+    // RBAC: If Moderator, ensure they own the product
+    if (payload.role === 'MODERATOR') {
+      const store = await prisma.store.findUnique({ where: { ownerId: payload.userId } });
+      const targetProd = await prisma.product.findUnique({ where: { id } });
+      if (!store || targetProd?.storeId !== store.id) {
+        return NextResponse.json({ error: 'Không quyền truy cập' }, { status: 403 });
+      }
+    }
 
     // Check if product is used in orders
     const orderItems = await prisma.orderItem.count({

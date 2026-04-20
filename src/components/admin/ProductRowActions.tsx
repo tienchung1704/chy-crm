@@ -39,6 +39,7 @@ interface Product {
   originalPrice: number;
   salePrice: number | null;
   stockQuantity: number;
+  weight: number;
   imageUrl: string | null;
   isComboSet: boolean;
   isGiftItem: boolean;
@@ -101,6 +102,7 @@ export default function ProductRowActions({ product, allCategories }: ProductRow
     originalPrice: product.originalPrice.toString(),
     salePrice: product.salePrice?.toString() || '',
     stockQuantity: product.stockQuantity.toString(),
+    weight: product.weight?.toString() || '500',
     imageUrl: product.imageUrl || '',
     ...initCategoryLevels(),
     isComboSet: product.isComboSet,
@@ -184,6 +186,7 @@ export default function ProductRowActions({ product, allCategories }: ProductRow
           description: form.description,
           originalPrice: parseFloat(form.originalPrice),
           salePrice: form.salePrice ? parseFloat(form.salePrice) : null,
+          weight: parseInt(form.weight) || 500,
           stockQuantity: form.variants.length > 0 
             ? form.variants.reduce((acc, v) => acc + (parseInt(v.stock) || 0), 0)
             : (parseInt(form.stockQuantity) || 0),
@@ -353,7 +356,7 @@ export default function ProductRowActions({ product, allCategories }: ProductRow
                   />
                 </div>
 
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-4 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="edit-price">
                       Giá gốc (VNĐ) *
@@ -377,6 +380,18 @@ export default function ProductRowActions({ product, allCategories }: ProductRow
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       value={form.salePrice} 
                       onChange={e => update('salePrice', e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="edit-weight">
+                      Trọng lượng (g)
+                    </label>
+                    <input 
+                      id="edit-weight" 
+                      type="number" 
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      value={form.weight} 
+                      onChange={e => update('weight', e.target.value)}
                     />
                   </div>
                   <div>

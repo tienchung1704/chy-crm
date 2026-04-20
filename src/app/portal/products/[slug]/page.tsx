@@ -15,10 +15,15 @@ export default async function ProductDetailPage(props: {
     include: {
       categories: { select: { id: true, name: true } },
       variants: { include: { size: true, color: true } },
+      store: { select: { id: true, name: true, slug: true, logoUrl: true, isActive: true, isBanned: true } },
     },
   });
 
   if (!product || !product.isActive) {
+    notFound();
+  }
+  
+  if (product.store && (!product.store.isActive || product.store.isBanned)) {
     notFound();
   }
 
@@ -90,12 +95,17 @@ export default async function ProductDetailPage(props: {
       id: { not: product.id },
       categories: {
         some: { id: { in: product.categories.map((c: any) => c.id) } }
-      }
+      },
+      OR: [
+        { storeId: null },
+        { store: { isActive: true, isBanned: false } }
+      ]
     },
     take: 6,
     include: {
       categories: { select: { name: true } },
       variants: { include: { size: true, color: true } },
+      store: { select: { id: true, name: true, slug: true, logoUrl: true } },
     }
   });
 

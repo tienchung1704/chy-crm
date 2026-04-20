@@ -68,14 +68,24 @@ export default function ProfileForm({ user }: ProfileFormProps) {
       .catch(() => setLoadingProvinces(false));
   }, []);
 
+  const normalizeName = (name: string) => {
+    return name
+      .toLowerCase()
+      .trim()
+      .replace(/^(tỉnh|thành phố|thành\s*phố|quận|huyện|phường|xã|thị trấn|thị\s*trấn)\s+/i, '')
+      .replace(/\s+/g, ' ');
+  };
+
   // Fetch wards when province changes
   const fetchWards = useCallback(async (provinceName: string) => {
     if (!provinceName) {
       setWards([]);
       return;
     }
-    // Find province code by name
-    const province = provinces.find(p => p.name === provinceName);
+    // Find province code by flexible matching
+    const normSearch = normalizeName(provinceName);
+    const province = provinces.find(p => normalizeName(p.name) === normSearch || normalizeName(p.name).includes(normSearch));
+    
     if (!province) return;
 
     setLoadingWards(true);
@@ -83,19 +93,24 @@ export default function ProfileForm({ user }: ProfileFormProps) {
       const res = await fetch(`/api/address?type=wards&provinceCode=${province.code}`);
       const data = await res.json();
       setWards(data);
+      
+      // If we matched exactly, update the form to use our canonical name
+      if (form.addressProvince !== province.name) {
+        setForm(prev => ({ ...prev, addressProvince: province.name }));
+      }
     } catch {
       setWards([]);
     } finally {
       setLoadingWards(false);
     }
-  }, [provinces]);
+  }, [provinces, form.addressProvince]);
 
   // Load wards for existing province on initial load
   useEffect(() => {
     if (form.addressProvince && provinces.length > 0) {
       fetchWards(form.addressProvince);
     }
-  }, [provinces, fetchWards, form.addressProvince]);
+  }, [provinces.length > 0]); // Run once when provinces are loaded
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     setForm({ ...form, [e.target.name]: e.target.value });

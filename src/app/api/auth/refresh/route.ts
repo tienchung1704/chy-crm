@@ -65,7 +65,7 @@ export async function POST(req: NextRequest) {
 
     // 6. Update DB: Delete old record and create new one
     await prisma.$transaction([
-      prisma.refreshToken.delete({ where: { id: matchedTokenRecord.id } }),
+      prisma.refreshToken.deleteMany({ where: { id: matchedTokenRecord.id } }),
       prisma.refreshToken.create({
         data: {
           token: await bcrypt.hash(newRefreshToken, 10),

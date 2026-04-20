@@ -164,7 +164,7 @@ export default async function PortalVouchersPage() {
               <h3 className="text-lg font-bold mb-4 text-orange-600">
                 Sắp hết hạn
               </h3>
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-8">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 mb-8">
                 {expiringSoon.map(renderVoucherCard)}
               </div>
             </>
@@ -175,7 +175,7 @@ export default async function PortalVouchersPage() {
               <h3 className="text-lg font-bold mb-4">
                 Khả dụng
               </h3>
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-8">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 mb-8">
                 {regularAvailable.map(renderVoucherCard)}
               </div>
             </>
@@ -193,7 +193,7 @@ export default async function PortalVouchersPage() {
       {systemVouchers.length === 0 ? (
         <div className="text-sm text-gray-500">Hiện tại hệ thống chưa có voucher nào mới.</div>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 mb-8">
           {systemVouchers.map(renderSystemVoucherCard)}
         </div>
       )}

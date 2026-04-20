@@ -21,6 +21,8 @@ type Order = {
   status: string;
   createdAt: Date;
   items: OrderItem[];
+  source?: string | null;
+  metadata?: any;
 };
 
 export default function OrderList({ orders }: { orders: Order[] }) {
@@ -34,7 +36,10 @@ export default function OrderList({ orders }: { orders: Order[] }) {
 
   const handleReorder = async (order: Order) => {
     const mainItem = order.items.find(i => !i.isGift);
-    if (!mainItem) return;
+    if (!mainItem) {
+      alert('Không thể mua lại đơn hàng này (không tìm thấy sản phẩm gốc)');
+      return;
+    }
     
     setReordering(order.id);
     try {
@@ -76,15 +81,26 @@ export default function OrderList({ orders }: { orders: Order[] }) {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'COMPLETED':
-        return <span className="px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700">Đã hoàn thành</span>;
+      case 'DELIVERED':
+      case 'PAYMENT_COLLECTED':
+        return <span className="px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700">{status === 'COMPLETED' ? 'Hoàn thành' : status === 'DELIVERED' ? 'Đã nhận' : 'Đã thu tiền'}</span>;
       case 'PACKAGING':
-        return <span className="px-3 py-1 rounded-full text-xs font-semibold bg-purple-100 text-purple-700">Đang đóng hàng</span>;
+      case 'WAITING_FOR_GOODS':
+        return <span className="px-3 py-1 rounded-full text-xs font-semibold bg-purple-100 text-purple-700">{status === 'PACKAGING' ? 'Đang đóng hàng' : 'Chờ hàng'}</span>;
       case 'PENDING':
-        return <span className="px-3 py-1 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-700">Đang xử lý</span>;
+      case 'WAITING_FOR_SHIPPING':
+        return <span className="px-3 py-1 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-700">{status === 'PENDING' ? 'Chờ xác nhận' : 'Chờ vận chuyển'}</span>;
       case 'CANCELLED':
-        return <span className="px-3 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-700">Đã hủy</span>;
+      case 'RETURNING':
+      case 'REFUNDED':
+        return <span className="px-3 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-700">{status === 'CANCELLED' ? 'Đã hủy' : status === 'RETURNING' ? 'Đang hoàn' : 'Hoàn trả'}</span>;
+      case 'CONFIRMED':
+      case 'SHIPPED':
+        return <span className="px-3 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-700">{status === 'CONFIRMED' ? 'Đã xác nhận' : 'Đã gửi hàng'}</span>;
+      case 'EXCHANGING':
+        return <span className="px-3 py-1 rounded-full text-xs font-semibold bg-orange-100 text-orange-700">Đang đổi</span>;
       default:
-        return <span className="px-3 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-700">{status}</span>;
+        return <span className="px-3 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-700">{status}</span>;
     }
   };
 
@@ -113,103 +129,122 @@ export default function OrderList({ orders }: { orders: Order[] }) {
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
-            {orders.map(order => (
-              <React.Fragment key={order.id}>
-                <tr
-                  className={`cursor-pointer transition-colors hover:bg-gray-50 ${expandedRow === order.id ? 'bg-blue-50' : ''}`}
-                  onClick={() => toggleRow(order.id)}
-                >
-                  <td className="px-6 py-4 font-mono font-semibold text-gray-800">{order.orderCode}</td>
-                  <td className="px-6 py-4 text-sm text-gray-600">
-                    {new Intl.DateTimeFormat('vi-VN', {
-                      year: 'numeric',
-                      month: '2-digit',
-                      day: '2-digit',
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    }).format(new Date(order.createdAt))}
-                  </td>
-                  <td className="px-6 py-4 font-bold text-gray-800">{fmt(order.totalAmount)}</td>
-                  <td className="px-6 py-4">{getStatusBadge(order.status)}</td>
-                  <td className="px-6 py-4 text-center">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleReorder(order);
-                      }}
-                      disabled={reordering === order.id}
-                      className="inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-gray-100 hover:bg-blue-600 text-gray-700 hover:text-white text-sm font-medium rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-gray-100 disabled:hover:text-gray-700"
-                      title="Mua lại đơn hàng này"
-                    >
-                      <ShoppingCart className="w-4 h-4" />
-                      {reordering === order.id ? 'Đang xử lý...' : 'Mua lại'}
-                    </button>
-                  </td>
-                  <td className="px-6 py-4 text-center">
-                    <button 
-                      className="inline-flex items-center justify-center w-8 h-8 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-                      title={expandedRow === order.id ? 'Thu gọn' : 'Xem chi tiết'}
-                    >
-                      {expandedRow === order.id ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
-                    </button>
-                  </td>
-                </tr>
-                {expandedRow === order.id && (
-                  <tr className="bg-gray-50">
-                    <td colSpan={6} className="p-0">
-                      <div className="p-6 border-b border-gray-200 animate-fadeIn">
-                        <h4 className="text-sm font-semibold mb-3 text-gray-800">
-                          Sản phẩm trong đơn
-                        </h4>
-                        <div className="flex flex-col gap-3">
-                          {order.items.map(item => (
-                            <div
-                              key={item.id}
-                              className="flex items-center justify-between bg-white p-3 rounded-lg border border-gray-200"
-                            >
-                              <div className="flex items-center gap-4">
-                                <div className="w-10 h-10 rounded bg-gradient-to-br from-blue-100 to-purple-100 flex items-center justify-center overflow-hidden border border-gray-200">
-                                  {item.product.imageUrl ? (
-                                    <img
-                                      src={item.product.imageUrl}
-                                      alt={item.product.name}
-                                      className="w-full h-full object-cover"
-                                    />
-                                  ) : (
-                                    <span className="text-xs text-gray-400">IMG</span>
-                                  )}
+            {orders.map(order => {
+              // For Pancake orders, items are in metadata
+              const isPancake = order.source === 'PANCAKE';
+              const displayItems = isPancake && order.metadata?.items 
+                ? (order.metadata.items as any[]).map((it, idx) => ({
+                    id: `pck-${order.id}-${idx}`,
+                    product: { name: it.name, imageUrl: it.image },
+                    quantity: it.quantity,
+                    price: it.price,
+                    isGift: false,
+                    size: null,
+                    color: null
+                  }))
+                : order.items;
+
+              return (
+                <React.Fragment key={order.id}>
+                  <tr
+                    className={`cursor-pointer transition-colors hover:bg-gray-50 ${expandedRow === order.id ? 'bg-blue-50' : ''}`}
+                    onClick={() => toggleRow(order.id)}
+                  >
+                    <td className="px-6 py-4 font-mono font-semibold text-gray-800">{order.orderCode}</td>
+                    <td className="px-6 py-4 text-sm text-gray-600">
+                      {new Intl.DateTimeFormat('vi-VN', {
+                        year: 'numeric',
+                        month: '2-digit',
+                        day: '2-digit',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      }).format(new Date(order.createdAt))}
+                    </td>
+                    <td className="px-6 py-4 font-bold text-gray-800">{fmt(order.totalAmount)}</td>
+                    <td className="px-6 py-4">{getStatusBadge(order.status)}</td>
+                    <td className="px-6 py-4 text-center">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleReorder(order);
+                        }}
+                        disabled={reordering === order.id || isPancake}
+                        className="inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-gray-100 hover:bg-blue-600 text-gray-700 hover:text-white text-sm font-medium rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-gray-100 disabled:hover:text-gray-700"
+                        title={isPancake ? "Đơn hàng từ Pancake không hỗ trợ mua lại nhanh" : "Mua lại đơn hàng này"}
+                      >
+                        <ShoppingCart className="w-4 h-4" />
+                        {reordering === order.id ? 'Đang xử lý...' : 'Mua lại'}
+                      </button>
+                    </td>
+                    <td className="px-6 py-4 text-center">
+                      <button 
+                        className="inline-flex items-center justify-center w-8 h-8 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                        title={expandedRow === order.id ? 'Thu gọn' : 'Xem chi tiết'}
+                      >
+                        {expandedRow === order.id ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+                      </button>
+                    </td>
+                  </tr>
+                  {expandedRow === order.id && (
+                    <tr className="bg-gray-50">
+                      <td colSpan={6} className="p-0">
+                        <div className="p-6 border-b border-gray-200 animate-fadeIn">
+                          <h4 className="text-sm font-semibold mb-3 text-gray-800">
+                            Sản phẩm trong đơn
+                          </h4>
+                          <div className="flex flex-col gap-3">
+                            {displayItems.length === 0 && (
+                              <div className="text-sm text-gray-500 italic">Không có chi tiết sản phẩm</div>
+                            )}
+                            {displayItems.map(item => (
+                              <div
+                                key={item.id}
+                                className="flex items-center justify-between bg-white p-3 rounded-lg border border-gray-200"
+                              >
+                                <div className="flex items-center gap-4">
+                                  <div className="w-10 h-10 rounded bg-gradient-to-br from-blue-100 to-purple-100 flex items-center justify-center overflow-hidden border border-gray-200">
+                                    {item.product.imageUrl ? (
+                                      <img
+                                        src={item.product.imageUrl}
+                                        alt={item.product.name}
+                                        className="w-full h-full object-cover"
+                                      />
+                                    ) : (
+                                      <span className="text-xs text-gray-400">IMG</span>
+                                    )}
+                                  </div>
+                                  <div>
+                                    <div className="font-semibold text-sm text-gray-800">{item.product.name}</div>
+                                    <div className="text-xs text-gray-600">
+                                      Số lượng: {item.quantity}
+                                      {(item.size || item.color) && (
+                                        <span className="ml-2">
+                                          {item.size && <span>• Size: {item.size}</span>}
+                                          {item.color && <span>• Màu: {item.color}</span>}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
                                 </div>
-                                <div>
-                                  <div className="font-semibold text-sm text-gray-800">{item.product.name}</div>
-                                  <div className="text-xs text-gray-600">
-                                    Số lượng: {item.quantity}
-                                    {(item.size || item.color) && (
-                                      <span className="ml-2">
-                                        {item.size && <span>• Size: {item.size}</span>}
-                                        {item.color && <span>• Màu: {item.color}</span>}
-                                      </span>
+                                <div className="flex items-center gap-6">
+                                  <div className="font-bold text-sm">
+                                    {item.isGift ? (
+                                      <span className="bg-green-100 text-green-700 px-2 py-1 rounded-full text-xs">Quà tặng</span>
+                                    ) : (
+                                      fmt(item.price * item.quantity)
                                     )}
                                   </div>
                                 </div>
                               </div>
-                              <div className="flex items-center gap-6">
-                                <div className="font-bold text-sm">
-                                  {item.isGift ? (
-                                    <span className="bg-green-100 text-green-700 px-2 py-1 rounded-full text-xs">Quà tặng</span>
-                                  ) : (
-                                    fmt(item.price * item.quantity)
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                          ))}
+                            ))}
+                          </div>
                         </div>
-                      </div>
-                    </td>
-                  </tr>
-                )}
-              </React.Fragment>
-            ))}
+                      </td>
+                    </tr>
+                  )}
+                </React.Fragment>
+              );
+            })}
           </tbody>
         </table>
       </div>

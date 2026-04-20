@@ -182,12 +182,12 @@ function LoginForm() {
         <form onSubmit={handleSubmit} className="space-y-5">
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-2" htmlFor="phone">
-              Số điện thoại
+              Số điện thoại hoặc Email
             </label>
             <input
               id="phone"
               name="phone"
-              type="tel"
+              type="text"
               className="w-full px-4 py-3 bg-white/70 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
               placeholder="0912 345 678"
               value={formData.phone}

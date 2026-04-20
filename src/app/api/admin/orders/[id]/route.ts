@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { getSession } from '@/lib/auth';
+import { updateUserRank } from '@/services/userService';
 
 // Hàm hủy hoa hồng khi đơn hàng bị hủy/hoàn trả
 async function cancelCommissions(orderId: string) {
@@ -257,6 +258,7 @@ export async function PATCH(
           },
         },
       });
+      await updateUserRank(currentOrder.userId);
 
       // Tính hoa hồng cho người giới thiệu (chỉ khi chưa tính)
       if (currentOrder.user.referrerId) {
@@ -303,6 +305,7 @@ export async function PATCH(
           },
         },
       });
+      await updateUserRank(currentOrder.userId);
 
       // Hủy hoa hồng đã tính
       await cancelCommissions(currentOrder.id);

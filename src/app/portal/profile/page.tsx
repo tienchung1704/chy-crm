@@ -3,6 +3,8 @@ import { getSession } from '@/lib/auth';
 import { Rank } from '@prisma/client';
 import ProfileForm from './ProfileForm';
 
+export const dynamic = 'force-dynamic';
+
 export default async function ProfilePage() {
   const session = await getSession();
   if (!session) return null;

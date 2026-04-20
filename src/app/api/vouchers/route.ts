@@ -4,11 +4,22 @@ import { getSession } from '@/lib/auth';
 
 export async function GET() {
   const session = await getSession();
-  if (!session || (session.role !== 'ADMIN' && session.role !== 'STAFF')) {
+  if (!session || !['ADMIN', 'STAFF', 'MODERATOR'].includes(session.role)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
+  let whereClause = {};
+  if (session.role === 'MODERATOR') {
+    const store = await prisma.store.findUnique({ where: { ownerId: session.id } });
+    if (store) {
+      whereClause = { storeId: store.id };
+    } else {
+      whereClause = { id: 'no-store' };
+    }
+  }
+
   const vouchers = await prisma.voucher.findMany({
+    where: whereClause,
     orderBy: { createdAt: 'desc' },
     include: {
       _count: { select: { userVouchers: true } },
@@ -20,11 +31,20 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   const session = await getSession();
-  if (!session || session.role !== 'ADMIN') {
+  if (!session || !['ADMIN', 'MODERATOR'].includes(session.role)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
   try {
+    let storeId = null;
+    if (session.role === 'MODERATOR') {
+      const store = await prisma.store.findUnique({ where: { ownerId: session.id } });
+      if (!store) {
+         return NextResponse.json({ error: 'Bạn cần mở một cửa hàng trước khi tạo voucher' }, { status: 403 });
+      }
+      storeId = store.id;
+    }
+
     const body = await req.json();
     const {
       code, name, description, campaignCategory, type,
@@ -65,6 +85,7 @@ export async function POST(req: NextRequest) {
         validFrom: validFrom ? new Date(validFrom) : null,
         validTo: validTo ? new Date(validTo) : null,
         isStackable: isStackable || false,
+        storeId,
       },
     });
 

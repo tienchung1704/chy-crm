@@ -13,7 +13,7 @@ export async function PUT(
     }
 
     const payload = verifyToken(token);
-    if (!payload || (payload.role !== 'ADMIN' && payload.role !== 'STAFF')) {
+    if (!payload || !['ADMIN', 'STAFF', 'MODERATOR'].includes(payload.role)) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
@@ -85,7 +85,7 @@ export async function DELETE(
     }
 
     const payload = verifyToken(token);
-    if (!payload || (payload.role !== 'ADMIN' && payload.role !== 'STAFF')) {
+    if (!payload || !['ADMIN', 'STAFF', 'MODERATOR'].includes(payload.role)) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 

@@ -32,7 +32,7 @@ export default function AdminHeader({ user, onToggleSidebar, isSidebarOpen }: Ad
           <Menu size={24} className="text-gray-600" />
         </button>
 
-        <div className="relative flex-1 max-w-md">
+        <div className="relative flex-1 max-w-2xl">
           <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">🔍</span>
           <input
             type="text"

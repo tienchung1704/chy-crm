@@ -45,72 +45,142 @@ export default function CustomerActions() {
 
   return (
     <>
-      <button className="btn btn-primary" onClick={() => setShowModal(true)} id="add-customer-btn">
+      <button 
+        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition-colors" 
+        onClick={() => setShowModal(true)} 
+        id="add-customer-btn"
+      >
         + Thêm khách hàng
       </button>
 
       {showModal && (
-        <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) setShowModal(false); }}>
-          <div className="modal">
-            <div className="modal-header">
-              <h2 className="modal-title">Thêm khách hàng mới</h2>
-              <button className="btn btn-ghost btn-icon" onClick={() => setShowModal(false)} id="close-modal-btn">✕</button>
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" 
+          onClick={(e) => { if (e.target === e.currentTarget) setShowModal(false); }}
+        >
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <h2 className="text-xl font-bold text-gray-800">Thêm khách hàng mới</h2>
+              <button 
+                className="text-gray-400 hover:text-gray-600 text-2xl leading-none" 
+                onClick={() => setShowModal(false)} 
+                id="close-modal-btn"
+              >
+                ✕
+              </button>
             </div>
             <form onSubmit={handleSubmit}>
-              <div className="modal-body">
-                {error && <div className="alert alert-error"><span>⚠</span><span>{error}</span></div>}
+              <div className="p-6 space-y-4">
+                {error && (
+                  <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-center gap-2">
+                    <span>⚠</span>
+                    <span>{error}</span>
+                  </div>
+                )}
 
-                <div className="form-group">
-                  <label className="form-label" htmlFor="new-name">Họ và tên *</label>
-                  <input id="new-name" name="name" className="form-input" required
-                    value={form.name} onChange={e => setForm({...form, name: e.target.value})}
-                    placeholder="Nguyễn Văn A" />
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="new-name">
+                    Họ và tên *
+                  </label>
+                  <input 
+                    id="new-name" 
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" 
+                    required
+                    value={form.name} 
+                    onChange={e => setForm({...form, name: e.target.value})}
+                    placeholder="Nguyễn Văn A" 
+                  />
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-4)' }}>
-                  <div className="form-group">
-                    <label className="form-label" htmlFor="new-email">Email</label>
-                    <input id="new-email" name="email" type="email" className="form-input"
-                      value={form.email} onChange={e => setForm({...form, email: e.target.value})}
-                      placeholder="email@example.com" />
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="new-email">
+                      Email
+                    </label>
+                    <input 
+                      id="new-email" 
+                      type="email" 
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      value={form.email} 
+                      onChange={e => setForm({...form, email: e.target.value})}
+                      placeholder="email@example.com" 
+                    />
                   </div>
-                  <div className="form-group">
-                    <label className="form-label" htmlFor="new-phone">Số điện thoại</label>
-                    <input id="new-phone" name="phone" type="tel" className="form-input"
-                      value={form.phone} onChange={e => setForm({...form, phone: e.target.value})}
-                      placeholder="0912345678" />
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="new-phone">
+                      Số điện thoại
+                    </label>
+                    <input 
+                      id="new-phone" 
+                      type="tel" 
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      value={form.phone} 
+                      onChange={e => setForm({...form, phone: e.target.value})}
+                      placeholder="0912345678" 
+                    />
                   </div>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-4)' }}>
-                  <div className="form-group">
-                    <label className="form-label" htmlFor="new-gender">Giới tính</label>
-                    <select id="new-gender" className="form-select"
-                      value={form.gender} onChange={e => setForm({...form, gender: e.target.value})}>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="new-gender">
+                      Giới tính
+                    </label>
+                    <select 
+                      id="new-gender" 
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      value={form.gender} 
+                      onChange={e => setForm({...form, gender: e.target.value})}
+                    >
                       <option value="">Chọn</option>
                       <option value="MALE">Nam</option>
                       <option value="FEMALE">Nữ</option>
                       <option value="OTHER">Khác</option>
                     </select>
                   </div>
-                  <div className="form-group">
-                    <label className="form-label" htmlFor="new-dob">Ngày sinh</label>
-                    <input id="new-dob" name="dob" type="date" className="form-input"
-                      value={form.dob} onChange={e => setForm({...form, dob: e.target.value})} />
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="new-dob">
+                      Ngày sinh
+                    </label>
+                    <input 
+                      id="new-dob" 
+                      type="date" 
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      value={form.dob} 
+                      onChange={e => setForm({...form, dob: e.target.value})} 
+                    />
                   </div>
                 </div>
 
-                <div className="form-group">
-                  <label className="form-label" htmlFor="new-address">Địa chỉ</label>
-                  <textarea id="new-address" className="form-input" rows={2}
-                    value={form.address} onChange={e => setForm({...form, address: e.target.value})}
-                    placeholder="Số nhà, đường, quận/huyện, tỉnh/thành" />
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="new-address">
+                    Địa chỉ
+                  </label>
+                  <textarea 
+                    id="new-address" 
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" 
+                    rows={2}
+                    value={form.address} 
+                    onChange={e => setForm({...form, address: e.target.value})}
+                    placeholder="Số nhà, đường, quận/huyện, tỉnh/thành" 
+                  />
                 </div>
               </div>
 
-              <div className="modal-footer">
-                <button type="button" className="btn btn-secondary" onClick={() => setShowModal(false)}>Hủy</button>
-                <button type="submit" className="btn btn-primary" disabled={loading} id="save-customer-btn">
+              <div className="flex items-center justify-end gap-3 p-6 border-t border-gray-200">
+                <button 
+                  type="button" 
+                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium transition-colors" 
+                  onClick={() => setShowModal(false)}
+                >
+                  Hủy
+                </button>
+                <button 
+                  type="submit" 
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed" 
+                  disabled={loading} 
+                  id="save-customer-btn"
+                >
                   {loading ? 'Đang lưu...' : 'Lưu khách hàng'}
                 </button>
               </div>

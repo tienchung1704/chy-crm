@@ -54,6 +54,7 @@ interface Product {
   isComboSet: boolean;
   categories: { name: string }[];
   variants: ProductVariant[];
+  store?: { id: string; name: string; slug: string; logoUrl: string | null } | null;
 }
 
 interface ProductDetailClientProps {
@@ -316,9 +317,44 @@ export default function ProductDetailClient({ product, relatedProducts = [], ini
             {/* Right: Info Box */}
             <div className="flex-1 lg:pt-8 p-4 md:pl-0">
               <div className="flex justify-between items-start mb-3">
-                <h1 className="text-2xl font-bold text-gray-900 leading-tight">
-                  {product.name}
-                </h1>
+                <div>
+                  {/* Category & Store Track */}
+                  <div className="flex flex-wrap items-center gap-3 mb-4">
+                    {product.categories.length > 0 && (
+                      <div className="flex items-center gap-2">
+                        {product.categories.map((c, idx) => (
+                          <div key={c.name} className="flex items-center">
+                            <span className="text-sm font-medium text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-md">
+                              {c.name}
+                            </span>
+                            {idx < product.categories.length - 1 && (
+                              <span className="text-gray-300 mx-2">•</span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {product.store && (
+                      <>
+                        {product.categories.length > 0 && <span className="text-gray-300 mx-1">|</span>}
+                        <div className="flex items-center gap-2 text-sm text-gray-600 bg-gray-50 px-3 py-1 rounded-md cursor-pointer hover:bg-gray-100 transition-colors">
+                          <div className="w-5 h-5 rounded-full bg-white flex items-center justify-center overflow-hidden shadow-sm">
+                            {product.store.logoUrl ? (
+                              <img src={product.store.logoUrl} alt={product.store.name} className="w-full h-full object-cover" />
+                            ) : (
+                              <span className="text-[10px] font-bold text-gray-500">{product.store.name.charAt(0)}</span>
+                            )}
+                          </div>
+                          <span className="font-semibold">{product.store.name}</span>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                  <h1 className="text-2xl font-bold text-gray-900 leading-tight">
+                    {product.name}
+                  </h1>
+                </div>
                 <div className="flex items-center gap-2">
                   <button
                     onClick={handleShareProduct}

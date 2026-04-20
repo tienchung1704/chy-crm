@@ -225,7 +225,7 @@ export async function GET(req: NextRequest) {
     
     // Redirect based on role and onboarding status
     let redirect: string;
-    if (user.role === 'ADMIN' || user.role === 'STAFF') {
+    if (user.role === 'ADMIN' || user.role === 'STAFF' || user.role === 'MODERATOR') {
       redirect = '/admin';
     } else if (needsOnboarding) {
       // Pass the original returnTo to onboarding page

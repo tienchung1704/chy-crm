@@ -9,18 +9,20 @@ export async function POST(req: NextRequest) {
 
     if (!phone || !password) {
       return NextResponse.json(
-        { error: 'Vui lòng nhập số điện thoại và mật khẩu' },
+        { error: 'Vui lòng nhập số điện thoại / email và mật khẩu' },
         { status: 400 }
       );
     }
 
-    const user = await prisma.user.findUnique({
-      where: { phone },
+    // Support login by email or phone
+    const isEmail = phone.includes('@');
+    const user = await prisma.user.findFirst({
+      where: isEmail ? { email: phone } : { phone: phone },
     });
 
     if (!user || !user.password) {
       return NextResponse.json(
-        { error: 'Số điện thoại hoặc mật khẩu không chính xác' },
+        { error: 'Số điện thoại / email hoặc mật khẩu không chính xác' },
         { status: 401 }
       );
     }
@@ -36,7 +38,7 @@ export async function POST(req: NextRequest) {
     const isValid = await verifyPassword(password, user.password);
     if (!isValid) {
       return NextResponse.json(
-        { error: 'Số điện thoại hoặc mật khẩu không chính xác' },
+        { error: 'Số điện thoại / email hoặc mật khẩu không chính xác' },
         { status: 401 }
       );
     }
@@ -45,7 +47,7 @@ export async function POST(req: NextRequest) {
 
     // Check if user completed onboarding
     const needsOnboarding = user.role === 'CUSTOMER' && !user.onboardingComplete;
-    const redirect = user.role === 'ADMIN' || user.role === 'STAFF' 
+    const redirect = user.role === 'ADMIN' || user.role === 'STAFF' || user.role === 'MODERATOR'
       ? '/admin' 
       : needsOnboarding 
         ? '/onboarding' 

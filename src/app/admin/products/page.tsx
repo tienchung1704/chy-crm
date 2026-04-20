@@ -3,12 +3,21 @@ import prisma from '@/lib/prisma';
 import ProductActions from '@/components/admin/ProductActions';
 import ProductRowActions from '@/components/admin/ProductRowActions';
 
-async function getProducts() {
+import { getSession } from '@/lib/auth';
+
+async function getProducts(role: string | null = null, storeId: string | null = null) {
+  const whereClause: any = {};
+  if (role === 'MODERATOR') {
+    whereClause.storeId = storeId || 'no-access';
+  }
+
   return prisma.product.findMany({
+    where: whereClause,
     orderBy: { createdAt: 'desc' },
     include: {
       categories: { select: { id: true, name: true } },
       variants: { include: { size: true, color: true } },
+      store: { select: { name: true } },
       _count: { select: { orderItems: true } },
     },
   });
@@ -31,8 +40,15 @@ function formatCurrency(amount: number) {
 }
 
 export default async function ProductsPage() {
+  const session = await getSession();
+  let storeId = null;
+  if (session?.role === 'MODERATOR') {
+    const store = await prisma.store.findUnique({ where: { ownerId: session.id } });
+    storeId = store?.id || null;
+  }
+
   const [products, categories] = await Promise.all([
-    getProducts(),
+    getProducts(session?.role || null, storeId),
     getCategories(),
   ]);
 
@@ -82,6 +98,7 @@ export default async function ProductsPage() {
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Sản phẩm</th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">SKU</th>
+                {session?.role === 'ADMIN' && <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Cửa hàng</th>}
                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Danh mục</th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Giá gốc</th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Giá sale</th>
@@ -133,6 +150,13 @@ export default async function ProductsPage() {
                         <span className="text-gray-400">—</span>
                       )}
                     </td>
+                    {session?.role === 'ADMIN' && (
+                      <td className="px-6 py-4">
+                        <span className="px-2 py-1 bg-gray-100 rounded text-xs text-gray-700 font-medium">
+                          {(product as any).store?.name || 'Hệ thống'}
+                        </span>
+                      </td>
+                    )}
                     <td className="px-6 py-4">
                       {product.categories.length > 0 ? (
                         <div className="flex flex-wrap gap-1">

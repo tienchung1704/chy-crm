@@ -10,9 +10,16 @@ interface OrderStatusManagerProps {
 }
 
 const statusOptions = [
-  { value: 'PENDING', label: 'Chờ duyệt', color: 'orange' },
-  { value: 'PACKAGING', label: 'Đang đóng hàng', color: 'purple' },
-  { value: 'CONFIRMED', label: 'Đang giao', color: 'cyan' },
+  { value: 'PENDING', label: 'Chờ xác nhận', color: 'orange' },
+  { value: 'WAITING_FOR_GOODS', label: 'Chờ hàng', color: 'purple' },
+  { value: 'CONFIRMED', label: 'Đã xác nhận', color: 'cyan' },
+  { value: 'PACKAGING', label: 'Đang đóng hàng', color: 'blue' },
+  { value: 'WAITING_FOR_SHIPPING', label: 'Chờ vận chuyển', color: 'gray' },
+  { value: 'SHIPPED', label: 'Đã gửi hàng', color: 'cyan' },
+  { value: 'DELIVERED', label: 'Đã nhận', color: 'green' },
+  { value: 'PAYMENT_COLLECTED', label: 'Đã thu tiền', color: 'green' },
+  { value: 'RETURNING', label: 'Đang hoàn', color: 'red' },
+  { value: 'EXCHANGING', label: 'Đang đổi', color: 'orange' },
   { value: 'COMPLETED', label: 'Hoàn thành', color: 'green' },
   { value: 'CANCELLED', label: 'Đã hủy', color: 'red' },
   { value: 'REFUNDED', label: 'Hoàn trả', color: 'red' },

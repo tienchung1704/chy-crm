@@ -15,12 +15,12 @@ interface Props {
 }
 
 const navItems = [
-  { name: 'Tổng quan', href: '/portal', icon: '🏠' },
-  { name: 'Sản phẩm', href: '/portal/products', icon: '🛍️' },
-  { name: 'Voucher', href: '/portal/vouchers', icon: '🎫' },
-  { name: 'Đơn hàng', href: '/portal/orders', icon: '📦' },
-  { name: 'Giới thiệu', href: '/portal/referral', icon: '🔗' },
-  { name: 'Vòng quay', href: '/portal/spin', icon: '🎰' },
+  { name: 'Tổng quan', href: '/portal' },
+  { name: 'Sản phẩm', href: '/portal/products' },
+  { name: 'Voucher', href: '/portal/vouchers' },
+  { name: 'Đơn hàng', href: '/portal/orders' },
+  { name: 'Giới thiệu', href: '/portal/referral' },
+  { name: 'Vòng quay', href: '/portal/spin' },
 ];
 
 const rankColors: Record<string, string> = {
@@ -85,7 +85,6 @@ export default function PortalNavbar({ user }: Props) {
                   : 'text-gray-700 hover:bg-gray-100'
                   }`}
               >
-                <span>{item.icon}</span>
                 <span>{item.name}</span>
               </Link>
             ))}
@@ -94,7 +93,7 @@ export default function PortalNavbar({ user }: Props) {
           {/* Right side */}
           <div className="flex items-center gap-4">
             {/* Stats pills (desktop only) */}
-            <div className="hidden lg:flex items-center gap-3 px-4 py-2 bg-gray-50 rounded-lg">
+            <div className="hidden lg:flex items-center gap-3 px-4 py-2 rounded-lg">
               <span className="text-xs text-gray-600">Hoa hồng</span>
               <span className="text-sm font-semibold text-green-600">
                 {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 }).format(user.commissionBalance)}
@@ -210,7 +209,6 @@ export default function PortalNavbar({ user }: Props) {
                   : 'text-gray-700 hover:bg-gray-50'
                   }`}
               >
-                <span>{item.icon}</span>
                 <span>{item.name}</span>
               </Link>
             ))}

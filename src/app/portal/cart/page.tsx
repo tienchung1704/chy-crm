@@ -1,6 +1,5 @@
 import { getSession } from '@/lib/auth';
 import prisma from '@/lib/prisma';
-import Link from 'next/link';
 import CartClient from './CartClient';
 
 async function getCart(userId: string) {
@@ -18,6 +17,8 @@ async function getCart(userId: string) {
               salePrice: true,
               stockQuantity: true,
               isActive: true,
+              storeId: true,
+              store: { select: { id: true, name: true } },
             },
           },
         },
@@ -25,7 +26,6 @@ async function getCart(userId: string) {
     },
   });
 
-  // Create cart if doesn't exist
   if (!cart) {
     cart = await prisma.cart.create({
       data: { userId },
@@ -41,6 +41,8 @@ async function getCart(userId: string) {
                 salePrice: true,
                 stockQuantity: true,
                 isActive: true,
+                storeId: true,
+                store: { select: { id: true, name: true } },
               },
             },
           },
@@ -52,28 +54,11 @@ async function getCart(userId: string) {
   return cart;
 }
 
-function formatCurrency(amount: number) {
-  return new Intl.NumberFormat('vi-VN', {
-    style: 'currency',
-    currency: 'VND',
-    maximumFractionDigits: 0,
-  }).format(amount);
-}
-
 export default async function CartPage() {
   const session = await getSession();
   if (!session) return null;
 
   const cart = await getCart(session.id);
-
-  // Calculate totals
-  const subtotal = cart.items.reduce((sum, item) => {
-    const price = item.product.salePrice || item.product.originalPrice;
-    return sum + price * item.quantity;
-  }, 0);
-
-  const shipping = subtotal > 0 ? 30000 : 0; // 30k shipping fee
-  const total = subtotal + shipping;
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">

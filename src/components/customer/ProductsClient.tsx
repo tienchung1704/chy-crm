@@ -23,6 +23,7 @@ interface Product {
   isComboSet: boolean;
   categories: { name: string }[];
   variants?: { price: number | null }[];
+  store?: { name: string; slug: string; logoUrl: string | null } | null;
 }
 
 interface ProductsClientProps {
@@ -43,24 +44,10 @@ function formatCurrency(amount: number) {
 export default function ProductsClient({ products, categories, initialWishlistIds, userReferralCode }: ProductsClientProps) {
   const router = useRouter();
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
-  const [priceRange, setPriceRange] = useState<[number, number]>([0, 10000000]);
-  const [wishlistIds, setWishlistIds] = useState<Set<string>>(new Set(initialWishlistIds));
-  const [togglingIds, setTogglingIds] = useState<Set<string>>(new Set());
-  const [addingToCart, setAddingToCart] = useState<Set<string>>(new Set());
-  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
-  const [copiedProductId, setCopiedProductId] = useState<string | null>(null);
-
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
 
-  useEffect(() => {
-    const handler = setTimeout(() => {
-      setDebouncedSearchQuery(searchQuery);
-    }, 300);
-    return () => clearTimeout(handler);
-  }, [searchQuery]);
-
-  // Get min and max prices from products
+  // Get min and max prices dynamically
   const prices = products.flatMap(p => {
     const finalPrices = [p.salePrice || p.originalPrice];
     if (p.variants?.length) {
@@ -70,8 +57,25 @@ export default function ProductsClient({ products, categories, initialWishlistId
     }
     return finalPrices;
   });
-  const minPrice = Math.min(...prices, 0);
-  const maxPrice = Math.max(...prices, 10000000);
+  
+  const minPrice = prices.length ? Math.min(...prices) : 0;
+  const maxPrice = prices.length ? Math.max(...prices, 10000000) : 10000000;
+
+  // Initialize priceRange using actual max price from products
+  const [priceRange, setPriceRange] = useState<[number, number]>([0, Math.max(10000000, maxPrice)]);
+
+  const [wishlistIds, setWishlistIds] = useState<Set<string>>(new Set(initialWishlistIds));
+  const [togglingIds, setTogglingIds] = useState<Set<string>>(new Set());
+  const [addingToCart, setAddingToCart] = useState<Set<string>>(new Set());
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const [copiedProductId, setCopiedProductId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+    }, 300);
+    return () => clearTimeout(handler);
+  }, [searchQuery]);
 
   // Filter products by selected category (including all child categories)
   const getChildCategoryIds = (categoryId: string): string[] => {
@@ -523,7 +527,23 @@ export default function ProductsClient({ products, categories, initialWishlistId
                       </div>
 
                       {/* Product Info */}
-                      <div className="p-4">
+                      <div className="p-4 flex flex-col flex-1">
+                        {/* Store Info */}
+                        {product.store && (
+                          <div className="flex items-center gap-1.5 mb-2">
+                            <div className="w-4 h-4 rounded-full bg-gray-100 flex items-center justify-center overflow-hidden flex-shrink-0">
+                              {product.store.logoUrl ? (
+                                <img src={product.store.logoUrl} alt={product.store.name} className="w-full h-full object-cover" />
+                              ) : (
+                                <span className="text-[8px] font-bold text-gray-500">{product.store.name.charAt(0)}</span>
+                              )}
+                            </div>
+                            <span className="text-[11px] font-medium text-gray-500 truncate" title={product.store.name}>
+                              {product.store.name}
+                            </span>
+                          </div>
+                        )}
+
                         {/* Discount Tag */}
                         {hasDiscount && (
                           <div className="flex flex-wrap gap-1.5 mb-2 justify-between items-center">

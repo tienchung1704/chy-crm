@@ -57,6 +57,12 @@ export default function Footer() {
                   <span className="absolute -bottom-0.5 left-0 w-0 h-[1.5px] bg-indigo-600 transition-all duration-300 group-hover:w-full"></span>
                 </Link>
               </li>
+              <li>
+                <Link href="/portal/seller-register" className="text-sm text-gray-600 hover:text-indigo-600 transition-colors relative inline-block group">
+                  Đăng ký bán hàng
+                  <span className="absolute -bottom-0.5 left-0 w-0 h-[1.5px] bg-indigo-600 transition-all duration-300 group-hover:w-full"></span>
+                </Link>
+              </li>
             </ul>
           </div>
 

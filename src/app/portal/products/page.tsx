@@ -4,7 +4,13 @@ import ProductsClient from '@/components/customer/ProductsClient';
 
 async function getProducts() {
   return prisma.product.findMany({
-    where: { isActive: true },
+    where: { 
+      isActive: true,
+      OR: [
+        { storeId: null },
+        { store: { isActive: true, isBanned: false } }
+      ]
+    },
     orderBy: { createdAt: 'desc' },
     select: {
       id: true,
@@ -18,6 +24,7 @@ async function getProducts() {
       isComboSet: true,
       categories: { select: { name: true } },
       variants: { select: { price: true } },
+      store: { select: { name: true, slug: true, logoUrl: true } },
     },
   });
 }

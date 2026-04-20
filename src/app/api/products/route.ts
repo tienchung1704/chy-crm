@@ -10,8 +10,17 @@ export async function POST(req: NextRequest) {
     }
 
     const payload = verifyToken(token);
-    if (!payload || (payload.role !== 'ADMIN' && payload.role !== 'STAFF')) {
+    if (!payload || !['ADMIN', 'STAFF', 'MODERATOR'].includes(payload.role)) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    let resolvedStoreId = null;
+    if (payload.role === 'MODERATOR') {
+      const store = await prisma.store.findUnique({ where: { ownerId: payload.userId } });
+      if (!store) {
+        return NextResponse.json({ error: 'Bạn cần mở một cửa hàng trước khi tạo sản phẩm' }, { status: 403 });
+      }
+      resolvedStoreId = store.id;
     }
 
     const body = await req.json();
@@ -23,6 +32,7 @@ export async function POST(req: NextRequest) {
       originalPrice,
       salePrice,
       stockQuantity,
+      weight,
       imageUrl,
       categoryIds,
       isComboSet,
@@ -54,7 +64,9 @@ export async function POST(req: NextRequest) {
         originalPrice,
         salePrice: salePrice || null,
         stockQuantity: stockQuantity || 0,
+        weight: weight || 500,
         imageUrl: imageUrl || null,
+        storeId: resolvedStoreId,
         isComboSet: isComboSet || false,
         isGiftItem: isGiftItem || false,
         isActive: isActive !== false,
@@ -88,7 +100,23 @@ export async function POST(req: NextRequest) {
 
 export async function GET(req: NextRequest) {
   try {
+    const token = req.cookies.get('crm_access_token')?.value;
+    const payload = token ? verifyToken(token) : null;
+    
+    let whereClause = {};
+
+    if (payload?.role === 'MODERATOR') {
+      const store = await prisma.store.findUnique({ where: { ownerId: payload.userId } });
+      if (store) {
+        whereClause = { storeId: store.id };
+      } else {
+        // If they are moderator but haven't created store, show nothing
+        whereClause = { id: 'no-store' }; 
+      }
+    }
+
     const products = await prisma.product.findMany({
+      where: whereClause,
       orderBy: { createdAt: 'desc' },
       include: {
         categories: { select: { id: true, name: true } },

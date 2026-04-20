@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma';
+import { updateUserRank } from '@/services/userService';
 
 // API Pancake Docs: https://api-docs.pancake.vn/#tag/warehouse
 
@@ -6,11 +7,15 @@ import { prisma } from '@/lib/prisma';
  * Fetch all orders from Pancake matching a phone number (list endpoint)
  */
 export async function fetchPancakeOrdersByPhone(phone: string) {
-  const shopId = process.env.PANCAKE_SHOP_ID;
-  const apiKey = process.env.PANCAKE_API_KEY;
+  const pConfig = await prisma.storeIntegration.findFirst({
+    where: { platform: 'PANCAKE', isActive: true }
+  });
+  
+  const shopId = pConfig?.shopId || process.env.PANCAKE_SHOP_ID;
+  const apiKey = pConfig?.apiKey || process.env.PANCAKE_API_KEY;
 
   if (!shopId || !apiKey) {
-    console.error('[Pancake] Missing PANCAKE_SHOP_ID or PANCAKE_API_KEY in .env');
+    console.error('[Pancake] Missing Shop ID or API Key from StoreConfig or .env');
     return [];
   }
 
@@ -45,8 +50,12 @@ export async function fetchPancakeOrdersByPhone(phone: string) {
  * Fetch single order detail from Pancake (includes customer info, full items, addresses)
  */
 export async function fetchPancakeOrderDetail(orderId: number) {
-  const shopId = process.env.PANCAKE_SHOP_ID;
-  const apiKey = process.env.PANCAKE_API_KEY;
+  const pConfig = await prisma.storeIntegration.findFirst({
+    where: { platform: 'PANCAKE', isActive: true }
+  });
+  
+  const shopId = pConfig?.shopId || process.env.PANCAKE_SHOP_ID;
+  const apiKey = pConfig?.apiKey || process.env.PANCAKE_API_KEY;
   if (!shopId || !apiKey) return null;
 
   try {
@@ -111,10 +120,17 @@ function extractCustomerInfo(orderDetail: any) {
     }
   }
 
+  const rawGender = customer?.gender;
+  let parsedGender = null;
+  if (rawGender === 1 || String(rawGender).toLowerCase() === 'male') parsedGender = 'MALE';
+  else if (rawGender === 2 || String(rawGender).toLowerCase() === 'female') parsedGender = 'FEMALE';
+  else if (String(rawGender).toLowerCase() === 'other') parsedGender = 'OTHER';
+
   return {
     name: customer?.name || shippingAddr?.full_name || null,
-    gender: customer?.gender === 'female' ? 'FEMALE' : customer?.gender === 'male' ? 'MALE' : null,
-    dob: customer?.date_of_birth || null,
+    gender: parsedGender,
+    email: customer?.email || customer?.email_address || shippingAddr?.email || null,
+    dob: customer?.date_of_birth || customer?.birthday || null,
     fullAddress: shippingAddr?.full_address || primaryAddr?.full_address || null,
     street: shippingAddr?.address || primaryAddr?.address || null,
     province: province,
@@ -170,6 +186,12 @@ export async function syncPancakeOrdersForUser(phone: string, userId: string) {
 
     const finalSubtotal = subtotal > 0 ? subtotal : itemSubtotal;
     const totalAmount = finalSubtotal - (detailData.total_discount || 0) + (detailData.shipping_fee || 0);
+
+    // Bỏ qua nếu đơn hàng có tổng tiền bằng 0
+    if (totalAmount <= 0) {
+      console.log(`[Pancake] Order ${orderCode} has 0 amount, skipping`);
+      continue;
+    }
 
     // Build shipping address string
     const shippingAddress = detailData.shipping_address?.full_address 
@@ -233,6 +255,7 @@ export async function syncPancakeOrdersForUser(phone: string, userId: string) {
  */
 async function syncUserProfileFromPancake(userId: string, custInfo: {
   name: string | null;
+  email: string | null;
   gender: string | null;
   dob: string | null;
   fullAddress: string | null;
@@ -249,11 +272,24 @@ async function syncUserProfileFromPancake(userId: string, custInfo: {
   if (!user.name || user.name === user.phone) {
     if (custInfo.name) updateData.name = custInfo.name;
   }
+  if (!user.email && custInfo.email) {
+    updateData.email = custInfo.email;
+  }
   if (!user.gender && custInfo.gender) {
     updateData.gender = custInfo.gender as any;
   }
   if (!user.dob && custInfo.dob) {
-    updateData.dob = new Date(custInfo.dob);
+    let dateObj = new Date(custInfo.dob);
+    if (isNaN(dateObj.getTime()) && (custInfo.dob.includes('/') || custInfo.dob.includes('-'))) {
+      const parts = custInfo.dob.split(/[/|-]/);
+      if (parts.length === 3) {
+        // Assume DD/MM/YYYY
+        dateObj = new Date(`${parts[2]}-${parts[1]}-${parts[0]}`);
+      }
+    }
+    if (!isNaN(dateObj.getTime())) {
+      updateData.dob = dateObj;
+    }
   }
   if (!user.address && custInfo.fullAddress) {
     updateData.address = custInfo.fullAddress;
@@ -286,27 +322,13 @@ export async function updateUserRankAndSpent(userId: string, addedSpent: number)
 
   const newTotalSpent = user.totalSpent + addedSpent;
 
-  // Re-eval Rank
-  const dbRanks = await prisma.rankConfig.findMany({
-    orderBy: { minTotalSpent: 'desc' }
-  });
-
-  let newRank = user.rank;
-  for (const rankConf of dbRanks) {
-    if (newTotalSpent >= rankConf.minTotalSpent) {
-      newRank = rankConf.rank;
-      break;
-    }
-  }
-
   await prisma.user.update({
     where: { id: userId },
     data: {
       totalSpent: newTotalSpent,
-      rank: newRank,
-      points: Math.floor(newTotalSpent / 10000) 
     }
   });
 
-  console.log(`[Pancake] User ${userId} updated. New Total Spent: ${newTotalSpent}, New Rank: ${newRank}`);
+  await updateUserRank(userId);
+  console.log(`[Pancake] User ${userId} updated. New Total Spent: ${newTotalSpent}`);
 }
