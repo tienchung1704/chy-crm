@@ -6,7 +6,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { apiFetch } from '@/lib/api-client';
+import { apiClientClient } from '@/lib/apiClientClient';
 
 interface UseApiOptions {
   skip?: boolean; // Skip initial fetch
@@ -26,7 +26,7 @@ export function useApi<T = any>(
     try {
       setLoading(true);
       setError(null);
-      const result = await apiFetch<T>(url);
+      const result = await apiClientClient.get<T>(url);
       setData(result);
       options.onSuccess?.(result);
     } catch (err) {
@@ -71,10 +71,14 @@ export function useMutation<TData = any, TResponse = any>(
       try {
         setLoading(true);
         setError(null);
-        const result = await apiFetch<TResponse>(url, {
-          method,
-          body: data ? JSON.stringify(data) : undefined,
-        });
+        let result: TResponse;
+        if (method === 'POST') {
+          result = await apiClientClient.post<TResponse>(url, data || {});
+        } else if (method === 'PUT') {
+          result = await apiClientClient.put<TResponse>(url, data || {});
+        } else {
+          result = await apiClientClient.delete<TResponse>(url);
+        }
         return result;
       } catch (err) {
         const error = err instanceof Error ? err : new Error('Unknown error');

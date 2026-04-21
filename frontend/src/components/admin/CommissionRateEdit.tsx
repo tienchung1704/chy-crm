@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Pencil, Check, X } from 'lucide-react';
+import { apiClientClient } from '@/lib/apiClientClient';
 
 interface CommissionRateEditProps {
   level: number;
@@ -25,16 +26,10 @@ export default function CommissionRateEdit({
   const handleSave = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/commission-config', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          level,
-          percentage: parseFloat(percentage),
-        }),
+      await apiClientClient.put('/commissions/admin/configs', {
+        level,
+        percentage: parseFloat(percentage),
       });
-
-      if (!res.ok) throw new Error('Failed to update');
 
       setIsEditing(false);
       router.refresh();

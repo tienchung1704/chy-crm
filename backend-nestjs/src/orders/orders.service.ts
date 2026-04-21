@@ -230,6 +230,102 @@ export class OrdersService {
     return { success: true, orderId: order.id, orderCode: order.orderCode };
   }
 
+  async findAdminOrders(params: {
+    userId: string;
+    role: string;
+    page?: number;
+    limit?: number;
+    status?: string;
+    search?: string;
+    paymentMethod?: string;
+  }) {
+    const { userId, role } = params;
+    const page = params.page || 1;
+    const limit = params.limit || 11;
+    const search = params.search || '';
+    const status = params.status;
+    const paymentMethod = params.paymentMethod;
+
+    const where: any = {};
+    const baseWhere: any = {}; // For status counts
+
+    if (role === 'MODERATOR') {
+      const store = await this.prisma.store.findUnique({
+        where: { ownerId: userId },
+      });
+      if (store) {
+        where.storeId = store.id;
+        baseWhere.storeId = store.id;
+      } else {
+        where.id = 'no-access';
+        baseWhere.id = 'no-access';
+      }
+    }
+
+    if (search) {
+      const searchFilter = {
+        OR: [
+          { orderCode: { contains: search } },
+          { user: { name: { contains: search } } },
+        ],
+      };
+      where.OR = searchFilter.OR;
+      baseWhere.OR = searchFilter.OR;
+    }
+
+    if (status) where.status = status;
+    if (paymentMethod) where.paymentMethod = paymentMethod;
+
+    const [orders, total, countsData] = await Promise.all([
+      this.prisma.order.findMany({
+        where,
+        include: {
+          user: { select: { name: true, rank: true, phone: true } },
+          appliedVouchers: {
+            include: {
+              userVoucher: {
+                include: {
+                  voucher: { select: { code: true, type: true } },
+                },
+              },
+            },
+          },
+          items: {
+            include: {
+              product: { select: { name: true, imageUrl: true } },
+            },
+          },
+          _count: { select: { commissions: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      this.prisma.order.count({ where }),
+      this.prisma.order.groupBy({
+        by: ['status'],
+        where: baseWhere,
+        _count: true,
+      }),
+    ]);
+
+    const statusCounts = countsData.reduce((acc, curr) => {
+      acc[curr.status] = curr._count;
+      return acc;
+    }, {} as Record<string, number>);
+
+    return {
+      orders,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+      statusCounts,
+    };
+  }
+
   async findAll(userId: string, filters?: any) {
     return this.prisma.order.findMany({
       where: { userId },
@@ -414,6 +510,13 @@ export class OrdersService {
     return updatedOrder;
   }
 
+  async markAsRead(id: string) {
+    return this.prisma.order.update({
+      where: { id },
+      data: { isRead: true },
+    });
+  }
+
   async checkStock(productId: string, size: string, color: string, quantity: number) {
     const product = await this.prisma.product.findUnique({
       where: { id: productId },
@@ -551,5 +654,39 @@ export class OrdersService {
       console.error('Shipping fee calculation exception:', error);
       return { fee: 30000, error: 'Internal Server Error' };
     }
+  }
+
+  async checkProductPurchase(userId: string, productId: string) {
+    const orders = await this.prisma.order.findMany({
+      where: {
+        userId,
+        status: 'COMPLETED',
+        items: {
+          some: {
+            productId,
+          },
+        },
+      },
+      select: {
+        id: true,
+        items: {
+          where: {
+            productId,
+          },
+          select: {
+            size: true,
+            color: true,
+          },
+        },
+      },
+    });
+
+    return orders.flatMap((order) =>
+      order.items.map((item) => ({
+        orderId: order.id,
+        size: item.size,
+        color: item.color,
+      })),
+    );
   }
 }

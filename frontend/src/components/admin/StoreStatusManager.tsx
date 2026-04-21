@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { apiClientClient } from '@/lib/apiClientClient';
 
 interface Props {
   storeId: string;
@@ -20,22 +21,14 @@ export default function StoreStatusManager({ storeId, storeName, isActive, isBan
   const updateStore = async (data: Record<string, any>) => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/admin/stores/${storeId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      });
-      if (res.ok) {
-        router.refresh();
-      } else {
-        const d = await res.json();
-        alert(d.error || 'Lỗi cập nhật');
-      }
-    } catch {
-      alert('Lỗi kết nối');
+      await apiClientClient.patch(`/stores/admin/${storeId}/status`, data);
+      router.refresh();
+      setShowBanModal(false);
+    } catch (error: any) {
+      console.error(error);
+      alert(error.response?.data?.message || 'Lỗi cập nhật');
     } finally {
       setLoading(false);
-      setShowBanModal(false);
     }
   };
 

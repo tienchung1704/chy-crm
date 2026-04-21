@@ -1,7 +1,7 @@
-import prisma from '@/lib/prisma';
 import { notFound, redirect } from 'next/navigation';
 import { getSession } from '@/lib/auth';
 import ProductDetailClient from '@/components/customer/ProductDetailClient';
+import { apiClient } from '@/lib/apiClient';
 
 export default async function ProductDetailPage(props: { 
   params: Promise<{ slug: string }>;
@@ -10,14 +10,12 @@ export default async function ProductDetailPage(props: {
   const params = await props.params;
   const searchParams = await props.searchParams;
   
-  const product = await prisma.product.findUnique({
-    where: { slug: params.slug },
-    include: {
-      categories: { select: { id: true, name: true } },
-      variants: { include: { size: true, color: true } },
-      store: { select: { id: true, name: true, slug: true, logoUrl: true, isActive: true, isBanned: true } },
-    },
-  });
+  let product: any = null;
+  try {
+    product = await apiClient.get<any>(`/products/slug/${params.slug}`);
+  } catch (error) {
+    notFound();
+  }
 
   if (!product || !product.isActive) {
     notFound();
@@ -33,81 +31,37 @@ export default async function ProductDetailPage(props: {
   const refCode = searchParams.ref;
   
   // If user is logged in AND URL has ref parameter, redirect to clean URL
-  // (Referral code only applies to new users, not existing logged-in users)
   if (session && refCode) {
     redirect(`/portal/products/${params.slug}`);
   }
+
   let wishlistIds: string[] = [];
   let userReferralCode = '';
   let userCompletedOrders: Array<{ orderId: string; size: string | null; color: string | null }> = [];
+  let relatedProducts: any[] = [];
 
-  if (session) {
-    const [wishes, user, completedOrders] = await Promise.all([
-      prisma.wishlist.findMany({
-        where: { userId: session.id },
-        select: { productId: true },
-      }),
-      prisma.user.findUnique({
-        where: { id: session.id },
-        select: { referralCode: true },
-      }),
-      // Get completed orders containing this product
-      prisma.order.findMany({
-        where: {
-          userId: session.id,
-          status: 'COMPLETED',
-          items: {
-            some: {
-              productId: product.id,
-            },
-          },
-        },
-        select: {
-          id: true,
-          items: {
-            where: {
-              productId: product.id,
-            },
-            select: {
-              size: true,
-              color: true,
-            },
-          },
-        },
-      }),
-    ]);
-    wishlistIds = wishes.map((w: any) => w.productId);
-    userReferralCode = user?.referralCode || '';
-    
-    // Map completed orders to the format needed by ReviewForm
-    userCompletedOrders = completedOrders.flatMap((order) =>
-      order.items.map((item) => ({
-        orderId: order.id,
-        size: item.size,
-        color: item.color,
-      }))
-    );
+  // Fetch non-session-dependent data
+  try {
+    relatedProducts = await apiClient.get<any[]>(`/products/${product.id}/related`);
+  } catch (error) {
+    console.error('Error fetching related products:', error);
   }
 
-  const relatedProducts = await prisma.product.findMany({
-    where: {
-      isActive: true,
-      id: { not: product.id },
-      categories: {
-        some: { id: { in: product.categories.map((c: any) => c.id) } }
-      },
-      OR: [
-        { storeId: null },
-        { store: { isActive: true, isBanned: false } }
-      ]
-    },
-    take: 6,
-    include: {
-      categories: { select: { name: true } },
-      variants: { include: { size: true, color: true } },
-      store: { select: { id: true, name: true, slug: true, logoUrl: true } },
+  if (session) {
+    userReferralCode = session.referralCode || '';
+    
+    try {
+      const [wishlistData, purchaseHistory] = await Promise.all([
+        apiClient.get<any>('/wishlist'),
+        apiClient.get<any[]>(`/orders/check-purchase/${product.id}`),
+      ]);
+      
+      wishlistIds = wishlistData.productIds || [];
+      userCompletedOrders = purchaseHistory || [];
+    } catch (error) {
+      console.error('Error fetching user dashboard data:', error);
     }
-  });
+  }
 
   return (
     <ProductDetailClient 

@@ -1,12 +1,15 @@
-import { Controller, Get, Post, Put, Body, Param, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Put, Patch, Delete, Body, Param, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { StoresService } from './stores.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
 import { GetUser } from '../auth/decorators/get-user.decorator';
 import { Public } from '../auth/decorators/public.decorator';
+import { Roles } from '../auth/decorators/roles.decorator';
 
 @ApiTags('Stores')
 @Controller('stores')
+@UseGuards(JwtAuthGuard, RolesGuard)
 export class StoresController {
   constructor(private readonly storesService: StoresService) {}
 
@@ -17,8 +20,55 @@ export class StoresController {
     return this.storesService.getAllStores();
   }
 
+  @Get('admin')
+  @Roles('ADMIN')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get all stores for Admin' })
+  async getAllAdmin() {
+    return this.storesService.findAllAdmin();
+  }
+
+  @Get('admin/:id')
+  @Roles('ADMIN')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get store detail for Admin' })
+  async getAdminStoreDetail(@Param('id') id: string) {
+    return this.storesService.findAdminStoreDetail(id);
+  }
+
+  @Post('admin')
+  @Roles('ADMIN')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Create store as Admin' })
+  async createStoreAdmin(@Body() data: any) {
+    return this.storesService.createStoreAdmin(data);
+  }
+
+  @Post('admin/:id/approve')
+  @Roles('ADMIN')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Approve a store' })
+  async approveStore(@Param('id') id: string) {
+    return this.storesService.approveStore(id);
+  }
+
+  @Patch('admin/:id/status')
+  @Roles('ADMIN')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Update store status (isActive, isBanned)' })
+  async updateStatus(@Param('id') id: string, @Body() data: any) {
+    return this.storesService.updateStatus(id, data);
+  }
+
+  @Delete('admin/:id')
+  @Roles('ADMIN')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Delete a store (Admin only)' })
+  async removeAdmin(@Param('id') id: string) {
+    return this.storesService.removeAdmin(id);
+  }
+
   @Get('my-store')
-  @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get current user store' })
   async getUserStore(@GetUser('id') userId: string) {
@@ -33,7 +83,6 @@ export class StoresController {
   }
 
   @Post()
-  @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Create a new store' })
   async createStore(@GetUser('id') userId: string, @Body() data: any) {
@@ -41,7 +90,6 @@ export class StoresController {
   }
 
   @Put()
-  @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Update user store' })
   async updateStore(@GetUser('id') userId: string, @Body() data: any) {

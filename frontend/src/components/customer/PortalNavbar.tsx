@@ -39,7 +39,7 @@ export default function PortalNavbar({ user }: Props) {
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const handleLogout = async () => {
-    await fetch('/api/auth/logout', { method: 'POST' });
+    await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api'}/auth/logout`, { method: 'POST' });
     router.push('/login');
     router.refresh();
   };

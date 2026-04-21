@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Trash2 } from 'lucide-react';
+import { apiClientClient } from '@/lib/apiClientClient';
 
 interface Category {
   id: string;
@@ -51,23 +52,16 @@ export default function CategoryRowActions({ category, allCategories }: Category
     setError('');
 
     try {
-      const res = await fetch(`/api/categories/${category.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...form,
-          sortOrder: parseInt(form.sortOrder) || 0,
-          parentId: form.parentId || null,
-        }),
+      await apiClientClient.patch(`/categories/${category.id}`, {
+        ...form,
+        sortOrder: parseInt(form.sortOrder) || 0,
+        parentId: form.parentId || null,
       });
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
 
       setShowEditModal(false);
       router.refresh();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Lỗi cập nhật danh mục');
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Lỗi cập nhật danh mục');
     } finally {
       setLoading(false);
     }
@@ -78,17 +72,11 @@ export default function CategoryRowActions({ category, allCategories }: Category
     setError('');
 
     try {
-      const res = await fetch(`/api/categories/${category.id}`, {
-        method: 'DELETE',
-      });
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
-
+      await apiClientClient.delete(`/categories/${category.id}`);
       setShowDeleteModal(false);
       router.refresh();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Lỗi xóa danh mục');
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Lỗi xóa danh mục');
     } finally {
       setLoading(false);
     }

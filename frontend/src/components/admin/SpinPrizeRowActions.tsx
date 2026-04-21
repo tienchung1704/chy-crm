@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Edit2, Trash2, X } from 'lucide-react';
+import { apiClientClient } from '@/lib/apiClientClient';
 
 interface SpinPrize {
   id: string;
@@ -38,7 +39,6 @@ export default function SpinPrizeRowActions({ prize }: { prize: SpinPrize }) {
     color: prize.color || '#6366f1',
     probability: (prize.probability * 100).toString(),
     quantity: prize.quantity?.toString() || '',
-    // Voucher config
     voucherCode: prize.voucher?.code || '',
     voucherName: prize.voucher?.name || '',
     voucherDescription: prize.voucher?.description || '',
@@ -57,36 +57,29 @@ export default function SpinPrizeRowActions({ prize }: { prize: SpinPrize }) {
     setError('');
 
     try {
-      const res = await fetch(`/api/spin/prizes/${prize.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: form.name,
-          color: form.color,
-          probability: parseFloat(form.probability) / 100,
-          quantity: form.quantity ? parseInt(form.quantity) : null,
-          voucher: prize.voucher ? {
-            code: form.voucherCode,
-            name: form.voucherName,
-            description: form.voucherDescription,
-            type: form.voucherType,
-            value: parseFloat(form.value),
-            minOrderValue: parseFloat(form.minOrderValue) || 0,
-            maxDiscount: form.maxDiscount ? parseFloat(form.maxDiscount) : null,
-            perCustomerLimit: parseInt(form.perCustomerLimit) || 1,
-            durationDays: form.durationDays ? parseInt(form.durationDays) : null,
-            isStackable: form.isStackable,
-          } : undefined,
-        }),
+      await apiClientClient.put(`/spin/admin/prizes/${prize.id}`, {
+        name: form.name,
+        color: form.color,
+        probability: parseFloat(form.probability) / 100,
+        quantity: form.quantity ? parseInt(form.quantity) : null,
+        voucher: prize.voucher ? {
+          code: form.voucherCode,
+          name: form.voucherName,
+          description: form.voucherDescription,
+          type: form.voucherType,
+          value: parseFloat(form.value),
+          minOrderValue: parseFloat(form.minOrderValue) || 0,
+          maxDiscount: form.maxDiscount ? parseFloat(form.maxDiscount) : null,
+          perCustomerLimit: parseInt(form.perCustomerLimit) || 1,
+          durationDays: form.durationDays ? parseInt(form.durationDays) : null,
+          isStackable: form.isStackable,
+        } : undefined,
       });
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
 
       setShowEditModal(false);
       router.refresh();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Lỗi cập nhật giải thưởng');
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Lỗi cập nhật giải thưởng');
     } finally {
       setLoading(false);
     }
@@ -95,17 +88,11 @@ export default function SpinPrizeRowActions({ prize }: { prize: SpinPrize }) {
   const handleDelete = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/spin/prizes/${prize.id}`, {
-        method: 'DELETE',
-      });
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error);
-      }
+      await apiClientClient.delete(`/spin/admin/prizes/${prize.id}`);
       setShowDeleteModal(false);
       router.refresh();
-    } catch (err) {
-      alert(err instanceof Error ? err.message : 'Lỗi xóa giải thưởng');
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Lỗi xóa giải thưởng');
     } finally {
       setLoading(false);
     }

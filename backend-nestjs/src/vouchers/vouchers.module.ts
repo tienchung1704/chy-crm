@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, Logger } from '@nestjs/common';
 import { BullModule } from '@nestjs/bullmq';
 import { BullBoardModule } from '@bull-board/nestjs';
 import { BullMQAdapter } from '@bull-board/api/bullMQAdapter';
@@ -7,9 +7,20 @@ import { VouchersService } from './vouchers.service';
 import { VoucherProcessor } from './voucher.processor';
 import { PrismaModule } from '../prisma/prisma.module';
 
-@Module({
-  imports: [
-    PrismaModule,
+const logger = new Logger('VouchersModule');
+
+// Helper function to conditionally load queue modules
+function getQueueImports(): any[] {
+  const redisHost = process.env.REDIS_HOST;
+  const redisUrl = process.env.REDIS_URL;
+  
+  // Skip queue registration if Redis is not configured
+  if (!redisHost && !redisUrl) {
+    logger.warn('⚠️  Redis not configured - Voucher queue disabled');
+    return [];
+  }
+
+  return [
     BullModule.registerQueue({
       name: 'voucher-queue',
       defaultJobOptions: {
@@ -32,9 +43,31 @@ import { PrismaModule } from '../prisma/prisma.module';
       name: 'voucher-queue',
       adapter: BullMQAdapter,
     }),
+  ];
+}
+
+// Helper function to conditionally load providers
+function getProviders(): any[] {
+  const redisHost = process.env.REDIS_HOST;
+  const redisUrl = process.env.REDIS_URL;
+  
+  const providers: any[] = [VouchersService];
+  
+  // Only add VoucherProcessor if Redis is configured
+  if (redisHost || redisUrl) {
+    providers.push(VoucherProcessor);
+  }
+  
+  return providers;
+}
+
+@Module({
+  imports: [
+    PrismaModule,
+    ...getQueueImports(), // Conditionally load queue modules
   ],
   controllers: [VouchersController],
-  providers: [VouchersService, VoucherProcessor],
+  providers: getProviders(), // Conditionally load providers
   exports: [VouchersService],
 })
 export class VouchersModule {}

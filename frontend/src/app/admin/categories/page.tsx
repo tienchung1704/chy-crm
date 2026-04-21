@@ -1,24 +1,15 @@
+export const dynamic = 'force-dynamic';
 import React from 'react';
-import prisma from '@/lib/prisma';
 import CategoryActions from '@/components/admin/CategoryActions';
 import CategoryTree from '@/components/admin/CategoryTree';
-
-async function getCategories() {
-  return prisma.category.findMany({
-    orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
-    include: {
-      parent: { select: { name: true } },
-      _count: { select: { products: true, children: true } },
-    },
-  });
-}
+import { apiClient } from '@/lib/apiClient';
 
 export default async function CategoriesPage() {
-  const categories = await getCategories();
+  const categories = await apiClient.get<any[]>('/categories?admin=true');
 
   // Organize categories by hierarchy
-  const rootCategories = categories.filter(c => !c.parentId);
-  const childCategories = categories.filter(c => c.parentId);
+  const rootCategories = categories.filter((c: any) => !c.parentId);
+  const childCategories = categories.filter((c: any) => c.parentId);
 
   return (
     <>
@@ -29,7 +20,7 @@ export default async function CategoriesPage() {
             Quản lý danh mục và phân loại sản phẩm
           </p>
         </div>
-        <CategoryActions categories={categories.map(c => ({ id: c.id, name: c.name, parentId: c.parentId }))} />
+        <CategoryActions categories={categories.map((c: any) => ({ id: c.id, name: c.name, parentId: c.parentId }))} />
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">

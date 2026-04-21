@@ -1,22 +1,19 @@
-import prisma from '@/lib/prisma';
-import { getSession } from '@/lib/auth';
 import { redirect } from 'next/navigation';
+export const dynamic = 'force-dynamic';
 import Link from 'next/link';
 import StoreActions from '@/components/admin/StoreActions';
 import StoreApprovalButton from '@/components/admin/StoreApprovalButton';
+import { apiClient } from '@/lib/apiClient';
+import { getSession } from '@/lib/auth';
 
-async function getStores() {
-  return prisma.store.findMany({
-    orderBy: { createdAt: 'desc' },
-    include: {
-      owner: { select: { name: true, email: true, phone: true } },
-      _count: { select: { products: true, orders: true } },
-    },
-  });
-}
-
-function fmtDate(d: Date) {
-  return new Intl.DateTimeFormat('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(d));
+function fmtDate(d: string | Date) {
+  return new Intl.DateTimeFormat('vi-VN', { 
+    day: '2-digit', 
+    month: '2-digit', 
+    year: 'numeric', 
+    hour: '2-digit', 
+    minute: '2-digit' 
+  }).format(new Date(d));
 }
 
 export default async function StoresPage() {
@@ -25,7 +22,13 @@ export default async function StoresPage() {
     redirect('/admin');
   }
 
-  const stores = await getStores();
+  let stores: any[] = [];
+  try {
+    stores = await apiClient.get<any[]>('/stores/admin');
+  } catch (error) {
+    console.error('Error fetching admin stores:', error);
+  }
+
   const pendingCount = stores.filter(s => !s.isActive && !s.isBanned).length;
   const bannedCount = stores.filter(s => s.isBanned).length;
 
@@ -123,7 +126,7 @@ export default async function StoresPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {stores.filter(s => s.isActive).length === 0 ? (
+              {stores.filter(s => s.isActive && !s.isBanned).length === 0 ? (
                 <tr>
                   <td colSpan={7}>
                     <div className="text-center py-12">

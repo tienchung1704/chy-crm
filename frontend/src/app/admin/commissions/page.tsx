@@ -1,4 +1,5 @@
-import prisma from '@/lib/prisma';
+export const dynamic = 'force-dynamic';
+import { apiClient } from '@/lib/apiClient';
 
 function fmt(n: number) {
   return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 }).format(n);
@@ -13,20 +14,22 @@ const statusMap: Record<string, { cls: string; label: string }> = {
 };
 
 export default async function CommissionsPage() {
-  const [commissions, configs, stats] = await Promise.all([
-    prisma.commissionLedger.findMany({
-      take: 50,
-      orderBy: { createdAt: 'desc' },
-      include: {
-        user: { select: { name: true, referralCode: true } },
-        order: { select: { orderCode: true, totalAmount: true } },
-      },
-    }),
-    prisma.commissionConfig.findMany({ orderBy: { level: 'asc' } }),
-    prisma.commissionLedger.aggregate({ _sum: { amount: true }, _count: true }),
-  ]);
+  let commissions: any[] = [];
+  let configs: any[] = [];
+  let stats: any = { total: { amount: 0, count: 0 }, pending: { amount: 0, count: 0 } };
 
-  const pendingSum = await prisma.commissionLedger.aggregate({ where: { status: 'PENDING' }, _sum: { amount: true }, _count: true });
+  try {
+    const [ledgerRes, configsRes, statsRes] = await Promise.all([
+      apiClient.get<any[]>('/commissions/admin/ledger'),
+      apiClient.get<any[]>('/commissions/admin/configs'),
+      apiClient.get<any>('/commissions/admin/stats'),
+    ]);
+    commissions = ledgerRes;
+    configs = configsRes;
+    stats = statsRes;
+  } catch (error) {
+    console.error('Error fetching admin commissions:', error);
+  }
 
   return (
     <>
@@ -38,15 +41,15 @@ export default async function CommissionsPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-6 mb-8">
         <div className="bg-white p-6 rounded-xl shadow-sm">
           <div className="text-sm text-gray-600 mb-2">Tổng hoa hồng đã sinh</div>
-          <div className="text-3xl font-bold text-gray-800 mb-2">{fmt(stats._sum.amount || 0)}</div>
-          <div className="text-xs text-gray-600">{stats._count} giao dịch</div>
+          <div className="text-3xl font-bold text-gray-800 mb-2">{fmt(stats.total.amount)}</div>
+          <div className="text-xs text-gray-600">{stats.total.count} giao dịch</div>
         </div>
         <div className="bg-white p-6 rounded-xl shadow-sm">
           <div className="text-sm text-gray-600 mb-2">Hoa hồng chờ duyệt</div>
-          <div className="text-3xl font-bold text-gray-800 mb-2">{fmt(pendingSum._sum.amount || 0)}</div>
-          <div className="text-xs text-gray-600">{pendingSum._count} giao dịch</div>
+          <div className="text-3xl font-bold text-gray-800 mb-2">{fmt(stats.pending.amount)}</div>
+          <div className="text-xs text-gray-600">{stats.pending.count} giao dịch</div>
         </div>
-        {configs.map(c => (
+        {configs.map((c: any) => (
           <div key={c.id} className="bg-white p-6 rounded-xl shadow-sm">
             <div className="text-sm text-gray-600 mb-2">Tầng F{c.level}</div>
             <div className="text-3xl font-bold text-gray-800 mb-2">{c.percentage}%</div>
@@ -61,7 +64,7 @@ export default async function CommissionsPage() {
           📊 Cấu hình tỷ lệ hoa hồng
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          {configs.map(c => (
+          {configs.map((c: any) => (
             <div key={c.id} className="bg-gray-50 border border-gray-200 rounded-lg p-4 text-center">
               <div className="text-xs text-gray-500 mb-2">
                 Khi F{c.level} mua hàng
@@ -108,7 +111,7 @@ export default async function CommissionsPage() {
                     </div>
                   </td>
                 </tr>
-              ) : commissions.map(c => {
+              ) : commissions.map((c: any) => {
                 const st = statusMap[c.status] || { cls: 'bg-gray-100 text-gray-600', label: c.status };
                 return (
                   <tr key={c.id} className="hover:bg-gray-50">

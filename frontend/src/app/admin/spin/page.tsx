@@ -1,14 +1,24 @@
-import prisma from '@/lib/prisma';
+export const dynamic = 'force-dynamic';
+import { apiClient } from '@/lib/apiClient';
 import SpinPrizeActions from '@/components/admin/SpinPrizeActions';
 import SpinPrizeRowActions from '@/components/admin/SpinPrizeRowActions';
 
 export default async function SpinConfigPage() {
-  const prizes = await prisma.spinPrize.findMany({ 
-    orderBy: { sortOrder: 'asc' },
-    include: { voucher: true },
-  });
-  const totalSpins = await prisma.spinHistory.count();
-  const totalWins = await prisma.spinHistory.count({ where: { won: true } });
+  let prizes: any[] = [];
+  let stats = { totalSpins: 0, totalWins: 0 };
+
+  try {
+    const [prizesRes, statsRes] = await Promise.all([
+      apiClient.get<any[]>('/spin/admin/prizes'),
+      apiClient.get<any>('/spin/admin/stats'),
+    ]);
+    prizes = prizesRes;
+    stats = statsRes;
+  } catch (error) {
+    console.error('Error fetching admin spin data:', error);
+  }
+
+  const { totalSpins, totalWins } = stats;
 
   return (
     <>

@@ -1,33 +1,39 @@
 import { getSession } from '@/lib/auth';
-import prisma from '@/lib/prisma';
+export const dynamic = 'force-dynamic';
+import { apiClient } from '@/lib/apiClient';
 
 function fmt(n: number) {
   return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 }).format(n);
 }
 
-function formatVnDate(date: Date) {
+function formatVnDate(date: string | Date | null) {
+  if (!date) return '';
   return new Intl.DateTimeFormat('vi-VN', {
     dateStyle: 'short',
     timeStyle: 'short',
     timeZone: 'Asia/Ho_Chi_Minh'
-  }).format(date);
+  }).format(new Date(date));
 }
 
 export default async function PortalVouchersPage() {
   const session = await getSession();
   if (!session) return null;
 
-  const userVouchers = await prisma.userVoucher.findMany({
-    where: { userId: session.id },
-    include: {
-      voucher: {
-        select: { code: true, name: true, type: true, value: true, minOrderValue: true, campaignCategory: true, description: true },
-      },
-    },
-    orderBy: { createdAt: 'desc' },
-  });
+  let userVouchers: any[] = [];
+  let systemVouchers: any[] = [];
 
   const now = new Date();
+
+  try {
+    const [userVouchersData, systemVouchersData] = await Promise.all([
+      apiClient.get<any[]>('/vouchers/user/my-vouchers'),
+      apiClient.get<any[]>('/vouchers'),
+    ]);
+    userVouchers = userVouchersData;
+    systemVouchers = systemVouchersData;
+  } catch (error) {
+    console.error('Error fetching vouchers:', error);
+  }
 
   const available = userVouchers.filter(v => {
     if (v.isUsed) return false;
@@ -70,7 +76,7 @@ export default async function PortalVouchersPage() {
         </div>
         {uv.expiresAt && (
           <div className="text-xs text-orange-600 mb-3">
-            ⏰ Hết hạn: {formatVnDate(new Date(uv.expiresAt))}
+            ⏰ Hết hạn: {formatVnDate(uv.expiresAt)}
           </div>
         )}
         <div className="flex justify-end">
@@ -84,18 +90,6 @@ export default async function PortalVouchersPage() {
       </div>
     </div>
   );
-
-  const systemVouchers = await prisma.voucher.findMany({
-    where: {
-      isActive: true,
-      campaignCategory: { not: 'GAMIFICATION' }, // Exclude spin wheel vouchers
-      OR: [
-        { validTo: null },
-        { validTo: { gt: now } }
-      ]
-    },
-    orderBy: { createdAt: 'desc' }
-  });
 
   const renderSystemVoucherCard = (v: any) => (
     <div key={v.id} className="bg-white border-2 border-dashed border-gray-300 rounded-xl overflow-hidden transition-all hover:shadow-md opacity-90">
@@ -118,7 +112,7 @@ export default async function PortalVouchersPage() {
         </div>
         {v.validTo && (
           <div className="text-xs text-gray-500 mb-3">
-            ⏰ Hạn dùng: {formatVnDate(new Date(v.validTo))}
+            ⏰ Hạn dùng: {formatVnDate(v.validTo)}
           </div>
         )}
         <div className="flex justify-end">

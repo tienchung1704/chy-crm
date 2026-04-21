@@ -1,72 +1,6 @@
-import prisma from '@/lib/prisma';
 import Link from 'next/link';
-
-async function getDashboardStats() {
-  const [
-    totalCustomers,
-    newCustomersThisMonth,
-    totalOrders,
-    completedOrders,
-    totalRevenue,
-    activeVouchers,
-    pendingCommissions,
-    recentOrders,
-    topCustomers,
-  ] = await Promise.all([
-    prisma.user.count({ where: { role: 'CUSTOMER' } }),
-    prisma.user.count({
-      where: {
-        role: 'CUSTOMER',
-        createdAt: {
-          gte: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
-        },
-      },
-    }),
-    prisma.order.count(),
-    prisma.order.count({ where: { status: 'COMPLETED' } }),
-    prisma.order.aggregate({
-      where: { status: 'COMPLETED' },
-      _sum: { totalAmount: true },
-    }),
-    prisma.voucher.count({ where: { isActive: true } }),
-    prisma.commissionLedger.aggregate({
-      where: { status: 'PENDING' },
-      _sum: { amount: true },
-    }),
-    prisma.order.findMany({
-      take: 8,
-      orderBy: { createdAt: 'desc' },
-      include: {
-        user: { select: { name: true, rank: true } },
-      },
-    }),
-    prisma.user.findMany({
-      where: { role: 'CUSTOMER' },
-      take: 5,
-      orderBy: { totalSpent: 'desc' },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        rank: true,
-        totalSpent: true,
-        _count: { select: { orders: true } },
-      },
-    }),
-  ]);
-
-  return {
-    totalCustomers,
-    newCustomersThisMonth,
-    totalOrders,
-    completedOrders,
-    totalRevenue: totalRevenue._sum.totalAmount || 0,
-    activeVouchers,
-    pendingCommissions: pendingCommissions._sum.amount || 0,
-    recentOrders,
-    topCustomers,
-  };
-}
+export const dynamic = 'force-dynamic';
+import { apiClient } from '@/lib/apiClient';
 
 function formatCurrency(amount: number) {
   return new Intl.NumberFormat('vi-VN', {
@@ -99,7 +33,23 @@ function getStatusBadge(status: string) {
 }
 
 export default async function AdminDashboard() {
-  const stats = await getDashboardStats();
+  let stats: any = {
+    totalCustomers: 0,
+    newCustomersThisMonth: 0,
+    totalOrders: 0,
+    completedOrders: 0,
+    totalRevenue: 0,
+    activeVouchers: 0,
+    pendingCommissions: 0,
+    recentOrders: [],
+    topCustomers: [],
+  };
+
+  try {
+    stats = await apiClient.get<any>('/admin/dashboard');
+  } catch (error) {
+    console.error('Error fetching admin dashboard stats:', error);
+  }
 
   return (
     <>
@@ -122,7 +72,7 @@ export default async function AdminDashboard() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
         <div className="bg-white p-6 rounded-xl shadow-sm">
           <div className="text-sm text-gray-600 mb-2">Tổng khách hàng</div>
-          <div className="text-3xl font-bold text-gray-800 mb-2">{stats.totalCustomers.toLocaleString()}</div>
+          <div className="text-3xl font-bold text-gray-800 mb-2">{stats.totalCustomers?.toLocaleString()}</div>
           <div className="text-xs text-green-600 font-medium">
             +{stats.newCustomersThisMonth} tháng này
           </div>
@@ -140,7 +90,7 @@ export default async function AdminDashboard() {
 
         <div className="bg-white p-6 rounded-xl shadow-sm">
           <div className="text-sm text-gray-600 mb-2">Đơn hàng</div>
-          <div className="text-3xl font-bold text-gray-800 mb-2">{stats.totalOrders.toLocaleString()}</div>
+          <div className="text-3xl font-bold text-gray-800 mb-2">{stats.totalOrders?.toLocaleString()}</div>
           <div className="text-xs text-green-600 font-medium">
             {stats.completedOrders} hoàn thành
           </div>
@@ -180,14 +130,14 @@ export default async function AdminDashboard() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {stats.recentOrders.length === 0 ? (
+                {!stats.recentOrders || stats.recentOrders.length === 0 ? (
                   <tr>
                     <td colSpan={4} className="text-center py-8">
                       <div className="text-gray-500">Chưa có đơn hàng nào</div>
                     </td>
                   </tr>
                 ) : (
-                  stats.recentOrders.map((order) => {
+                  stats.recentOrders.map((order: any) => {
                     const statusInfo = getStatusBadge(order.status);
                     return (
                       <tr key={order.id} className="hover:bg-gray-50">
@@ -199,9 +149,9 @@ export default async function AdminDashboard() {
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-2">
                             <div className="w-6 h-6 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-xs font-semibold">
-                              {order.user.name.charAt(0)}
+                              {order.user?.name?.charAt(0) || '?'}
                             </div>
-                            <span className="text-sm">{order.user.name}</span>
+                            <span className="text-sm">{order.user?.name || 'Khách lạ'}</span>
                           </div>
                         </td>
                         <td className="px-6 py-4 font-semibold">{formatCurrency(order.totalAmount)}</td>
@@ -243,19 +193,19 @@ export default async function AdminDashboard() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {stats.topCustomers.length === 0 ? (
+                {!stats.topCustomers || stats.topCustomers.length === 0 ? (
                   <tr>
                     <td colSpan={4} className="text-center py-8">
                       <div className="text-gray-500">Chưa có khách hàng nào</div>
                     </td>
                   </tr>
                 ) : (
-                  stats.topCustomers.map((customer) => (
+                  stats.topCustomers.map((customer: any) => (
                     <tr key={customer.id} className="hover:bg-gray-50">
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-2">
                           <div className="w-6 h-6 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-xs font-semibold">
-                            {customer.name.charAt(0)}
+                            {customer.name?.charAt(0)}
                           </div>
                           <div>
                             <div className="font-semibold text-sm">{customer.name}</div>
@@ -275,7 +225,7 @@ export default async function AdminDashboard() {
                         </span>
                       </td>
                       <td className="px-6 py-4 font-semibold">{formatCurrency(customer.totalSpent)}</td>
-                      <td className="px-6 py-4">{customer._count.orders}</td>
+                      <td className="px-6 py-4">{customer._count?.orders || 0}</td>
                     </tr>
                   ))
                 )}

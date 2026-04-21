@@ -1,61 +1,12 @@
-import prisma from '@/lib/prisma';
+export const dynamic = 'force-dynamic';
 import Link from 'next/link';
 import CustomerActions from '@/components/admin/CustomerActions';
+import { apiClient } from '@/lib/apiClient';
 
 interface SearchParams {
   page?: string;
   search?: string;
   rank?: string;
-}
-
-async function getCustomers(params: SearchParams) {
-  const page = parseInt(params.page || '1');
-  const limit = 20;
-  const search = params.search || '';
-  const rank = params.rank || '';
-
-  const where: Record<string, unknown> = { role: 'CUSTOMER' };
-
-  if (search) {
-    where.OR = [
-      { name: { contains: search } },
-      { email: { contains: search } },
-      { phone: { contains: search } },
-    ];
-  }
-
-  if (rank) {
-    where.rank = rank;
-  }
-
-  const [customers, total] = await Promise.all([
-    prisma.user.findMany({
-      where,
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        phone: true,
-        gender: true,
-        dob: true,
-        rank: true,
-        totalSpent: true,
-        commissionBalance: true,
-        referralCode: true,
-        createdAt: true,
-        _count: { select: { orders: true, referees: true } },
-      },
-      orderBy: { createdAt: 'desc' },
-      skip: (page - 1) * limit,
-      take: limit,
-    }),
-    prisma.user.count({ where }),
-  ]);
-
-  return {
-    customers,
-    pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
-  };
 }
 
 function formatCurrency(amount: number) {
@@ -72,7 +23,7 @@ function getRankBadgeClass(rank: string) {
   return map[rank] || 'badge-member';
 }
 
-function formatDate(date: Date) {
+function formatDate(date: string | Date) {
   return new Intl.DateTimeFormat('vi-VN', {
     day: '2-digit', month: '2-digit', year: 'numeric',
   }).format(new Date(date));
@@ -82,7 +33,23 @@ export default async function CustomersPage(props: {
   searchParams: Promise<SearchParams>;
 }) {
   const searchParams = await props.searchParams;
-  const { customers, pagination } = await getCustomers(searchParams);
+
+  let customers: any[] = [];
+  let pagination: any = { page: 1, limit: 20, total: 0, totalPages: 0 };
+
+  try {
+    const data = await apiClient.get<any>('/admin/customers', {
+      params: {
+        page: searchParams.page,
+        search: searchParams.search,
+        rank: searchParams.rank,
+      }
+    });
+    customers = data.customers;
+    pagination = data.pagination;
+  } catch (error) {
+    console.error('Error fetching customers:', error);
+  }
 
   return (
     <>
@@ -109,9 +76,9 @@ export default async function CustomersPage(props: {
               className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
-          <select 
-            name="rank" 
-            className="w-40 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" 
+          <select
+            name="rank"
+            className="w-40 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             defaultValue={searchParams.rank}
           >
             <option value="">Tất cả hạng</option>
@@ -165,7 +132,7 @@ export default async function CustomersPage(props: {
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-semibold">
-                          {customer.name.charAt(0).toUpperCase()}
+                          {(customer.phone || customer.name || '?').charAt(0).toUpperCase()}
                         </div>
                         <div>
                           <div className="font-semibold text-gray-800">
@@ -181,23 +148,22 @@ export default async function CustomersPage(props: {
                       {customer.email || '—'}
                     </td>
                     <td className="px-6 py-4">
-                      <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                        customer.rank === 'PLATINUM' ? 'bg-purple-100 text-purple-700' :
-                        customer.rank === 'DIAMOND' ? 'bg-blue-100 text-blue-700' :
-                        customer.rank === 'GOLD' ? 'bg-yellow-100 text-yellow-700' :
-                        customer.rank === 'SILVER' ? 'bg-gray-200 text-gray-700' :
-                        'bg-gray-100 text-gray-600'
-                      }`}>
+                      <span className={`px-3 py-1 rounded-full text-xs font-semibold ${customer.rank === 'PLATINUM' ? 'bg-purple-100 text-purple-700' :
+                          customer.rank === 'DIAMOND' ? 'bg-blue-100 text-blue-700' :
+                            customer.rank === 'GOLD' ? 'bg-yellow-100 text-yellow-700' :
+                              customer.rank === 'SILVER' ? 'bg-gray-200 text-gray-700' :
+                                'bg-gray-100 text-gray-600'
+                        }`}>
                         {customer.rank}
                       </span>
                     </td>
                     <td className="px-6 py-4 font-semibold text-gray-800">
                       {formatCurrency(customer.totalSpent)}
                     </td>
-                    <td className="px-6 py-4">{customer._count.orders}</td>
+                    <td className="px-6 py-4">{customer._count?.orders || 0}</td>
                     <td className="px-6 py-4">
                       <span className="px-3 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-700">
-                        {customer._count.referees} người
+                        {customer._count?.referees || 0} người
                       </span>
                     </td>
                     <td className="px-6 py-4 font-semibold text-gray-800">{formatCurrency(customer.commissionBalance)}</td>
@@ -222,11 +188,10 @@ export default async function CustomersPage(props: {
             <Link
               key={i + 1}
               href={`/admin/customers?page=${i + 1}${searchParams.search ? `&search=${searchParams.search}` : ''}${searchParams.rank ? `&rank=${searchParams.rank}` : ''}`}
-              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                pagination.page === i + 1 
-                  ? 'bg-blue-600 text-white' 
+              className={`px-4 py-2 rounded-lg font-medium transition-colors ${pagination.page === i + 1
+                  ? 'bg-blue-600 text-white'
                   : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-300'
-              }`}
+                }`}
             >
               {i + 1}
             </Link>

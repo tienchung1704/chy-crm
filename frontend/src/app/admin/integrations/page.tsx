@@ -1,7 +1,9 @@
 'use client';
+export const dynamic = 'force-dynamic';
 
 import { useState, useEffect } from 'react';
 import { Layers } from 'lucide-react';
+import { apiClientClient } from '@/lib/apiClientClient';
 
 interface Integration {
   id: string;
@@ -42,22 +44,17 @@ export default function IntegrationsPage() {
   const [syncMessage, setSyncMessage] = useState('');
   const [isSyncingCategories, setIsSyncingCategories] = useState(false);
 
-  // Note: For simplicity in this UI, we assume MODERATOR. Admin can pass storeId.
-  // In a real scenario, we'd fetch the user's role and display a store selector if ADMIN.
-  const storeIdParam = selectedStoreId ? `?storeId=${selectedStoreId}` : '';
-
   useEffect(() => {
     fetchIntegrations();
   }, [selectedStoreId]);
 
   const fetchIntegrations = async () => {
     try {
-      const res = await fetch(`/api/admin/integrations${storeIdParam}`);
-      if (res.ok) {
-        const data = await res.json();
-        setIntegrations(data.integrations || []);
-      }
-    } catch (e) {
+      const data = await apiClientClient.get<Integration[]>('/integrations', {
+        params: { storeId: selectedStoreId }
+      });
+      setIntegrations(data || []);
+    } catch (e: any) {
       console.error(e);
     } finally {
       setLoading(false);
@@ -80,10 +77,6 @@ export default function IntegrationsPage() {
     e.preventDefault();
     setIsSaving(true);
     
-    // Determine the target storeId (either selected by ADMIN or implied for MODERATOR)
-    // If MODERATOR, the API uses their session to find the store. 
-    // We just pass selectedStoreId if it exists.
-    
     try {
       const payload = {
         platform: activePlatform,
@@ -96,22 +89,13 @@ export default function IntegrationsPage() {
         ...(selectedStoreId && { storeId: selectedStoreId })
       };
 
-      const res = await fetch('/api/admin/integrations', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-
-      if (res.ok) {
-        fetchIntegrations();
-        setIsModalOpen(false);
-        alert('Lưu cấu hình thành công!');
-      } else {
-        const data = await res.json();
-        alert(data.error || 'Lỗi khi lưu cấu hình');
-      }
-    } catch {
-      alert('Lỗi kết nối');
+      await apiClientClient.post<any>('/integrations', payload);
+      fetchIntegrations();
+      setIsModalOpen(false);
+      alert('Lưu cấu hình thành công!');
+    } catch (error: any) {
+      console.error(error);
+      alert(error.response?.data?.message || 'Lỗi khi lưu cấu hình');
     } finally {
       setIsSaving(false);
     }
@@ -126,23 +110,15 @@ export default function IntegrationsPage() {
     setSyncMessage('Đang đồng bộ sản phẩm...');
 
     try {
-      const res = await fetch('/api/admin/integrations/sync-products', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ storeId: selectedStoreId }),
+      const data = await apiClientClient.post<any>('/integrations/pancake/sync-products', { 
+        storeId: selectedStoreId 
       });
-
-      const data = await res.json();
       
-      if (res.ok) {
-        setSyncMessage(data.message || 'Đồng bộ thành công!');
-        setTimeout(() => setSyncMessage(''), 5000);
-      } else {
-        setSyncMessage(data.error || 'Lỗi khi đồng bộ sản phẩm');
-        setTimeout(() => setSyncMessage(''), 5000);
-      }
-    } catch (error) {
-      setSyncMessage('Lỗi kết nối khi đồng bộ');
+      setSyncMessage(data.message || 'Đồng bộ thành công!');
+      setTimeout(() => setSyncMessage(''), 5000);
+    } catch (error: any) {
+      console.error(error);
+      setSyncMessage(error.response?.data?.message || 'Lỗi khi đồng bộ sản phẩm');
       setTimeout(() => setSyncMessage(''), 5000);
     } finally {
       setIsSyncing(false);
@@ -158,22 +134,13 @@ export default function IntegrationsPage() {
     setSyncMessage('Đang đồng bộ danh mục...');
 
     try {
-      const res = await fetch('/api/admin/integrations/sync-categories', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-      });
-
-      const data = await res.json();
+      const data = await apiClientClient.post<any>('/integrations/pancake/sync-categories', {});
       
-      if (res.ok) {
-        setSyncMessage(data.message || 'Đồng bộ danh mục thành công!');
-        setTimeout(() => setSyncMessage(''), 5000);
-      } else {
-        setSyncMessage(data.error || 'Lỗi khi đồng bộ danh mục');
-        setTimeout(() => setSyncMessage(''), 5000);
-      }
-    } catch (error) {
-      setSyncMessage('Lỗi kết nối khi đồng bộ danh mục');
+      setSyncMessage(data.message || 'Đồng bộ danh mục thành công!');
+      setTimeout(() => setSyncMessage(''), 5000);
+    } catch (error: any) {
+      console.error(error);
+      setSyncMessage(error.response?.data?.message || 'Lỗi khi đồng bộ danh mục');
       setTimeout(() => setSyncMessage(''), 5000);
     } finally {
       setIsSyncingCategories(false);
@@ -181,6 +148,7 @@ export default function IntegrationsPage() {
   };
 
   if (loading) return <div className="p-8 text-center text-gray-500">Đang tải cấu hình kết nối...</div>;
+// ... (rest of the file is the same JSX, I'll keep it)
 
   return (
     <div className="max-w-6xl mx-auto space-y-8">

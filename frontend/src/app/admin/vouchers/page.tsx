@@ -1,18 +1,7 @@
-import prisma from '@/lib/prisma';
+export const dynamic = 'force-dynamic';
 import Link from 'next/link';
 import VoucherActions from '@/components/admin/VoucherActions';
-
-async function getVouchers() {
-  return prisma.voucher.findMany({
-    where: {
-      campaignCategory: { not: 'GAMIFICATION' } // Exclude spin wheel vouchers
-    },
-    orderBy: { createdAt: 'desc' },
-    include: {
-      _count: { select: { userVouchers: true } },
-    },
-  });
-}
+import { apiClient } from '@/lib/apiClient';
 
 function formatCurrency(amount: number) {
   return new Intl.NumberFormat('vi-VN', {
@@ -20,7 +9,7 @@ function formatCurrency(amount: number) {
   }).format(amount);
 }
 
-function formatDate(date: Date | null) {
+function formatDate(date: string | Date | null) {
   if (!date) return '—';
   return new Intl.DateTimeFormat('vi-VN', {
     day: '2-digit', month: '2-digit', year: 'numeric',
@@ -50,7 +39,14 @@ function getCampaignBadge(cat: string) {
 }
 
 export default async function VouchersPage() {
-  const vouchers = await getVouchers();
+  let vouchers: any[] = [];
+  try {
+    vouchers = await apiClient.get<any[]>('/vouchers/admin', {
+      params: { excludeGamification: 'true' }
+    });
+  } catch (error) {
+    console.error('Error fetching admin vouchers:', error);
+  }
 
   return (
     <>

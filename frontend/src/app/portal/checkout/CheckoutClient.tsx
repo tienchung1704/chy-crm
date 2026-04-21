@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { MapPin, CreditCard, Ticket, CheckCircle2 } from 'lucide-react';
+import { apiClientClient } from '@/lib/apiClientClient';
 
 interface AddressOption {
   code: string;
@@ -63,10 +64,8 @@ export default function CheckoutClient({ user, items, store, cartMode }: Checkou
   const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const totalWeight = items.reduce((sum, item) => sum + item.quantity * (item.product.weight || 500), 0);
   
-  // Load Address Configs
   useEffect(() => {
-    fetch('/api/address?type=provinces')
-      .then(res => res.json())
+    apiClientClient.get<AddressOption[]>('/address?type=provinces')
       .then(setProvinces).catch(console.error);
   }, []);
 
@@ -75,8 +74,8 @@ export default function CheckoutClient({ user, items, store, cartMode }: Checkou
     const p = provinces.find(x => x.name === provinceName);
     if (!p) return;
     try {
-      const res = await fetch(`/api/address?type=wards&provinceCode=${p.code}`);
-      setWards(await res.json());
+      const data = await apiClientClient.get<AddressOption[]>(`/address?type=wards&provinceCode=${p.code}`);
+      setWards(data);
     } catch {}
   }, [provinces]);
 
@@ -96,13 +95,14 @@ export default function CheckoutClient({ user, items, store, cartMode }: Checkou
     const timer = setTimeout(async () => {
       setIsCalculatingFee(true);
       try {
-        const res = await fetch('/api/portal/checkout/shipping-fee', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ province, ward, street, totalWeight, storeId: store?.id })
+        const data = await apiClientClient.post<any>('/orders/shipping-fee', {
+          province,
+          ward,
+          street,
+          totalWeight,
+          storeId: store?.id
         });
-        const data = await res.json();
-        if (res.ok && data.fee !== undefined) {
+        if (data && data.fee !== undefined) {
           setShippingFee(data.fee);
         } else {
           setShippingFee(30000);
@@ -125,14 +125,15 @@ export default function CheckoutClient({ user, items, store, cartMode }: Checkou
     setStreet(user.addressStreet || '');
   };
 
-  // Load Vouchers
   useEffect(() => {
-    fetch('/api/portal/user-vouchers').then(res => res.json()).then(data => {
-      if (Array.isArray(data)) {
-        const applicable = data.filter((v: any) => subtotal >= v.minOrderValue);
-        setVouchers(applicable);
-      }
-    }).catch(console.error);
+    apiClientClient.get<Voucher[]>('/vouchers/user/my-vouchers')
+      .then(data => {
+        if (Array.isArray(data)) {
+          const applicable = data.filter((v: any) => subtotal >= v.minOrderValue);
+          setVouchers(applicable);
+        }
+      })
+      .catch(console.error);
   }, [subtotal]);
 
   // Calc Discounts
@@ -161,37 +162,28 @@ export default function CheckoutClient({ user, items, store, cartMode }: Checkou
 
     setLoading(true);
     try {
-      const res = await fetch('/api/portal/orders', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          items: items.map(item => ({
-            productId: item.product.id,
-            quantity: item.quantity,
-            size: item.size,
-            color: item.color,
-          })),
-          cartItemIds: cartMode ? items.map(i => i.cartItemId).filter(Boolean) : undefined,
-          paymentMethod,
-          name, phone, note,
-          addressStreet: street,
-          addressWard: ward,
-          addressProvince: province,
-          shippingFee,
-          voucherId: selectedVoucherId || undefined,
-          useCommissionPoints,
-        })
+      const data = await apiClientClient.post<any>('/orders', {
+        items: items.map(item => ({
+          productId: item.product.id,
+          quantity: item.quantity,
+          size: item.size,
+          color: item.color,
+        })),
+        cartItemIds: cartMode ? items.map(i => i.cartItemId).filter(Boolean) : undefined,
+        paymentMethod,
+        name, phone, note,
+        addressStreet: street,
+        addressWard: ward,
+        addressProvince: province,
+        shippingFee,
+        voucherId: selectedVoucherId || undefined,
+        useCommissionPoints,
       });
 
-      const data = await res.json();
-      if (res.ok) {
-        alert('Đặt hàng thành công!');
-        router.push('/portal/profile');
-      } else {
-        alert(data.error || 'Lỗi đặt hàng');
-      }
-    } catch {
-      alert('Network error');
+      alert('Đặt hàng thành công!');
+      router.push('/portal/profile');
+    } catch (error: any) {
+      alert(error.message || 'Lỗi đặt hàng');
     } finally {
       setLoading(false);
     }

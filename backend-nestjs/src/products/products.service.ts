@@ -8,8 +8,19 @@ import { FilterProductDto } from './dto/filter-product.dto';
 export class ProductsService {
   constructor(private prisma: PrismaService) {}
 
-  async create(createProductDto: CreateProductDto, storeId?: string) {
+  async create(userId: string, role: string, createProductDto: CreateProductDto) {
     const { categoryIds, variants, ...productData } = createProductDto;
+
+    let storeId: string | undefined;
+    if (role === 'MODERATOR') {
+      const store = await this.prisma.store.findUnique({
+        where: { ownerId: userId },
+      });
+      if (!store) {
+        throw new NotFoundException('Store not found for this moderator');
+      }
+      storeId = store.id;
+    }
 
     // Generate slug from name
     const slug = this.generateSlug(productData.name);
@@ -42,6 +53,88 @@ export class ProductsService {
     }
 
     return product;
+  }
+
+  async findAdminProducts(params: {
+    userId: string;
+    role: string;
+    page?: number;
+    limit?: number;
+    search?: string;
+    categoryId?: string;
+    isActive?: boolean;
+  }) {
+    const { userId, role } = params;
+    const page = params.page || 1;
+    const limit = params.limit || 20;
+    const skip = (page - 1) * limit;
+
+    const where: any = {};
+
+    if (role === 'MODERATOR') {
+      const store = await this.prisma.store.findUnique({
+        where: { ownerId: userId },
+      });
+      if (store) {
+        where.storeId = store.id;
+      } else {
+        where.id = 'no-access';
+      }
+    }
+
+    if (params.search) {
+      where.OR = [
+        { name: { contains: params.search } },
+        { description: { contains: params.search } },
+        { sku: { contains: params.search } },
+      ];
+    }
+
+    if (params.categoryId) {
+      where.categories = {
+        some: { id: params.categoryId },
+      };
+    }
+
+    if (params.isActive !== undefined) {
+      where.isActive = params.isActive;
+    }
+
+    const [products, total] = await Promise.all([
+      this.prisma.product.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          categories: { select: { id: true, name: true } },
+          variants: {
+            include: {
+              size: true,
+              color: true,
+            },
+          },
+          store: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+          _count: { select: { orderItems: true } },
+        },
+      }),
+      this.prisma.product.count({ where }),
+    ]);
+
+    return {
+      data: products,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
   }
 
   async findAll(filterDto: FilterProductDto) {
@@ -175,11 +268,116 @@ export class ProductsService {
     };
   }
 
-  async update(id: string, updateProductDto: UpdateProductDto) {
+  async findBySlug(slug: string) {
+    const product = await this.prisma.product.findUnique({
+      where: { slug },
+      include: {
+        categories: { select: { id: true, name: true } },
+        variants: {
+          include: {
+            size: true,
+            color: true,
+          },
+        },
+        store: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            logoUrl: true,
+            isActive: true,
+            isBanned: true,
+          },
+        },
+        reviews: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+                avatarUrl: true,
+              },
+            },
+          },
+          orderBy: {
+            createdAt: 'desc',
+          },
+          take: 10,
+        },
+      },
+    });
+
+    if (!product) {
+      throw new NotFoundException('Product not found');
+    }
+
+    // Calculate average rating
+    const avgRating =
+      product.reviews.length > 0
+        ? product.reviews.reduce((sum, r) => sum + r.rating, 0) /
+          product.reviews.length
+        : 0;
+
+    return {
+      ...product,
+      avgRating: Math.round(avgRating * 10) / 10,
+      reviewCount: product.reviews.length,
+    };
+  }
+
+  async getRelated(productId: string) {
+    const product = await this.prisma.product.findUnique({
+      where: { id: productId },
+      include: { categories: true },
+    });
+
+    if (!product) {
+      throw new NotFoundException('Product not found');
+    }
+
+    const categoryIds = product.categories.map((c) => c.id);
+
+    return this.prisma.product.findMany({
+      where: {
+        isActive: true,
+        id: { not: productId },
+        categories: {
+          some: { id: { in: categoryIds } },
+        },
+        OR: [
+          { storeId: null },
+          { store: { isActive: true, isBanned: false } },
+        ],
+      },
+      take: 6,
+      include: {
+        categories: { select: { name: true } },
+        variants: { include: { size: true, color: true } },
+        store: { select: { id: true, name: true, slug: true, logoUrl: true } },
+      },
+    });
+  }
+
+  async update(id: string, updateProductDto: UpdateProductDto, userId: string, role: string) {
     const { categoryIds, variants, ...productData } = updateProductDto;
 
-    // Check if product exists
-    await this.findOne(id);
+    // Check if product exists and if user has access
+    const existingProduct = await this.prisma.product.findUnique({
+      where: { id },
+    });
+
+    if (!existingProduct) {
+      throw new NotFoundException('Product not found');
+    }
+
+    if (role === 'MODERATOR') {
+      const store = await this.prisma.store.findUnique({
+        where: { ownerId: userId },
+      });
+      if (!store || existingProduct.storeId !== store.id) {
+        throw new NotFoundException('Product not found or access denied');
+      }
+    }
 
     const product = await this.prisma.product.update({
       where: { id },
@@ -218,9 +416,24 @@ export class ProductsService {
     return product;
   }
 
-  async remove(id: string) {
-    // Check if product exists
-    await this.findOne(id);
+  async remove(id: string, userId: string, role: string) {
+    // Check if product exists and if user has access
+    const existingProduct = await this.prisma.product.findUnique({
+      where: { id },
+    });
+
+    if (!existingProduct) {
+      throw new NotFoundException('Product not found');
+    }
+
+    if (role === 'MODERATOR') {
+      const store = await this.prisma.store.findUnique({
+        where: { ownerId: userId },
+      });
+      if (!store || existingProduct.storeId !== store.id) {
+        throw new NotFoundException('Product not found or access denied');
+      }
+    }
 
     // Soft delete by setting isActive to false
     await this.prisma.product.update({

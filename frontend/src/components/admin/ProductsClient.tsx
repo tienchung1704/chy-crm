@@ -11,14 +11,18 @@ type Product = {
   name: string;
   slug: string;
   sku: string | null;
+  description: string | null;
   imageUrl: string | null;
   originalPrice: number;
   salePrice: number | null;
   stockQuantity: number;
+  weight: number;
+  isComboSet: boolean;
+  isGiftItem: boolean;
   isActive: boolean;
   categories: { id: string; name: string }[];
   variants: any[];
-  store?: { name: string } | null;
+  store?: { id: string; name: string } | null;
   _count: { orderItems: number };
 };
 
@@ -262,15 +266,7 @@ export default function ProductsClient({ products, categories, userRole }: Props
                     </td>
                     <td className="px-6 py-4">
                       <ProductRowActions 
-                        product={{
-                          ...product,
-                          description: null,
-                          weight: 500,
-                          isComboSet: false,
-                          isGiftItem: false,
-                          categories: product.categories.map(c => ({ id: c.id, name: c.name })),
-                          variants: product.variants,
-                        }}
+                        product={product}
                         allCategories={categories}
                       />
                     </td>

@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { apiClientClient } from '@/lib/apiClientClient';
 
 export default function VoucherActions() {
   const [showModal, setShowModal] = useState(false);
@@ -32,27 +33,20 @@ export default function VoucherActions() {
     setError('');
 
     try {
-      const res = await fetch('/api/vouchers', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...form,
-          value: parseFloat(form.value),
-          minOrderValue: parseFloat(form.minOrderValue) || 0,
-          maxDiscount: form.maxDiscount ? parseFloat(form.maxDiscount) : null,
-          totalUsageLimit: form.totalUsageLimit ? parseInt(form.totalUsageLimit) : null,
-          perCustomerLimit: parseInt(form.perCustomerLimit) || 1,
-          durationDays: form.durationDays ? parseInt(form.durationDays) : null,
-        }),
+      await apiClientClient.post('/vouchers', {
+        ...form,
+        value: parseFloat(form.value),
+        minOrderValue: parseFloat(form.minOrderValue) || 0,
+        maxDiscount: form.maxDiscount ? parseFloat(form.maxDiscount) : null,
+        totalUsageLimit: form.totalUsageLimit ? parseInt(form.totalUsageLimit) : null,
+        perCustomerLimit: parseInt(form.perCustomerLimit) || 1,
+        durationDays: form.durationDays ? parseInt(form.durationDays) : null,
       });
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
 
       setShowModal(false);
       router.refresh();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Lỗi tạo voucher');
+    } catch (err: any) {
+      setError(err.response?.data?.message || err.message || 'Lỗi tạo voucher');
     } finally {
       setLoading(false);
     }

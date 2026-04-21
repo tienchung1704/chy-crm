@@ -45,7 +45,7 @@ export default function OrderList({ orders }: { orders: Order[] }) {
     
     setReordering(order.id);
     try {
-      const res = await fetch('/api/portal/checkout/check-stock', {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api'}/orders/check-stock`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

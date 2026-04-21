@@ -49,7 +49,7 @@ export default function SellerRegisterClient() {
 
   // Load provinces
   useEffect(() => {
-    fetch('/api/address?type=provinces')
+    fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/address?type=provinces`)
       .then(res => res.json())
       .then(setProvinces).catch(console.error);
   }, []);
@@ -59,7 +59,7 @@ export default function SellerRegisterClient() {
     const p = provinces.find(x => x.name === provinceName);
     if (!p) return;
     try {
-      const res = await fetch(`/api/address?type=wards&provinceCode=${p.code}`);
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/address?type=wards&provinceCode=${p.code}`);
       setWards(await res.json());
     } catch {}
   }, [provinces]);
@@ -73,7 +73,7 @@ export default function SellerRegisterClient() {
 
     setLoading(true);
     try {
-      const res = await fetch('/api/portal/seller-register', {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api'}/stores`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

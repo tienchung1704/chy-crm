@@ -1,29 +1,28 @@
-import prisma from '@/lib/prisma';
+export const dynamic = 'force-dynamic';
+import { apiClient } from '@/lib/apiClient';
 import CommissionRateEdit from '@/components/admin/CommissionRateEdit';
-
 export default async function ReferralsPage() {
-  const topReferrers = await prisma.user.findMany({
-    where: { role: 'CUSTOMER', referees: { some: {} } },
-    select: {
-      id: true, name: true, email: true, phone: true,
-      referralCode: true, commissionBalance: true, rank: true,
-      _count: { select: { referees: true } },
-    },
-    orderBy: { commissionBalance: 'desc' },
-    take: 50,
-  });
+  let topReferrers: any[] = [];
+  let referralStats: any = { totalReferrals: 0, totalCommPaid: { _sum: { amount: 0 } }, topReferrersCount: 0 };
+  let commissionConfigs: any[] = [];
 
-  const totalReferrals = await prisma.user.count({ where: { referrerId: { not: null } } });
-  const totalCommPaid = await prisma.commissionLedger.aggregate({ where: { status: 'PAID' }, _sum: { amount: true } });
+  try {
+    const [statsRes, referrersRes, configsRes] = await Promise.all([
+      apiClient.get<any>('/commissions/admin/referral-stats'),
+      apiClient.get<any[]>('/commissions/admin/top-referrers'),
+      apiClient.get<any[]>('/commissions/admin/configs'),
+    ]);
+    referralStats = statsRes || referralStats;
+    topReferrers = referrersRes || [];
+    commissionConfigs = configsRes || [];
+  } catch (error) {
+    console.error('Error fetching admin referral data:', error);
+  }
 
-  // Get commission config
-  const commissionConfigs = await prisma.commissionConfig.findMany({
-    where: { isActive: true },
-    orderBy: { level: 'asc' },
-  });
+  const { totalReferrals, totalCommPaid, topReferrersCount } = referralStats;
 
   // Create a map for easy lookup, with defaults
-  const configMap = new Map(commissionConfigs.map(c => [c.level, c.percentage]));
+  const configMap = new Map(commissionConfigs.map((c: any) => [c.level, c.percentage]));
   const getRate = (level: number) => configMap.get(level) || 0;
 
   const fmt = (n: number) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 }).format(n);

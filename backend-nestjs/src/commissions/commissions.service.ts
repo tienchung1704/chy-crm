@@ -104,4 +104,141 @@ export class CommissionsService {
       console.error('Error cancelling commissions:', error);
     }
   }
+
+  async getNetwork(userId: string) {
+    const closures = await this.prisma.referralClosure.findMany({
+      where: {
+        ancestorId: userId,
+        depth: { gt: 0 },
+      },
+      include: {
+        descendant: {
+          select: {
+            id: true,
+            name: true,
+            createdAt: true,
+            rank: true,
+            _count: {
+              select: { orders: true },
+            },
+          },
+        },
+      },
+      orderBy: { depth: 'asc' },
+    });
+
+    return closures.map((c) => ({
+      ...c.descendant,
+      level: c.depth,
+    }));
+  }
+
+  async getLedger(userId: string, limit = 20) {
+    return this.prisma.commissionLedger.findMany({
+      where: { userId },
+      take: limit,
+      orderBy: { createdAt: 'desc' },
+      include: {
+        order: {
+          select: {
+            orderCode: true,
+            totalAmount: true,
+          },
+        },
+      },
+    });
+  }
+
+  async getConfigs() {
+    return this.prisma.commissionConfig.findMany({
+      where: { isActive: true },
+      orderBy: { level: 'asc' },
+    });
+  }
+
+  async findAllAdmin(limit = 50) {
+    return this.prisma.commissionLedger.findMany({
+      take: limit,
+      orderBy: { createdAt: 'desc' },
+      include: {
+        user: { select: { name: true, referralCode: true } },
+        order: { select: { orderCode: true, totalAmount: true } },
+      },
+    });
+  }
+
+  async getStatsAdmin() {
+    const [total, pending] = await Promise.all([
+      this.prisma.commissionLedger.aggregate({
+        _sum: { amount: true },
+        _count: true,
+      }),
+      this.prisma.commissionLedger.aggregate({
+        where: { status: 'PENDING' },
+        _sum: { amount: true },
+        _count: true,
+      }),
+    ]);
+
+    return {
+      total: {
+        amount: total._sum.amount || 0,
+        count: total._count || 0,
+      },
+      pending: {
+        amount: pending._sum.amount || 0,
+        count: pending._count || 0,
+      },
+    };
+  }
+
+  async getAllConfigsAdmin() {
+    return this.prisma.commissionConfig.findMany({
+      orderBy: { level: 'asc' },
+    });
+  }
+
+  async getReferralProgramStatsAdmin() {
+    const [totalReferrals, totalCommPaid, topReferrersCount] = await Promise.all([
+      this.prisma.user.count({ where: { referrerId: { not: null } } }),
+      this.prisma.commissionLedger.aggregate({
+        where: { status: 'PAID' },
+        _sum: { amount: true },
+      }),
+      this.prisma.user.count({
+        where: { role: 'CUSTOMER', referees: { some: {} } },
+      }),
+    ]);
+
+    return {
+      totalReferrals,
+      totalCommPaid: totalCommPaid._sum.amount || 0,
+      topReferrersCount,
+    };
+  }
+
+  async getTopReferrersAdmin(limit = 50) {
+    return this.prisma.user.findMany({
+      where: { role: 'CUSTOMER', referees: { some: {} } },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        phone: true,
+        referralCode: true,
+        commissionBalance: true,
+        rank: true,
+        _count: { select: { referees: true } },
+      },
+      orderBy: { commissionBalance: 'desc' },
+      take: limit,
+    });
+  }
+
+  async updateConfigAdmin(level: number, percentage: number) {
+    return this.prisma.commissionConfig.update({
+      where: { level },
+      data: { percentage },
+    });
+  }
 }

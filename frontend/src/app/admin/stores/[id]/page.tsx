@@ -1,52 +1,15 @@
-import prisma from '@/lib/prisma';
-import { getSession } from '@/lib/auth';
+export const dynamic = 'force-dynamic';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import StoreStatusManager from '@/components/admin/StoreStatusManager';
-
-async function getStore(id: string) {
-  return prisma.store.findUnique({
-    where: { id },
-    include: {
-      owner: {
-        select: { id: true, name: true, email: true, phone: true, rank: true, createdAt: true },
-      },
-      _count: { select: { products: true, orders: true, vouchers: true } },
-      orders: {
-        take: 5,
-        orderBy: { createdAt: 'desc' },
-        select: {
-          id: true,
-          orderCode: true,
-          totalAmount: true,
-          status: true,
-          createdAt: true,
-          user: { select: { name: true } },
-        },
-      },
-      products: {
-        take: 5,
-        orderBy: { createdAt: 'desc' },
-        select: {
-          id: true,
-          name: true,
-          imageUrl: true,
-          salePrice: true,
-          originalPrice: true,
-          stockQuantity: true,
-          soldCount: true,
-          isActive: true,
-        },
-      },
-    },
-  });
-}
+import { apiClient } from '@/lib/apiClient';
+import { getSession } from '@/lib/auth';
 
 function fmt(amount: number) {
   return new Intl.NumberFormat('vi-VN').format(amount) + ' đ';
 }
 
-function fmtDate(d: Date) {
+function fmtDate(d: string | Date) {
   return new Intl.DateTimeFormat('vi-VN', {
     day: '2-digit', month: '2-digit', year: 'numeric',
     hour: '2-digit', minute: '2-digit',
@@ -67,7 +30,13 @@ export default async function StoreDetailPage(props: { params: Promise<{ id: str
   if (session?.role !== 'ADMIN') redirect('/admin');
 
   const { id } = await props.params;
-  const store = await getStore(id);
+  let store: any = null;
+
+  try {
+    store = await apiClient.get<any>(`/stores/admin/${id}`);
+  } catch (error) {
+    console.error('Error fetching admin store detail:', error);
+  }
 
   if (!store) {
     return (
@@ -79,7 +48,7 @@ export default async function StoreDetailPage(props: { params: Promise<{ id: str
   }
 
   const fullAddress = [store.addressStreet, store.addressWard, store.addressProvince].filter(Boolean).join(', ');
-  const totalRevenue = store.orders.reduce((sum, o) => sum + o.totalAmount, 0);
+  const totalRevenue = (store.orders || []).reduce((sum: number, o: any) => sum + o.totalAmount, 0);
 
   return (
     <>
@@ -106,15 +75,15 @@ export default async function StoreDetailPage(props: { params: Promise<{ id: str
           {/* Stats Overview */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="bg-white rounded-xl shadow-sm p-5 text-center">
-              <p className="text-3xl font-bold text-indigo-600">{store._count.products}</p>
+              <p className="text-3xl font-bold text-indigo-600">{store._count?.products || 0}</p>
               <p className="text-sm text-gray-500 mt-1">Sản phẩm</p>
             </div>
             <div className="bg-white rounded-xl shadow-sm p-5 text-center">
-              <p className="text-3xl font-bold text-amber-600">{store._count.orders}</p>
+              <p className="text-3xl font-bold text-amber-600">{store._count?.orders || 0}</p>
               <p className="text-sm text-gray-500 mt-1">Đơn hàng</p>
             </div>
             <div className="bg-white rounded-xl shadow-sm p-5 text-center">
-              <p className="text-3xl font-bold text-green-600">{store._count.vouchers}</p>
+              <p className="text-3xl font-bold text-green-600">{store._count?.vouchers || 0}</p>
               <p className="text-sm text-gray-500 mt-1">Voucher</p>
             </div>
             <div className="bg-white rounded-xl shadow-sm p-5 text-center">
@@ -129,7 +98,7 @@ export default async function StoreDetailPage(props: { params: Promise<{ id: str
               <h2 className="text-xl font-bold text-gray-800">Đơn hàng gần đây</h2>
               <Link href={`/admin/orders?storeId=${store.id}`} className="text-sm text-indigo-600 hover:underline font-medium">Xem tất cả →</Link>
             </div>
-            {store.orders.length === 0 ? (
+            {(!store.orders || store.orders.length === 0) ? (
               <p className="text-gray-500 text-center py-6">Chưa có đơn hàng nào</p>
             ) : (
               <div className="overflow-x-auto">
@@ -144,14 +113,14 @@ export default async function StoreDetailPage(props: { params: Promise<{ id: str
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
-                    {store.orders.map(order => {
+                    {store.orders.map((order: any) => {
                       const st = statusMap[order.status] || { cls: 'bg-gray-100 text-gray-700', label: order.status };
                       return (
                         <tr key={order.id} className="hover:bg-gray-50">
                           <td className="px-4 py-3">
                             <Link href={`/admin/orders/${order.id}`} className="text-indigo-600 hover:underline font-semibold text-sm">{order.orderCode}</Link>
                           </td>
-                          <td className="px-4 py-3 text-sm text-gray-700">{order.user.name}</td>
+                          <td className="px-4 py-3 text-sm text-gray-700">{order.user?.name || '—'}</td>
                           <td className="px-4 py-3 text-sm font-semibold text-gray-800">{fmt(order.totalAmount)}</td>
                           <td className="px-4 py-3">
                             <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${st.cls}`}>{st.label}</span>
@@ -171,11 +140,11 @@ export default async function StoreDetailPage(props: { params: Promise<{ id: str
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-bold text-gray-800">Sản phẩm gần đây</h2>
             </div>
-            {store.products.length === 0 ? (
+            {(!store.products || store.products.length === 0) ? (
               <p className="text-gray-500 text-center py-6">Chưa có sản phẩm nào</p>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {store.products.map(product => (
+                {store.products.map((product: any) => (
                   <div key={product.id} className="flex gap-3 p-3 bg-gray-50 rounded-lg">
                     <div className="w-16 h-16 bg-gray-200 rounded-lg overflow-hidden flex-shrink-0">
                       {product.imageUrl ? (
@@ -217,15 +186,15 @@ export default async function StoreDetailPage(props: { params: Promise<{ id: str
             <div className="space-y-3">
               <div>
                 <p className="text-sm text-gray-500">Tên</p>
-                <p className="font-semibold text-gray-800">{store.owner.name}</p>
+                <p className="font-semibold text-gray-800">{store.owner?.name || '—'}</p>
               </div>
-              {store.owner.email && (
+              {store.owner?.email && (
                 <div>
                   <p className="text-sm text-gray-500">Email</p>
                   <p className="font-semibold text-gray-800">{store.owner.email}</p>
                 </div>
               )}
-              {store.owner.phone && (
+              {store.owner?.phone && (
                 <div>
                   <p className="text-sm text-gray-500">SĐT</p>
                   <p className="font-semibold text-gray-800">{store.owner.phone}</p>
@@ -233,11 +202,11 @@ export default async function StoreDetailPage(props: { params: Promise<{ id: str
               )}
               <div>
                 <p className="text-sm text-gray-500">Hạng</p>
-                <span className="inline-block px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-semibold">{store.owner.rank}</span>
+                <span className="inline-block px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-semibold">{store.owner?.rank || 'MEMBER'}</span>
               </div>
               <div>
                 <p className="text-sm text-gray-500">Ngày tạo tài khoản</p>
-                <p className="font-semibold text-gray-800">{fmtDate(store.owner.createdAt)}</p>
+                <p className="font-semibold text-gray-800">{store.owner?.createdAt ? fmtDate(store.owner.createdAt) : '—'}</p>
               </div>
             </div>
           </div>

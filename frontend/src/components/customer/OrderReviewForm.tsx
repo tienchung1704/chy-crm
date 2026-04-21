@@ -59,7 +59,7 @@ export default function OrderReviewForm({ order, onSuccess, onCancel }: OrderRev
     try {
       // Create reviews for all products in the order
       const reviewPromises = reviewableProducts.map(item =>
-        fetch('/api/reviews', {
+        fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api'}/reviews`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({

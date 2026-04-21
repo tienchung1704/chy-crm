@@ -1,78 +1,16 @@
-import prisma from '@/lib/prisma';
+export const dynamic = 'force-dynamic';
 import Link from 'next/link';
 import { getSession } from '@/lib/auth';
 import OrderSearchInput from '@/components/admin/OrderSearchInput';
 import OrderStatusFilter from '@/components/admin/OrderStatusFilter';
 import CreateOrderButton from '@/components/admin/CreateOrderButton';
-
-async function getOrders(params: { page?: string; status?: string; paymentMethod?: string; search?: string }, storeId: string | null, role: string | null) {
-  const page = parseInt(params.page || '1');
-  const limit = 11;
-  const where: any = {};
-  const baseWhere: any = {}; // Used for status counts
-
-  if (role === 'MODERATOR') {
-    if (storeId) {
-      where.storeId = storeId;
-      baseWhere.storeId = storeId;
-    } else {
-      where.id = 'no-access';
-      baseWhere.id = 'no-access';
-    }
-  }
-
-  if (params.search) {
-    const searchFilter = {
-      OR: [
-        { orderCode: { contains: params.search } },
-        { user: { name: { contains: params.search } } },
-      ],
-    };
-    where.OR = searchFilter.OR;
-    baseWhere.OR = searchFilter.OR;
-  }
-
-  if (params.status) where.status = params.status;
-  if (params.paymentMethod) where.paymentMethod = params.paymentMethod;
-
-  const [orders, total, countsData] = await Promise.all([
-    prisma.order.findMany({
-      where,
-      include: {
-        user: { select: { name: true, rank: true, phone: true } },
-        appliedVouchers: { include: { userVoucher: { include: { voucher: { select: { code: true, type: true } } } } } },
-        items: { include: { product: { select: { name: true, imageUrl: true } } } },
-        _count: { select: { commissions: true } },
-      },
-      orderBy: { createdAt: 'desc' },
-      skip: (page - 1) * limit,
-      take: limit,
-    }),
-    prisma.order.count({ where }),
-    prisma.order.groupBy({
-      by: ['status'],
-      where: baseWhere,
-      _count: true,
-    }),
-  ]);
-
-  const statusCounts = countsData.reduce((acc, curr) => {
-    acc[curr.status] = curr._count;
-    return acc;
-  }, {} as Record<string, number>);
-
-  return { 
-    orders, 
-    pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
-    statusCounts
-  };
-}
+import { apiClient } from '@/lib/apiClient';
 
 function fmt(amount: number) {
   return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 }).format(amount);
 }
 
-function fmtDate(d: Date) {
+function fmtDate(d: string | Date) {
   return new Intl.DateTimeFormat('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(d));
 }
 
@@ -95,14 +33,27 @@ const statusMap: Record<string, { cls: string; label: string }> = {
 export default async function OrdersPage(props: { searchParams: Promise<{ page?: string; status?: string; paymentMethod?: string; search?: string }> }) {
   const searchParams = await props.searchParams;
   const session = await getSession();
+  if (!session) return null;
 
-  let storeId = null;
-  if (session?.role === 'MODERATOR') {
-    const store = await prisma.store.findUnique({ where: { ownerId: session.id } });
-    storeId = store?.id || null;
+  let orders: any[] = [];
+  let pagination: any = { page: 1, limit: 11, total: 0, totalPages: 0 };
+  let statusCounts: Record<string, number> = {};
+
+  try {
+    const data = await apiClient.get<any>('/orders/admin', {
+      params: {
+        page: searchParams.page,
+        status: searchParams.status,
+        paymentMethod: searchParams.paymentMethod,
+        search: searchParams.search,
+      }
+    });
+    orders = data.orders;
+    pagination = data.pagination;
+    statusCounts = data.statusCounts;
+  } catch (error) {
+    console.error('Error fetching admin orders:', error);
   }
-
-  const { orders, pagination, statusCounts } = await getOrders(searchParams, storeId, session?.role || null);
 
   return (
     <>
@@ -146,7 +97,7 @@ export default async function OrdersPage(props: { searchParams: Promise<{ page?:
                     </div>
                   </td>
                 </tr>
-              ) : orders.map((order) => {
+              ) : orders.map((order: any) => {
                 const st = statusMap[order.status] || { cls: 'badge-gray', label: order.status };
                 const isUnread = !order.isRead;
                 
@@ -159,7 +110,7 @@ export default async function OrdersPage(props: { searchParams: Promise<{ page?:
                   firstItemDisplay = `${item.name} x ${item.quantity || 1}`;
                 } else if (order.items && order.items.length > 0) {
                   const item = order.items[0];
-                  firstItemDisplay = `${item.product.name} x ${item.quantity}`;
+                  firstItemDisplay = `${item.product?.name || 'Sản phẩm'} x ${item.quantity}`;
                 }
 
                 return (
@@ -176,8 +127,8 @@ export default async function OrdersPage(props: { searchParams: Promise<{ page?:
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      <div className={`text-sm font-bold ${isUnread ? 'text-gray-900 font-bold' : 'text-gray-700 font-bold'}`}>{order.user.name}</div>
-                      <div className="text-[11px] text-gray-400 font-medium">{order.user.phone || ''}</div>
+                      <div className={`text-sm font-bold ${isUnread ? 'text-gray-900 font-bold' : 'text-gray-700 font-bold'}`}>{order.user?.name || 'Unknown'}</div>
+                      <div className="text-[11px] text-gray-400 font-medium">{order.user?.phone || ''}</div>
                     </td>
                     <td className="px-6 py-5">
                       <span className="px-2.5 py-1 rounded-md text-[10px] font-bold bg-gray-100 text-gray-400 uppercase tracking-wider">

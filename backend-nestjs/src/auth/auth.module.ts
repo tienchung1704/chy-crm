@@ -8,10 +8,12 @@ import { JwtStrategy } from './strategies/jwt.strategy';
 import { JwtRefreshStrategy } from './strategies/jwt-refresh.strategy';
 import { GoogleStrategy } from './strategies/google.strategy';
 import { UsersModule } from '../users/users.module';
+import { VouchersModule } from '../vouchers/vouchers.module';
 
 @Module({
   imports: [
     UsersModule,
+    VouchersModule,
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.registerAsync({
       imports: [ConfigModule],

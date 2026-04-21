@@ -1,8 +1,7 @@
-'use client';
-
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import ImageUpload from './ImageUpload';
+import { apiClientClient } from '@/lib/apiClientClient';
 
 interface Category {
   id: string;
@@ -60,51 +59,31 @@ export default function ProductActions({ categories = [] }: ProductActionsProps)
 
   useEffect(() => {
     if (showModal) {
-      fetch('/api/sizes').then(res => res.json()).then(setSizes).catch(console.error);
-      fetch('/api/colors').then(res => res.json()).then(setColors).catch(console.error);
+      apiClientClient.get<any[]>('/sizes').then(setSizes).catch(console.error);
+      apiClientClient.get<any[]>('/colors').then(setColors).catch(console.error);
     }
   }, [showModal]);
 
   const handleCreateSize = async () => {
     if (!newSizeName.trim()) return;
     try {
-      const res = await fetch('/api/sizes', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: newSizeName }),
-      });
-      if (res.ok) {
-        const newSize = await res.json();
-        setSizes([...sizes, newSize]);
-        setNewSizeName('');
-      } else {
-        const error = await res.json();
-        alert(error.error || 'Failed to create size');
-      }
-    } catch {
-      alert('Network error');
+      const newSize = await apiClientClient.post<any>('/sizes', { name: newSizeName });
+      setSizes([...sizes, newSize]);
+      setNewSizeName('');
+    } catch (error: any) {
+      alert(error.response?.data?.message || 'Failed to create size');
     }
   };
 
   const handleCreateColor = async () => {
     if (!newColorName.trim()) return;
     try {
-      const res = await fetch('/api/colors', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: newColorName, hexCode: newColorHex }),
-      });
-      if (res.ok) {
-        const newColor = await res.json();
-        setColors([...colors, newColor]);
-        setNewColorName('');
-        setNewColorHex('');
-      } else {
-        const error = await res.json();
-        alert(error.error || 'Failed to create color');
-      }
-    } catch {
-      alert('Network error');
+      const newColor = await apiClientClient.post<any>('/colors', { name: newColorName, hexCode: newColorHex });
+      setColors([...colors, newColor]);
+      setNewColorName('');
+      setNewColorHex('');
+    } catch (error: any) {
+      alert(error.response?.data?.message || 'Failed to create color');
     }
   };
 
@@ -117,23 +96,16 @@ export default function ProductActions({ categories = [] }: ProductActionsProps)
       const selectedCategoryId = form.categoryLevel4 || form.categoryLevel3 || form.categoryLevel2 || form.categoryLevel1;
       const categoryIds = selectedCategoryId ? [selectedCategoryId] : [];
 
-      const res = await fetch('/api/products', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...form,
-          originalPrice: parseFloat(form.originalPrice),
-          salePrice: form.salePrice ? parseFloat(form.salePrice) : null,
-          stockQuantity: form.variants.length > 0 
-            ? form.variants.reduce((acc, v) => acc + (parseInt(v.stock) || 0), 0)
-            : (parseInt(form.stockQuantity) || 0),
-          weight: parseInt(form.weight) || 500,
-          categoryIds,
-        }),
+      await apiClientClient.post<any>('/products', {
+        ...form,
+        originalPrice: parseFloat(form.originalPrice),
+        salePrice: form.salePrice ? parseFloat(form.salePrice) : null,
+        stockQuantity: form.variants.length > 0 
+          ? form.variants.reduce((acc, v) => acc + (parseInt(v.stock) || 0), 0)
+          : (parseInt(form.stockQuantity) || 0),
+        weight: parseInt(form.weight) || 500,
+        categoryIds,
       });
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
 
       setShowModal(false);
       setForm({
@@ -156,8 +128,8 @@ export default function ProductActions({ categories = [] }: ProductActionsProps)
         variants: [],
       });
       router.refresh();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Lỗi tạo sản phẩm');
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Lỗi tạo sản phẩm');
     } finally {
       setLoading(false);
     }

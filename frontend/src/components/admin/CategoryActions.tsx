@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { apiClientClient } from '@/lib/apiClientClient';
 
 interface Category {
   id: string;
@@ -35,18 +36,11 @@ export default function CategoryActions({ categories = [] }: CategoryActionsProp
     setError('');
 
     try {
-      const res = await fetch('/api/categories', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...form,
-          sortOrder: parseInt(form.sortOrder) || 0,
-          parentId: form.parentId || null,
-        }),
+      await apiClientClient.post('/categories', {
+        ...form,
+        sortOrder: parseInt(form.sortOrder) || 0,
+        parentId: form.parentId || null,
       });
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
 
       setShowModal(false);
       setForm({
@@ -59,8 +53,8 @@ export default function CategoryActions({ categories = [] }: CategoryActionsProp
         isActive: true,
       });
       router.refresh();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Lỗi tạo danh mục');
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Lỗi tạo danh mục');
     } finally {
       setLoading(false);
     }

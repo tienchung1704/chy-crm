@@ -6,6 +6,7 @@ import {
   Param,
   Patch,
   UseGuards,
+  Query,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiResponse } from '@nestjs/swagger';
 import { OrdersService } from './orders.service';
@@ -39,6 +40,28 @@ export class OrdersController {
     return this.ordersService.findAll(userId);
   }
 
+  @Get('admin')
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN', 'STAFF', 'MODERATOR')
+  @ApiOperation({ summary: 'Get all orders for admin/staff' })
+  async findAdminOrders(
+    @GetUser('id') userId: string,
+    @GetUser('role') role: string,
+    @Query('page') page?: number,
+    @Query('status') status?: string,
+    @Query('search') search?: string,
+    @Query('paymentMethod') paymentMethod?: string,
+  ) {
+    return this.ordersService.findAdminOrders({
+      userId,
+      role,
+      page: page ? Number(page) : undefined,
+      status,
+      search,
+      paymentMethod,
+    });
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Get order detail' })
   @ApiResponse({ status: 200, description: 'Order retrieved successfully' })
@@ -54,6 +77,15 @@ export class OrdersController {
   @ApiResponse({ status: 200, description: 'Order status updated' })
   updateStatus(@Param('id') id: string, @Body() updateDto: UpdateOrderStatusDto) {
     return this.ordersService.updateStatus(id, updateDto);
+  }
+
+  @Patch(':id/read')
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN', 'STAFF')
+  @ApiOperation({ summary: 'Mark order as read (Admin only)' })
+  @ApiResponse({ status: 200, description: 'Order marked as read' })
+  markAsRead(@Param('id') id: string) {
+    return this.ordersService.markAsRead(id);
   }
 
   @Post('check-stock')
@@ -79,5 +111,14 @@ export class OrdersController {
       shippingFeeDto.totalWeight,
       shippingFeeDto.storeId,
     );
+  }
+
+  @Get('check-purchase/:productId')
+  @ApiOperation({ summary: 'Check if user has purchased a product' })
+  checkProductPurchase(
+    @GetUser('id') userId: string,
+    @Param('productId') productId: string,
+  ) {
+    return this.ordersService.checkProductPurchase(userId, productId);
   }
 }

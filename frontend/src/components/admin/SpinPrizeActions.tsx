@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { apiClientClient } from '@/lib/apiClientClient';
 
 export default function SpinPrizeActions() {
   const [showModal, setShowModal] = useState(false);
@@ -35,34 +36,27 @@ export default function SpinPrizeActions() {
     setError('');
 
     try {
-      const res = await fetch('/api/spin/prizes', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: form.name,
-          type: form.type,
-          color: form.color,
-          probability: parseFloat(form.probability) / 100,
-          quantity: form.quantity ? parseInt(form.quantity) : null,
-          // Voucher data
-          voucher: {
-            code: form.voucherCode,
-            name: form.voucherName,
-            description: form.voucherDescription,
-            campaignCategory: form.campaignCategory,
-            type: form.voucherType,
-            value: parseFloat(form.value),
-            minOrderValue: parseFloat(form.minOrderValue) || 0,
-            maxDiscount: form.maxDiscount ? parseFloat(form.maxDiscount) : null,
-            perCustomerLimit: parseInt(form.perCustomerLimit) || 1,
-            durationDays: form.durationDays ? parseInt(form.durationDays) : null,
-            isStackable: form.isStackable,
-          },
-        }),
+      await apiClientClient.post('/spin/admin/prizes', {
+        name: form.name,
+        type: form.type,
+        color: form.color,
+        probability: parseFloat(form.probability) / 100,
+        quantity: form.quantity ? parseInt(form.quantity) : null,
+        // Voucher data
+        voucher: {
+          code: form.voucherCode,
+          name: form.voucherName,
+          description: form.voucherDescription,
+          campaignCategory: form.campaignCategory,
+          type: form.voucherType,
+          value: parseFloat(form.value),
+          minOrderValue: parseFloat(form.minOrderValue) || 0,
+          maxDiscount: form.maxDiscount ? parseFloat(form.maxDiscount) : null,
+          perCustomerLimit: parseInt(form.perCustomerLimit) || 1,
+          durationDays: form.durationDays ? parseInt(form.durationDays) : null,
+          isStackable: form.isStackable,
+        },
       });
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
 
       setShowModal(false);
       setForm({

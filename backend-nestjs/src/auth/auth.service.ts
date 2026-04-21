@@ -4,6 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcryptjs';
 import { PrismaService } from '../prisma/prisma.service';
 import { UsersService } from '../users/users.service';
+import { VouchersService } from '../vouchers/vouchers.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 
@@ -14,6 +15,7 @@ export class AuthService {
     private jwtService: JwtService,
     private configService: ConfigService,
     private usersService: UsersService,
+    private vouchersService: VouchersService,
   ) {}
 
   async register(registerDto: RegisterDto) {
@@ -68,8 +70,8 @@ export class AuthService {
       await this.createReferralClosureEntries(user.id, referrerId);
     }
 
-    // Grant welcome vouchers (implement in vouchers service)
-    // await this.vouchersService.grantWelcomeVouchers(user.id);
+    // Grant welcome vouchers
+    await this.vouchersService.grantWelcomeVouchers(user.id);
 
     return {
       success: true,
@@ -225,6 +227,9 @@ export class AuthService {
       if (referrerId) {
         await this.createReferralClosureEntries(user.id, referrerId);
       }
+
+      // Grant welcome vouchers
+      await this.vouchersService.grantWelcomeVouchers(user.id);
     }
 
     // Create or update OAuth account

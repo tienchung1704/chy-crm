@@ -1,58 +1,37 @@
 import { getSession } from '@/lib/auth';
-import prisma from '@/lib/prisma';
 import ReferralCard from './ReferralCard';
+import { apiClient } from '@/lib/apiClient';
 
 export default async function PortalReferralPage() {
   const session = await getSession();
   if (!session) return null;
 
-  const user = await prisma.user.findUnique({
-    where: { id: session.id },
-    select: { referralCode: true, commissionBalance: true },
-  });
+  let user: any = null;
+  let referees: any[] = [];
+  let commissions: any[] = [];
+  let commissionConfigs: any[] = [];
 
-  const closures = await prisma.referralClosure.findMany({
-    where: {
-      ancestorId: session.id,
-      depth: { gt: 0 }, // exclude self
-    },
-    include: {
-      descendant: {
-        select: {
-          id: true, name: true, createdAt: true, rank: true,
-          _count: { select: { orders: true } },
-        }
-      }
-    },
-    orderBy: [
-      { depth: 'asc' },
-    ]
-  });
-
-  const referees = closures.map(c => ({
-    ...c.descendant,
-    level: c.depth
-  }));
-
-  const commissions = await prisma.commissionLedger.findMany({
-    where: { userId: session.id },
-    take: 20,
-    orderBy: { createdAt: 'desc' },
-    include: { order: { select: { orderCode: true, totalAmount: true } } },
-  });
-
-  // Get commission config
-  const commissionConfigs = await prisma.commissionConfig.findMany({
-    where: { isActive: true },
-    orderBy: { level: 'asc' },
-  });
+  try {
+    const [userData, networkData, ledgerData, configsData] = await Promise.all([
+      apiClient.get<any>('/users/profile'),
+      apiClient.get<any[]>('/commissions/network'),
+      apiClient.get<any[]>('/commissions/ledger'),
+      apiClient.get<any[]>('/commissions/configs'),
+    ]);
+    user = userData;
+    referees = networkData;
+    commissions = ledgerData;
+    commissionConfigs = configsData;
+  } catch (error) {
+    console.error('Error fetching referral data:', error);
+  }
 
   // Create a map for easy lookup, with defaults
   const configMap = new Map(commissionConfigs.map(c => [c.level, c.percentage]));
   const getRate = (level: number) => configMap.get(level) || 0;
 
   const fmt = (n: number) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 }).format(n);
-  const referralLink = `${process.env.NEXTAUTH_URL || 'http://localhost:3099'}/login?ref=${user?.referralCode}`;
+  const referralLink = `${process.env.NEXT_PUBLIC_FRONTEND_URL || 'http://localhost:3000'}/login?ref=${user?.referralCode}`;
 
   return (
     <>
@@ -200,7 +179,7 @@ export default async function PortalReferralPage() {
                   </tr>
                 ) : commissions.map(c => (
                   <tr key={c.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 font-mono text-xs text-gray-800">{c.order.orderCode}</td>
+                    <td className="px-6 py-4 font-mono text-xs text-gray-800">{c.order?.orderCode || 'N/A'}</td>
                     <td className="px-6 py-4">
                       <span className="px-3 py-1 rounded-full text-xs font-semibold bg-purple-100 text-purple-700">
                         F{c.level}

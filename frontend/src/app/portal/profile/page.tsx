@@ -1,7 +1,6 @@
-import prisma from '@/lib/prisma';
 import { getSession } from '@/lib/auth';
-import { Rank } from '@prisma/client';
 import ProfileForm from './ProfileForm';
+import { apiClient } from '@/lib/apiClient';
 
 export const dynamic = 'force-dynamic';
 
@@ -9,56 +8,30 @@ export default async function ProfilePage() {
   const session = await getSession();
   if (!session) return null;
 
-  const user = await prisma.user.findUnique({
-    where: { id: session.id },
-    select: {
-      id: true,
-      name: true,
-      email: true,
-      phone: true,
-      gender: true,
-      dob: true,
-      address: true,
-      addressStreet: true,
-      addressWard: true,
-      addressDistrict: true,
-      addressProvince: true,
-      avatarUrl: true,
-      rank: true,
-      totalSpent: true,
-      commissionBalance: true,
-      points: true,
-      referralCode: true,
-      createdAt: true,
-    },
-  });
+  let profileData: any;
+  let dashboardData: any;
 
-  if (!user) return null;
+  try {
+    const [profile, dashboard] = await Promise.all([
+      apiClient.get<any>('/users/profile'),
+      apiClient.get<any>('/users/dashboard'),
+    ]);
+    profileData = profile;
+    dashboardData = dashboard;
+  } catch (error) {
+    console.error('Error fetching profile data:', error);
+    return (
+      <div className="p-8 text-center bg-white rounded-xl shadow-sm">
+        <h2 className="text-xl font-bold text-red-600">Đã xảy ra lỗi</h2>
+        <p className="text-gray-600 mt-2">Không thể tải thông tin hồ sơ. Vui lòng thử lại sau.</p>
+      </div>
+    );
+  }
 
-  const refereeCount = await prisma.user.count({ where: { referrerId: session.id } });
+  const { user, spentInLast30Days, refereeCount } = dashboardData;
+  const detailedUser = profileData;
 
-  // Calculate 30 days ago
-  const now = new Date();
-  const vietnamOffset = 7 * 60;
-  const localOffset = now.getTimezoneOffset();
-  const offsetDiff = vietnamOffset + localOffset;
-  const thirtyDaysAgo = new Date(now.getTime() + offsetDiff * 60 * 1000);
-  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-  thirtyDaysAgo.setHours(0, 0, 0, 0);
-
-  // Get total spent in last 30 days
-  const spentLast30Days = await prisma.order.aggregate({
-    where: {
-      userId: session.id,
-      status: 'COMPLETED',
-      createdAt: { gte: thirtyDaysAgo },
-    },
-    _sum: { totalAmount: true },
-  });
-  
-  const spentInLast30Days = spentLast30Days._sum.totalAmount || 0;
-  
-  const rankProgress: Record<string, { next: Rank | 'MAX', target: number }> = {
+  const rankProgress: Record<string, { next: string; target: number }> = {
     MEMBER: { next: 'SILVER', target: 2000000 },
     SILVER: { next: 'GOLD', target: 5000000 },
     GOLD: { next: 'DIAMOND', target: 10000000 },
@@ -66,12 +39,12 @@ export default async function ProfilePage() {
     PLATINUM: { next: 'MAX', target: 0 },
   };
 
-  let effectiveRank: Rank = user.rank as Rank;
-  let progress = rankProgress[effectiveRank as string];
+  let effectiveRank: string = user.rank;
+  let progress = rankProgress[effectiveRank];
   while (progress && progress.target > 0 && spentInLast30Days >= progress.target) {
     if (progress.next !== 'MAX') {
-      effectiveRank = progress.next as Rank;
-      progress = rankProgress[effectiveRank as string];
+      effectiveRank = progress.next;
+      progress = rankProgress[effectiveRank];
     } else {
       break;
     }
@@ -113,7 +86,7 @@ export default async function ProfilePage() {
                 {effectiveRank}
               </span>
               <span className="text-sm text-gray-600">
-                Thành viên từ {new Intl.DateTimeFormat('vi-VN', { month: 'long', year: 'numeric' }).format(new Date(user.createdAt))}
+                Thành viên từ {new Intl.DateTimeFormat('vi-VN', { month: 'long', year: 'numeric' }).format(new Date(detailedUser.createdAt))}
               </span>
             </div>
           </div>
@@ -165,15 +138,15 @@ export default async function ProfilePage() {
       {/* Edit form */}
       <div className="mt-8">
         <ProfileForm user={{
-          name: user.name,
-          email: user.email,
-          phone: user.phone,
-          gender: user.gender,
-          dob: user.dob ? new Date(user.dob).toISOString().split('T')[0] : '',
-          addressStreet: user.addressStreet,
-          addressWard: user.addressWard,
-          addressDistrict: user.addressDistrict,
-          addressProvince: user.addressProvince,
+          name: detailedUser.name,
+          email: detailedUser.email,
+          phone: detailedUser.phone,
+          gender: detailedUser.gender,
+          dob: detailedUser.dob ? new Date(detailedUser.dob).toISOString().split('T')[0] : '',
+          addressStreet: detailedUser.addressStreet,
+          addressWard: detailedUser.addressWard,
+          addressDistrict: detailedUser.addressDistrict,
+          addressProvince: detailedUser.addressProvince,
         }} />
       </div>
     </>

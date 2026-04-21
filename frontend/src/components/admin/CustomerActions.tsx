@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { apiClientClient } from '@/lib/apiClientClient';
 
 export default function CustomerActions() {
   const [showModal, setShowModal] = useState(false);
@@ -24,20 +25,13 @@ export default function CustomerActions() {
     setError('');
 
     try {
-      const res = await fetch('/api/customers', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
-      });
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
+      await apiClientClient.post('/admin/customers', form);
 
       setShowModal(false);
       setForm({ name: '', email: '', phone: '', gender: '', dob: '', address: '' });
       router.refresh();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Lỗi không xác định');
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Lỗi không xác định');
     } finally {
       setLoading(false);
     }

@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { apiClientClient } from '@/lib/apiClientClient';
 
 interface Props {
   storeId: string;
@@ -16,19 +17,11 @@ export default function StoreApprovalButton({ storeId, storeName }: Props) {
     if (!confirm(`Bạn có chắc muốn phê duyệt cửa hàng "${storeName}"?`)) return;
     setLoading(true);
     try {
-      const res = await fetch(`/api/admin/stores/${storeId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ isActive: true }),
-      });
-      if (res.ok) {
-        router.refresh();
-      } else {
-        const data = await res.json();
-        alert(data.error || 'Có lỗi xảy ra');
-      }
-    } catch {
-      alert('Lỗi kết nối');
+      await apiClientClient.post<any>(`/stores/admin/${storeId}/approve`, {});
+      router.refresh();
+    } catch (error: any) {
+      console.error(error);
+      alert(error.response?.data?.message || 'Có lỗi xảy ra');
     } finally {
       setLoading(false);
     }
@@ -38,17 +31,11 @@ export default function StoreApprovalButton({ storeId, storeName }: Props) {
     if (!confirm(`Bạn có chắc muốn TỪ CHỐI và xóa đăng ký của "${storeName}"? Người dùng sẽ quay về vai trò Khách hàng.`)) return;
     setLoading(true);
     try {
-      const res = await fetch(`/api/admin/stores/${storeId}`, {
-        method: 'DELETE',
-      });
-      if (res.ok) {
-        router.refresh();
-      } else {
-        const data = await res.json();
-        alert(data.error || 'Có lỗi xảy ra');
-      }
-    } catch {
-      alert('Lỗi kết nối');
+      await apiClientClient.delete<any>(`/stores/admin/${storeId}`);
+      router.refresh();
+    } catch (error: any) {
+      console.error(error);
+      alert(error.response?.data?.message || 'Có lỗi xảy ra');
     } finally {
       setLoading(false);
     }

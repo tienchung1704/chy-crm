@@ -173,7 +173,7 @@ export default function ProductsClient({ products, categories, initialWishlistId
     setTogglingIds(prev => new Set(prev).add(productId));
 
     try {
-      const res = await fetch('/api/portal/wishlist', {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api'}/wishlist`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ productId }),
@@ -213,7 +213,7 @@ export default function ProductsClient({ products, categories, initialWishlistId
     setAddingToCart(prev => new Set(prev).add(productId));
 
     try {
-      const res = await fetch('/api/portal/account', {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api'}/users/profile`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ productId, quantity: 1 }),

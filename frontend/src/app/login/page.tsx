@@ -50,7 +50,8 @@ function LoginForm() {
   const handleGoogleLogin = () => {
     // Get the return URL from query params (if user came from a product page)
     const returnTo = searchParams.get('returnTo') || '/portal';
-    window.location.href = `/api/auth/google?returnTo=${encodeURIComponent(returnTo)}`;
+    const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+    window.location.href = `${backendUrl}/auth/google?returnTo=${encodeURIComponent(returnTo)}`;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -60,7 +61,8 @@ function LoginForm() {
     setSuccess('');
 
     try {
-      const endpoint = isLogin ? '/api/auth/login' : '/api/auth/register';
+      const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+      const endpoint = isLogin ? `${backendUrl}/auth/login` : `${backendUrl}/auth/register`;
 
       // For register, fallback to saved referral code if input is empty.
       const savedReferralCode = getSavedReferralCode();

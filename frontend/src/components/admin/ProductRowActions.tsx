@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Trash2 } from 'lucide-react';
 import ImageUpload from './ImageUpload';
+import { apiClientClient } from '@/lib/apiClientClient';
 
 interface Category {
   id: string;
@@ -119,51 +120,31 @@ export default function ProductRowActions({ product, allCategories }: ProductRow
 
   useEffect(() => {
     if (showEditModal) {
-      fetch('/api/sizes').then(res => res.json()).then(setSizes).catch(console.error);
-      fetch('/api/colors').then(res => res.json()).then(setColors).catch(console.error);
+      apiClientClient.get<any[]>('/sizes').then(setSizes).catch(console.error);
+      apiClientClient.get<any[]>('/colors').then(setColors).catch(console.error);
     }
   }, [showEditModal]);
 
   const handleCreateSize = async () => {
     if (!newSizeName.trim()) return;
     try {
-      const res = await fetch('/api/sizes', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: newSizeName }),
-      });
-      if (res.ok) {
-        const newSize = await res.json();
-        setSizes([...sizes, newSize]);
-        setNewSizeName('');
-      } else {
-        const error = await res.json();
-        alert(error.error || 'Failed to create size');
-      }
-    } catch {
-      alert('Network error');
+      const newSize = await apiClientClient.post<any>('/sizes', { name: newSizeName });
+      setSizes([...sizes, newSize]);
+      setNewSizeName('');
+    } catch (error: any) {
+      alert(error.response?.data?.message || 'Failed to create size');
     }
   };
 
   const handleCreateColor = async () => {
     if (!newColorName.trim()) return;
     try {
-      const res = await fetch('/api/colors', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: newColorName, hexCode: newColorHex }),
-      });
-      if (res.ok) {
-        const newColor = await res.json();
-        setColors([...colors, newColor]);
-        setNewColorName('');
-        setNewColorHex('');
-      } else {
-        const error = await res.json();
-        alert(error.error || 'Failed to create color');
-      }
-    } catch {
-      alert('Network error');
+      const newColor = await apiClientClient.post<any>('/colors', { name: newColorName, hexCode: newColorHex });
+      setColors([...colors, newColor]);
+      setNewColorName('');
+      setNewColorHex('');
+    } catch (error: any) {
+      alert(error.response?.data?.message || 'Failed to create color');
     }
   };
 
@@ -176,36 +157,29 @@ export default function ProductRowActions({ product, allCategories }: ProductRow
       const selectedCategoryId = form.categoryLevel4 || form.categoryLevel3 || form.categoryLevel2 || form.categoryLevel1;
       const categoryIds = selectedCategoryId ? [selectedCategoryId] : [];
 
-      const res = await fetch(`/api/products/${product.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: form.name,
-          slug: form.slug,
-          sku: form.sku,
-          description: form.description,
-          originalPrice: parseFloat(form.originalPrice),
-          salePrice: form.salePrice ? parseFloat(form.salePrice) : null,
-          weight: parseInt(form.weight) || 500,
-          stockQuantity: form.variants.length > 0 
-            ? form.variants.reduce((acc, v) => acc + (parseInt(v.stock) || 0), 0)
-            : (parseInt(form.stockQuantity) || 0),
-          imageUrl: form.imageUrl,
-          categoryIds,
-          isComboSet: form.isComboSet,
-          isGiftItem: form.isGiftItem,
-          isActive: form.isActive,
-          variants: form.variants,
-        }),
+      await apiClientClient.patch<any>(`/products/${product.id}`, {
+        name: form.name,
+        slug: form.slug,
+        sku: form.sku,
+        description: form.description,
+        originalPrice: parseFloat(form.originalPrice),
+        salePrice: form.salePrice ? parseFloat(form.salePrice) : null,
+        weight: parseInt(form.weight) || 500,
+        stockQuantity: form.variants.length > 0 
+          ? form.variants.reduce((acc, v) => acc + (parseInt(v.stock) || 0), 0)
+          : (parseInt(form.stockQuantity) || 0),
+        imageUrl: form.imageUrl,
+        categoryIds,
+        isComboSet: form.isComboSet,
+        isGiftItem: form.isGiftItem,
+        isActive: form.isActive,
+        variants: form.variants,
       });
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
 
       setShowEditModal(false);
       router.refresh();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Lỗi cập nhật sản phẩm');
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Lỗi cập nhật sản phẩm');
     } finally {
       setLoading(false);
     }
@@ -216,17 +190,11 @@ export default function ProductRowActions({ product, allCategories }: ProductRow
     setError('');
 
     try {
-      const res = await fetch(`/api/products/${product.id}`, {
-        method: 'DELETE',
-      });
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
-
+      await apiClientClient.delete<any>(`/products/${product.id}`);
       setShowDeleteModal(false);
       router.refresh();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Lỗi xóa sản phẩm');
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Lỗi xóa sản phẩm');
     } finally {
       setLoading(false);
     }

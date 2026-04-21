@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { apiClientClient } from '@/lib/apiClientClient';
 
 export default function StoreActions() {
   const [isOpen, setIsOpen] = useState(false);
@@ -17,22 +18,12 @@ export default function StoreActions() {
     e.preventDefault();
     setLoading(true);
     try {
-      const res = await fetch('/api/admin/stores', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
-      });
-
-      if (!res.ok) {
-        const data = await res.json();
-        alert(data.error || 'Lỗi tạo cửa hàng');
-      } else {
-        setIsOpen(false);
-        router.refresh();
-      }
-    } catch (error) {
+      await apiClientClient.post('/stores/admin', formData);
+      setIsOpen(false);
+      router.refresh();
+    } catch (error: any) {
       console.error(error);
-      alert('Đã xảy ra lỗi');
+      alert(error.response?.data?.message || 'Lỗi tạo cửa hàng');
     } finally {
       setLoading(false);
     }

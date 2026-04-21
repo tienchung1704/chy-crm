@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef } from 'react';
+import { apiClientClient } from '@/lib/apiClientClient';
 
 interface Prize {
   id: string;
@@ -31,14 +32,7 @@ export default function SpinWheelClient({ prizes, spinTurns: initialSpinTurns }:
     setResult(null);
 
     try {
-      const res = await fetch('/api/spin', { method: 'POST' });
-      const data = await res.json();
-
-      if (!res.ok) {
-        setResult({ name: data.error || 'Lỗi', won: false });
-        setSpinning(false);
-        return;
-      }
+      const data = await apiClientClient.post<any>('/spin', {});
 
       // Update remaining turns
       setSpinTurns(data.remainingTurns);

@@ -5,13 +5,14 @@ import jwt from 'jsonwebtoken';
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-change-me';
 const ACCESS_TOKEN_NAME = 'crm_access_token';
 const REFRESH_TOKEN_NAME = 'crm_refresh_token';
+const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 
 export async function proxy(request: NextRequest) {
   const accessToken = request.cookies.get(ACCESS_TOKEN_NAME)?.value;
   const refreshToken = request.cookies.get(REFRESH_TOKEN_NAME)?.value;
 
   // Skip proxy for public routes
-  const publicPaths = ['/login', '/api/auth/login', '/api/auth/register', '/api/auth/google', '/api/auth/refresh'];
+  const publicPaths = ['/login', '/_next', '/favicon.ico'];
   if (publicPaths.some(path => request.nextUrl.pathname.startsWith(path))) {
     return NextResponse.next();
   }
@@ -19,8 +20,8 @@ export async function proxy(request: NextRequest) {
   // If no access token but has refresh token, try to refresh
   if (!accessToken && refreshToken) {
     try {
-      // Call refresh endpoint
-      const refreshResponse = await fetch(new URL('/api/auth/refresh', request.url), {
+      // Call backend refresh endpoint
+      const refreshResponse = await fetch(`${BACKEND_URL}/auth/refresh`, {
         method: 'POST',
         headers: {
           Cookie: `${REFRESH_TOKEN_NAME}=${refreshToken}`,
@@ -53,7 +54,7 @@ export async function proxy(request: NextRequest) {
       // Access token expired, try to refresh
       if (refreshToken) {
         try {
-          const refreshResponse = await fetch(new URL('/api/auth/refresh', request.url), {
+          const refreshResponse = await fetch(`${BACKEND_URL}/auth/refresh`, {
             method: 'POST',
             headers: {
               Cookie: `${REFRESH_TOKEN_NAME}=${refreshToken}`,

@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, DynamicModule, Logger } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { ScheduleModule } from '@nestjs/schedule';
 import { BullModule } from '@nestjs/bullmq';
@@ -25,13 +25,25 @@ import { AddressModule } from './address/address.module';
 import { ColorsModule } from './colors/colors.module';
 import { SizesModule } from './sizes/sizes.module';
 import { CommissionConfigModule } from './commission-config/commission-config.module';
+import { AdminModule } from './admin/admin.module';
 
-@Module({
-  imports: [
-    ConfigModule.forRoot({
-      isGlobal: true,
-    }),
-    ScheduleModule.forRoot(),
+const logger = new Logger('AppModule');
+
+// Helper function to conditionally load BullMQ modules
+function getQueueModules(): any[] {
+  const redisHost = process.env.REDIS_HOST;
+  const redisUrl = process.env.REDIS_URL;
+  
+  // Skip BullMQ if Redis is not configured
+  if (!redisHost && !redisUrl) {
+    logger.warn('⚠️  Redis not configured - BullMQ queues disabled. Voucher verification and background jobs will not work.');
+    logger.warn('⚠️  To enable queues, set REDIS_HOST or REDIS_URL in .env file');
+    return [];
+  }
+
+  logger.log('✅ Redis configured - BullMQ queues enabled');
+  
+  return [
     // BullMQ Configuration with Redis
     BullModule.forRootAsync({
       inject: [ConfigService],
@@ -44,11 +56,16 @@ import { CommissionConfigModule } from './commission-config/commission-config.mo
         },
       }),
     }),
-    // Bull Board Dashboard for Queue Management
-    BullBoardModule.forRoot({
-      route: '/admin/queues',
-      adapter: ExpressAdapter,
+  ];
+}
+
+@Module({
+  imports: [
+    ConfigModule.forRoot({
+      isGlobal: true,
     }),
+    ScheduleModule.forRoot(),
+    ...getQueueModules(), // Conditionally load BullMQ
     PrismaModule,
     AuthModule,
     UsersModule,
@@ -69,6 +86,7 @@ import { CommissionConfigModule } from './commission-config/commission-config.mo
     ColorsModule,
     SizesModule,
     CommissionConfigModule,
+    AdminModule,
   ],
 })
 export class AppModule {}

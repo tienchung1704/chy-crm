@@ -236,4 +236,115 @@ export class UsersService {
       shouldSyncPancake: !!phone, // Return flag for frontend to trigger sync
     };
   }
+
+  async getPortalDashboard(userId: string) {
+    const now = new Date();
+    const thirtyDaysAgo = new Date(now);
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    thirtyDaysAgo.setHours(0, 0, 0, 0);
+
+    const [user, voucherCount, orderCount, refereeCount, recentOrders, spentLast30Days] = await Promise.all([
+      this.prisma.user.findUnique({
+        where: { id: userId },
+        select: {
+          totalSpent: true,
+          rank: true,
+          commissionBalance: true,
+          points: true,
+          referralCode: true,
+          dob: true,
+        },
+      }),
+      this.prisma.userVoucher.count({
+        where: { userId, isUsed: false },
+      }),
+      this.prisma.order.count({
+        where: { userId },
+      }),
+      this.prisma.user.count({
+        where: { referrerId: userId },
+      }),
+      this.prisma.order.findMany({
+        where: { userId },
+        take: 5,
+        orderBy: { createdAt: 'desc' },
+        select: {
+          id: true,
+          orderCode: true,
+          totalAmount: true,
+          status: true,
+          createdAt: true,
+        },
+      }),
+      this.prisma.order.aggregate({
+        where: {
+          userId,
+          status: 'COMPLETED',
+          createdAt: { gte: thirtyDaysAgo },
+        },
+        _sum: { totalAmount: true },
+      }),
+    ]);
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    return {
+      user,
+      voucherCount,
+      orderCount,
+      refereeCount,
+      recentOrders,
+      spentInLast30Days: spentLast30Days._sum.totalAmount || 0,
+    };
+  }
+
+  async getPortalLayoutMeta(userId: string) {
+    const now = new Date();
+    const thirtyDaysAgo = new Date(now);
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    thirtyDaysAgo.setHours(0, 0, 0, 0);
+
+    const [user, cart, spentLast30Days, store] = await Promise.all([
+      this.prisma.user.findUnique({
+        where: { id: userId },
+        select: {
+          onboardingComplete: true,
+          rank: true,
+        },
+      }),
+      this.prisma.cart.findUnique({
+        where: { userId },
+        include: {
+          items: {
+            select: { quantity: true },
+          },
+        },
+      }),
+      this.prisma.order.aggregate({
+        where: {
+          userId,
+          status: 'COMPLETED',
+          createdAt: { gte: thirtyDaysAgo },
+        },
+        _sum: { totalAmount: true },
+      }),
+      this.prisma.store.findUnique({
+        where: { ownerId: userId },
+        select: { id: true, name: true, isActive: true },
+      }),
+    ]);
+
+    const cartItemCount = cart ? cart.items.reduce((sum, item) => sum + item.quantity, 0) : 0;
+
+    return {
+      onboardingComplete: user?.onboardingComplete || false,
+      rank: user?.rank || 'MEMBER',
+      cartItemCount,
+      spentInLast30Days: spentLast30Days._sum.totalAmount || 0,
+      hasStore: !!store,
+      store: store || null,
+    };
+  }
 }

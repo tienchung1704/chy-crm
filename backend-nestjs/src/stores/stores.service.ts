@@ -143,4 +143,152 @@ export class StoresService {
       },
     });
   }
+
+  /**
+   * Create store as Admin (manually assign owner)
+   */
+  async createStoreAdmin(data: any) {
+    const { name, slug, ownerId } = data;
+
+    // Check if owner already has a store
+    const existingStore = await this.prisma.store.findUnique({
+      where: { ownerId },
+    });
+
+    if (existingStore) {
+      throw new ForbiddenException('Người dùng này đã có cửa hàng rồi');
+    }
+
+    // Upgrade owner to MODERATOR
+    await this.prisma.user.update({
+      where: { id: ownerId },
+      data: { role: 'MODERATOR' },
+    });
+
+    return this.prisma.store.create({
+      data: {
+        ownerId,
+        name,
+        slug: slug || (name.toLowerCase().replace(/\s+/g, '-') + '-' + Date.now()),
+        isActive: true,
+      },
+    });
+  }
+
+  /**
+   * Get all stores for Admin
+   */
+  async findAllAdmin() {
+    return this.prisma.store.findMany({
+      include: {
+        owner: { select: { id: true, name: true, email: true, phone: true } },
+        _count: { select: { products: true, orders: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  /**
+   * Get store detail for Admin
+   */
+  async findAdminStoreDetail(id: string) {
+    const store = await this.prisma.store.findUnique({
+      where: { id },
+      include: {
+        owner: {
+          select: { id: true, name: true, email: true, phone: true, rank: true, createdAt: true },
+        },
+        _count: { select: { products: true, orders: true, vouchers: true } },
+        orders: {
+          take: 10,
+          orderBy: { createdAt: 'desc' },
+          include: {
+            user: { select: { name: true } },
+          },
+        },
+        products: {
+          take: 10,
+          orderBy: { createdAt: 'desc' },
+          include: {
+            categories: { select: { name: true } },
+          },
+        },
+      },
+    });
+
+    if (!store) {
+      throw new NotFoundException('Store not found');
+    }
+
+    return store;
+  }
+
+  /**
+   * Approve store
+   */
+  async approveStore(id: string) {
+    const store = await this.prisma.store.findUnique({
+      where: { id },
+    });
+
+    if (!store) {
+      throw new NotFoundException('Store not found');
+    }
+
+    // Upgrade owner to MODERATOR if not already ADMIN/STAFF
+    const owner = await this.prisma.user.findUnique({
+      where: { id: store.ownerId },
+    });
+
+    if (owner && owner.role === 'CUSTOMER') {
+      await this.prisma.user.update({
+        where: { id: owner.id },
+        data: { role: 'MODERATOR' },
+      });
+    }
+
+    return this.prisma.store.update({
+      where: { id },
+      data: { isActive: true },
+    });
+  }
+
+  /**
+   * Update store status (Admin Only)
+   */
+  async updateStatus(id: string, data: { isActive?: boolean; isBanned?: boolean; bannedReason?: string }) {
+    const store = await this.prisma.store.findUnique({
+      where: { id },
+    });
+
+    if (!store) {
+      throw new NotFoundException('Store not found');
+    }
+
+    return this.prisma.store.update({
+      where: { id },
+      data: {
+        isActive: data.isActive !== undefined ? data.isActive : store.isActive,
+        isBanned: data.isBanned !== undefined ? data.isBanned : store.isBanned,
+        bannedReason: data.bannedReason !== undefined ? data.bannedReason : store.bannedReason,
+      },
+    });
+  }
+
+  /**
+   * Delete store as Admin
+   */
+  async removeAdmin(id: string) {
+    const store = await this.prisma.store.findUnique({
+      where: { id },
+    });
+
+    if (!store) {
+      throw new NotFoundException('Store not found');
+    }
+
+    return this.prisma.store.delete({
+      where: { id },
+    });
+  }
 }

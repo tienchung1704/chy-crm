@@ -1,69 +1,13 @@
-import prisma from '@/lib/prisma';
 import Link from 'next/link';
 import OrderStatusManager from '@/components/admin/OrderStatusManager';
 import OrderReadStatusManager from '@/components/admin/OrderReadStatusManager';
-
-async function getOrder(id: string) {
-  const order = await prisma.order.findUnique({
-    where: { id },
-    include: {
-      user: {
-        select: {
-          id: true,
-          name: true,
-          email: true,
-          phone: true,
-          rank: true,
-          address: true,
-          addressStreet: true,
-          addressWard: true,
-          addressDistrict: true,
-          addressProvince: true,
-        },
-      },
-      items: {
-        include: {
-          product: {
-            select: {
-              id: true,
-              name: true,
-              imageUrl: true,
-              slug: true,
-            },
-          },
-        },
-      },
-      appliedVouchers: {
-        include: {
-          userVoucher: {
-            include: {
-              voucher: true,
-            },
-          },
-        },
-      },
-      commissions: {
-        include: {
-          user: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-            },
-          },
-        },
-      },
-    },
-  });
-  
-  return order as typeof order & { customerNote: string | null };
-}
+import { apiClient } from '@/lib/apiClient';
 
 function fmt(amount: number) {
-  return new Intl.NumberFormat('vi-VN').format(amount) + ' đ';
+  return new Intl.NumberFormat('vi-VN').format(amount || 0) + ' đ';
 }
 
-function fmtDate(d: Date) {
+function fmtDate(d: string | Date) {
   return new Intl.DateTimeFormat('vi-VN', {
     day: '2-digit',
     month: '2-digit',
@@ -93,13 +37,20 @@ export default async function OrderDetailPage(props: {
   params: Promise<{ id: string }>;
 }) {
   const params = await props.params;
-  const order = await getOrder(params.id);
+  
+  let order: any = null;
+
+  try {
+    order = await apiClient.get<any>(`/orders/${params.id}`);
+  } catch (error) {
+    console.error('Error fetching order details:', error);
+  }
 
   if (!order) {
     return (
       <div className="text-center py-12">
         <h1 className="text-2xl font-bold text-gray-800 mb-4">
-          Không tìm thấy đơn hàng
+          Không tìm thấy đơn hàng hoặc bạn không có quyền truy cập
         </h1>
         <Link
           href="/admin/orders"
@@ -121,9 +72,9 @@ export default async function OrderDetailPage(props: {
   };
 
   const fullAddress = [
-    order.user.addressStreet,
-    order.user.addressWard,
-    order.user.addressProvince,
+    order.user?.addressStreet,
+    order.user?.addressWard,
+    order.user?.addressProvince,
   ]
     .filter(Boolean)
     .join(', ');
@@ -164,16 +115,16 @@ export default async function OrderDetailPage(props: {
           {/* Order Items */}
           <div className="bg-white rounded-xl shadow-sm p-6">
             <h2 className="text-xl font-bold text-gray-800 mb-4">
-              Sản phẩm ({order.items.length})
+              Sản phẩm ({order.items?.length || 0})
             </h2>
             <div className="space-y-4">
-              {order.items.map((item) => (
+              {order.items?.map((item: any) => (
                 <div
                   key={item.id}
                   className="flex gap-4 p-4 bg-gray-50 rounded-lg"
                 >
                   <div className="w-20 h-20 bg-gray-200 rounded-lg overflow-hidden flex-shrink-0">
-                    {item.product.imageUrl ? (
+                    {item.product?.imageUrl ? (
                       <img
                         src={item.product.imageUrl}
                         alt={item.product.name}
@@ -187,7 +138,7 @@ export default async function OrderDetailPage(props: {
                   </div>
                   <div className="flex-1">
                     <h3 className="font-semibold text-gray-800 mb-1">
-                      {item.product.name}
+                      {item.product?.name || 'Sản phẩm'}
                     </h3>
                     {(item.size || item.color) && (
                       <p className="text-sm text-gray-600 mb-1">
@@ -248,19 +199,19 @@ export default async function OrderDetailPage(props: {
               </div>
             </div>
 
-            {order.appliedVouchers.length > 0 && (
+            {order.appliedVouchers?.length > 0 && (
               <div className="mt-4 pt-4">
                 <h3 className="font-semibold text-gray-800 mb-2">
                   Voucher đã áp dụng:
                 </h3>
                 <div className="space-y-2">
-                  {order.appliedVouchers.map((ov) => (
+                  {order.appliedVouchers.map((ov: any) => (
                     <div
                       key={ov.id}
                       className="flex justify-between items-center p-2 bg-gray-50 rounded"
                     >
                       <span className="font-mono text-sm font-semibold">
-                        {ov.userVoucher.voucher.code}
+                        {ov.userVoucher?.voucher?.code || 'Voucher'}
                       </span>
                       <span className="text-sm text-green-600 font-semibold">
                         -{fmt(ov.discountApplied)}
@@ -292,20 +243,20 @@ export default async function OrderDetailPage(props: {
           </div>
 
           {/* Commissions */}
-          {order.commissions.length > 0 && (
+          {order.commissions?.length > 0 && (
             <div className="bg-white rounded-xl shadow-sm p-6">
               <h2 className="text-xl font-bold text-gray-800 mb-4">
                 Hoa hồng ({order.commissions.length})
               </h2>
               <div className="space-y-3">
-                {order.commissions.map((comm) => (
+                {order.commissions.map((comm: any) => (
                   <div
                     key={comm.id}
                     className="flex justify-between items-center p-3 bg-gray-50 rounded-lg"
                   >
                     <div>
                       <p className="font-semibold text-gray-800">
-                        {comm.user.name}
+                        {comm.user?.name || 'Unknown'}
                       </p>
                       <p className="text-sm text-gray-600">
                         Cấp {comm.level} • {comm.percentage}%
@@ -339,15 +290,15 @@ export default async function OrderDetailPage(props: {
             <div className="space-y-3">
               <div>
                 <p className="text-sm text-gray-600">Tên:</p>
-                <p className="font-semibold text-gray-800">{order.user.name}</p>
+                <p className="font-semibold text-gray-800">{order.user?.name || 'Unknown'}</p>
               </div>
-              {order.user.email && (
+              {order.user?.email && (
                 <div>
                   <p className="text-sm text-gray-600">Email:</p>
                   <p className="font-semibold text-gray-800">{order.user.email}</p>
                 </div>
               )}
-              {order.user.phone && (
+              {order.user?.phone && (
                 <div>
                   <p className="text-sm text-gray-600">Số điện thoại:</p>
                   <p className="font-semibold text-gray-800">{order.user.phone}</p>
@@ -356,7 +307,7 @@ export default async function OrderDetailPage(props: {
               <div>
                 <p className="text-sm text-gray-600">Hạng:</p>
                 <span className="inline-block px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-semibold">
-                  {order.user.rank}
+                  {order.user?.rank || 'MEMBER'}
                 </span>
               </div>
               {fullAddress && (

@@ -1,7 +1,7 @@
 import { getSession } from '@/lib/auth';
-import prisma from '@/lib/prisma';
 import CheckoutClient from './CheckoutClient';
-import { redirect } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
+import { apiClient } from '@/lib/apiClient';
 
 export default async function CheckoutPage(props: { searchParams: Promise<{ [key: string]: string | undefined }> }) {
   const session = await getSession();
@@ -12,32 +12,26 @@ export default async function CheckoutPage(props: { searchParams: Promise<{ [key
   const searchParams = await props.searchParams;
   const cartMode = searchParams.cartMode === 'true';
 
-  const user = await prisma.user.findUnique({
-    where: { id: session.id }
-  });
-  if (!user) redirect('/login');
+  let detailedUser: any;
+  try {
+    detailedUser = await apiClient.get<any>('/users/profile');
+  } catch (error) {
+    redirect('/login');
+  }
 
   if (cartMode) {
     // Cart mode: checkout multiple items from cart
     const itemIds = (searchParams.items || '').split(',').filter(Boolean);
-    const storeId = searchParams.storeId || null;
-
     if (itemIds.length === 0) redirect('/portal/cart');
 
-    // Fetch cart items with products
-    const cartItems = await prisma.cartItem.findMany({
-      where: {
-        id: { in: itemIds },
-        cart: { userId: session.id },
-      },
-      include: {
-        product: {
-          include: {
-            store: { select: { id: true, name: true, addressStreet: true, addressWard: true, addressProvince: true } },
-          },
-        },
-      },
-    });
+    let cartItems: any[] = [];
+    try {
+      const cart = await apiClient.get<any>('/cart');
+      const allCartItems = cart.items || [];
+      cartItems = allCartItems.filter((ci: any) => itemIds.includes(ci.id));
+    } catch (error) {
+      redirect('/portal/cart');
+    }
 
     if (cartItems.length === 0) redirect('/portal/cart');
 
@@ -62,7 +56,7 @@ export default async function CheckoutPage(props: { searchParams: Promise<{ [key
       <div className="min-h-screen bg-gray-50 py-8">
         <div className="max-w-6xl mx-auto px-4">
           <h1 className="text-3xl font-bold text-gray-900 mb-8">Thanh toán đơn hàng</h1>
-          <CheckoutClient user={user} items={orderItems} store={store} cartMode={true} />
+          <CheckoutClient user={detailedUser} items={orderItems} store={store} cartMode={true} />
         </div>
       </div>
     );
@@ -78,12 +72,12 @@ export default async function CheckoutPage(props: { searchParams: Promise<{ [key
     redirect('/portal/products');
   }
 
-  const product = await prisma.product.findUnique({
-    where: { id: productId },
-    include: {
-      store: { select: { id: true, name: true, addressStreet: true, addressWard: true, addressProvince: true } },
-    },
-  });
+  let product: any;
+  try {
+    product = await apiClient.get<any>(`/products/${productId}`);
+  } catch (error) {
+    redirect('/portal/products');
+  }
 
   if (!product || !product.isActive) {
     redirect('/portal/products');
@@ -101,7 +95,7 @@ export default async function CheckoutPage(props: { searchParams: Promise<{ [key
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-6xl mx-auto px-4">
         <h1 className="text-3xl font-bold text-gray-900 mb-8">Thanh toán đơn hàng</h1>
-        <CheckoutClient user={user} items={orderItems} store={product.store} cartMode={false} />
+        <CheckoutClient user={detailedUser} items={orderItems} store={product.store} cartMode={false} />
       </div>
     </div>
   );

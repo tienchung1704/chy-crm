@@ -1,32 +1,23 @@
 import { getSession } from '@/lib/auth';
-import prisma from '@/lib/prisma';
 import OrderList from './OrderList';
+export const dynamic = 'force-dynamic';
+import { apiClient } from '@/lib/apiClient';
 
 export default async function PortalOrdersPage() {
   const session = await getSession();
   if (!session) return null;
 
-  const orders = await prisma.order.findMany({
-    where: { userId: session.id },
-    include: {
-      items: {
-        include: {
-          product: {
-            select: { id: true, name: true, imageUrl: true }
-          }
-        }
-      }
-    },
-    orderBy: { createdAt: 'desc' },
-  });
+  let orders: any[] = [];
+  try {
+    orders = await apiClient.get<any[]>('/orders');
+  } catch (error) {
+    console.error('Error fetching orders:', error);
+  }
 
-  // Serialize dates for client component
+  // API returns strings for dates, ensure it matches what OrderList expects
   const serializedOrders = orders.map(order => ({
     ...order,
-    createdAt: order.createdAt.toISOString(),
-    updatedAt: order.updatedAt.toISOString(),
-    paidAt: order.paidAt?.toISOString() || null,
-    items: order.items || [], // Ensure items array is always present
+    items: order.items || [],
   }));
 
   return (

@@ -1,40 +1,34 @@
-import prisma from '@/lib/prisma';
 import { getSession } from '@/lib/auth';
 import ProductsClient from '@/components/customer/ProductsClient';
+import { apiClient } from '@/lib/apiClient';
 
 async function getProducts() {
-  return prisma.product.findMany({
-    where: { 
-      isActive: true,
-      OR: [
-        { storeId: null },
-        { store: { isActive: true, isBanned: false } }
-      ]
-    },
-    orderBy: { createdAt: 'desc' },
-    select: {
-      id: true,
-      name: true,
-      slug: true,
-      imageUrl: true,
-      originalPrice: true,
-      salePrice: true,
-      stockQuantity: true,
-      soldCount: true,
-      isComboSet: true,
-      categories: { select: { name: true } },
-      variants: { select: { price: true } },
-      store: { select: { name: true, slug: true, logoUrl: true } },
-    },
-  });
+  try {
+    const response = await apiClient.get<any>('/products');
+    return response.data; // Backend returns { data: Product[], meta: ... }
+  } catch (error) {
+    console.error('Error fetching products:', error);
+    return [];
+  }
 }
 
 async function getCategories() {
-  return prisma.category.findMany({
-    where: { isActive: true },
-    orderBy: { name: 'asc' },
-    select: { id: true, name: true, parentId: true },
-  });
+  try {
+    return await apiClient.get<any[]>('/categories');
+  } catch (error) {
+    console.error('Error fetching categories:', error);
+    return [];
+  }
+}
+
+async function getWishlistIds() {
+  try {
+    const response = await apiClient.get<any>('/wishlist');
+    return response.productIds || [];
+  } catch (error) {
+    console.error('Error fetching wishlist:', error);
+    return [];
+  }
 }
 
 export default async function ProductsPage() {
@@ -48,18 +42,11 @@ export default async function ProductsPage() {
   let userReferralCode = '';
 
   if (session) {
-    const [wishlists, user] = await Promise.all([
-      prisma.wishlist.findMany({
-        where: { userId: session.id },
-        select: { productId: true },
-      }),
-      prisma.user.findUnique({
-        where: { id: session.id },
-        select: { referralCode: true },
-      }),
+    const [wishlistData] = await Promise.all([
+      getWishlistIds(),
     ]);
-    wishlistIds = wishlists.map((w) => w.productId);
-    userReferralCode = user?.referralCode || '';
+    wishlistIds = wishlistData;
+    userReferralCode = session.referralCode || '';
   }
 
   return (

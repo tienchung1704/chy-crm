@@ -80,7 +80,7 @@ export default function CreateOrderModal({ onClose, onSuccess }: CreateOrderModa
 
     setSearchingCustomers(true);
     try {
-      const res = await fetch(`/api/admin/customers/search?q=${encodeURIComponent(query)}`);
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api'}/users?q=${encodeURIComponent(query)}`);
       if (res.ok) {
         const data = await res.json();
         setCustomers(data.customers || []);
@@ -101,7 +101,7 @@ export default function CreateOrderModal({ onClose, onSuccess }: CreateOrderModa
 
     setSearchingProducts(true);
     try {
-      const res = await fetch(`/api/admin/products/search?q=${encodeURIComponent(query)}`);
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/admin/products/search?q=${encodeURIComponent(query)}`);
       if (res.ok) {
         const data = await res.json();
         setProducts(data.products || []);
@@ -202,7 +202,7 @@ export default function CreateOrderModal({ onClose, onSuccess }: CreateOrderModa
     setError('');
 
     try {
-      const res = await fetch('/api/admin/orders/create', {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/admin/orders/create`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

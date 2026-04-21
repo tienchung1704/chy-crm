@@ -66,7 +66,7 @@ export default function ProductReviews({ productId, productName, userCompletedOr
         limit: '10',
       });
 
-      const res = await fetch(`/api/reviews?${params}`);
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api'}/reviews?${params}`);
       const data = await res.json();
 
       if (res.ok) {

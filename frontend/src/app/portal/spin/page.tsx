@@ -1,29 +1,28 @@
 import { getSession } from '@/lib/auth';
-import prisma from '@/lib/prisma';
 import SpinWheelClient from '@/components/customer/SpinWheelClient';
+export const dynamic = 'force-dynamic';
+import { apiClient } from '@/lib/apiClient';
 
 export default async function PortalSpinPage() {
   const session = await getSession();
   if (!session) return null;
 
-  // Get user's spin turns
-  const user = await prisma.user.findUnique({
-    where: { id: session.id },
-    select: { spinTurns: true },
-  });
+  let spinTurns = 0;
+  let prizes: any[] = [];
+  let recentWins: any[] = [];
 
-  const prizes = await prisma.spinPrize.findMany({
-    where: { isActive: true },
-    orderBy: { sortOrder: 'asc' },
-    select: { id: true, name: true, color: true, type: true, value: true, probability: true },
-  });
-
-  const recentWins = await prisma.spinHistory.findMany({
-    where: { userId: session.id },
-    take: 10,
-    orderBy: { createdAt: 'desc' },
-    include: { prize: { select: { name: true, type: true, value: true } } },
-  });
+  try {
+    const [attemptsData, prizesData, historyData] = await Promise.all([
+      apiClient.get<any>('/spin/attempts'),
+      apiClient.get<any[]>('/spin/prizes'),
+      apiClient.get<any[]>('/spin/history'),
+    ]);
+    spinTurns = attemptsData.spinAttempts || 0;
+    prizes = prizesData;
+    recentWins = historyData;
+  } catch (error) {
+    console.error('Error fetching spin data:', error);
+  }
 
   return (
     <>
@@ -33,7 +32,7 @@ export default async function PortalSpinPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
-        <SpinWheelClient prizes={prizes} spinTurns={user?.spinTurns || 0} />
+        <SpinWheelClient prizes={prizes} spinTurns={spinTurns} />
 
         <div>
           {/* Prize list */}
@@ -68,7 +67,7 @@ export default async function PortalSpinPage() {
                       }`}
                   >
                     <span className={`text-sm ${h.won ? 'font-semibold' : ''}`}>
-                      {h.won ? '🎉' : '💨'} {h.prize.name}
+                      {h.won ? '🎉' : '💨'} {h.prize?.name || 'Phần quà'}
                     </span>
                     <span className="text-xs text-gray-600">
                       {new Intl.DateTimeFormat('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' }).format(new Date(h.createdAt))}

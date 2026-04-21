@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, IsUUID } from 'class-validator';
+import { IsString, IsNotEmpty, IsUUID, IsOptional } from 'class-validator';
 
 export class ClaimQRVoucherDto {
   @IsString()
@@ -6,6 +6,6 @@ export class ClaimQRVoucherDto {
   orderCode: string;
 
   @IsUUID()
-  @IsNotEmpty()
-  voucherId: string;
+  @IsOptional()
+  voucherId?: string;
 }

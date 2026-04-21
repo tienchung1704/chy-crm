@@ -74,4 +74,16 @@ export class UsersController {
       totalSpent,
     };
   }
+
+  @Get('dashboard')
+  @ApiOperation({ summary: 'Get user portal dashboard data' })
+  async getPortalDashboard(@GetUser('id') userId: string) {
+    return this.usersService.getPortalDashboard(userId);
+  }
+
+  @Get('portal-layout-meta')
+  @ApiOperation({ summary: 'Get portal layout metadata' })
+  async getPortalLayoutMeta(@GetUser('id') userId: string) {
+    return this.usersService.getPortalLayoutMeta(userId);
+  }
 }

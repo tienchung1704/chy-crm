@@ -17,7 +17,7 @@
     "seed": "npx tsx prisma/seed.ts"
   },
   "dependencies": {
-    "@prisma/client": "^6.19.3",
+    "@prisma/client": "^7.7.0",
     "@uploadthing/react": "^7.3.3",
     "@vercel/analytics": "^2.0.1",
     "bcryptjs": "^3.0.3",
@@ -27,7 +27,7 @@
     "nanoid": "^5.1.7",
     "next": "16.2.3",
     "nodemailer": "^8.0.5",
-    "prisma": "^6.19.3",
+    "prisma": "^7.7.0",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "react-toastify": "^11.0.5",

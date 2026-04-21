@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { Menu } from 'lucide-react';
+import { apiClientClient } from '@/lib/apiClientClient';
 
 interface AdminHeaderProps {
   user: {
@@ -16,7 +17,9 @@ export default function AdminHeader({ user, onToggleSidebar, isSidebarOpen }: Ad
   const router = useRouter();
 
   const handleLogout = async () => {
-    await fetch('/api/auth/logout', { method: 'POST' });
+    try {
+      await apiClientClient.post('/auth/logout', {});
+    } catch {}
     router.push('/login');
     router.refresh();
   };

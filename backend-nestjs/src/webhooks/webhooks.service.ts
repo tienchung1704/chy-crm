@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, Optional } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { PrismaService } from '../prisma/prisma.service';
@@ -12,7 +12,7 @@ export class WebhooksService {
 
   constructor(
     private readonly prisma: PrismaService,
-    @InjectQueue('voucher-queue') private voucherQueue: Queue,
+    @Optional() @InjectQueue('voucher-queue') private voucherQueue?: Queue,
   ) {}
 
   validateWebhookToken(
@@ -137,6 +137,12 @@ export class WebhooksService {
 
   private async scheduleVoucherUnlock(userVoucher: any, payload: ViettelPostWebhookDto) {
     const { ORDER_NUMBER } = payload;
+
+    // Check if queue is available
+    if (!this.voucherQueue) {
+      this.logger.warn('⚠️  Queue not available - cannot schedule voucher unlock. Activating immediately instead.');
+      return await this.activateVoucherImmediately(userVoucher, payload);
+    }
 
     // Check if voucher is still in PENDING state
     if (userVoucher.status !== 'PENDING') {

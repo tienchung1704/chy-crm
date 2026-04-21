@@ -59,7 +59,7 @@ export default function ProfileForm({ user }: ProfileFormProps) {
   // Fetch provinces on mount
   useEffect(() => {
     setLoadingProvinces(true);
-    fetch('/api/address?type=provinces')
+    fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/address?type=provinces`)
       .then(res => res.json())
       .then(data => {
         setProvinces(data);
@@ -90,7 +90,7 @@ export default function ProfileForm({ user }: ProfileFormProps) {
 
     setLoadingWards(true);
     try {
-      const res = await fetch(`/api/address?type=wards&provinceCode=${province.code}`);
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/address?type=wards&provinceCode=${province.code}`);
       const data = await res.json();
       setWards(data);
       
@@ -137,7 +137,7 @@ export default function ProfileForm({ user }: ProfileFormProps) {
     setMessage(null);
 
     try {
-      const res = await fetch('/api/portal/profile', {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api'}/users/profile`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(form),
@@ -176,7 +176,7 @@ export default function ProfileForm({ user }: ProfileFormProps) {
     }
 
     try {
-      const res = await fetch('/api/portal/password', {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api'}/users/password`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -209,7 +209,7 @@ export default function ProfileForm({ user }: ProfileFormProps) {
     setDeleteLoading(true);
 
     try {
-      const res = await fetch('/api/portal/account', {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api'}/users/profile`, {
         method: 'DELETE',
       });
 

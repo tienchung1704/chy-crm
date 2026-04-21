@@ -4,6 +4,8 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
+import { apiClientClient } from '@/lib/apiClientClient';
+
 interface CartItemData {
   id: string;
   quantity: number;
@@ -111,18 +113,10 @@ export default function CartClient({ initialItems }: CartClientProps) {
     const prevItems = items;
     setItems(items.map(i => i.id === itemId ? { ...i, quantity: newQuantity } : i));
     try {
-      const res = await fetch(`/api/portal/cart/${itemId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ quantity: newQuantity }),
-      });
-      if (!res.ok) {
-        setItems(prevItems);
-        const data = await res.json();
-        alert(data.error || 'Có lỗi xảy ra');
-      }
-    } catch {
+      await apiClientClient.patch(`/cart/${itemId}`, { quantity: newQuantity });
+    } catch (error: any) {
       setItems(prevItems);
+      alert(error.message || 'Có lỗi xảy ra');
     }
   };
 
@@ -135,10 +129,7 @@ export default function CartClient({ initialItems }: CartClientProps) {
       return next;
     });
     try {
-      const res = await fetch(`/api/portal/cart/${itemId}`, { method: 'DELETE' });
-      if (!res.ok) {
-        setItems(prevItems);
-      }
+      await apiClientClient.delete(`/cart/${itemId}`);
     } catch {
       setItems(prevItems);
     }

@@ -180,7 +180,7 @@ export default function ProductDetailClient({ product, relatedProducts = [], ini
 
   const toggleWishlist = async () => {
     try {
-      const res = await fetch('/api/portal/wishlist', {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api'}/wishlist`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ productId: product.id }),
@@ -244,7 +244,7 @@ export default function ProductDetailClient({ product, relatedProducts = [], ini
     setLoadingCart(true);
 
     try {
-      const res = await fetch('/api/portal/cart', {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api'}/cart`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -619,7 +619,7 @@ export default function ProductDetailClient({ product, relatedProducts = [], ini
                           onClick={(e) => {
                             e.stopPropagation();
                             // Toggle wishlist for related product
-                            fetch('/api/portal/wishlist', {
+                            fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api'}/wishlist`, {
                               method: 'POST',
                               headers: { 'Content-Type': 'application/json' },
                               body: JSON.stringify({ productId: rp.id }),

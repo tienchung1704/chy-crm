@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { apiClientClient } from '@/lib/apiClientClient';
 
 interface OrderStatusManagerProps {
   orderId: string;
@@ -53,21 +54,18 @@ export default function OrderStatusManager({
     setMessage(null);
 
     try {
-      const res = await fetch(`/api/admin/orders/${orderId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status, paymentStatus }),
+      await apiClientClient.patch(`/orders/${orderId}/status`, {
+        status,
+        paymentStatus,
       });
 
-      if (res.ok) {
-        setMessage({ text: 'Cập nhật thành công!', type: 'success' });
-        router.refresh();
-      } else {
-        const data = await res.json();
-        setMessage({ text: data.error || 'Có lỗi xảy ra', type: 'error' });
-      }
-    } catch {
-      setMessage({ text: 'Lỗi kết nối', type: 'error' });
+      setMessage({ text: 'Cập nhật thành công!', type: 'success' });
+      router.refresh();
+    } catch (error: any) {
+      setMessage({
+        text: error.response?.data?.message || 'Có lỗi xảy ra',
+        type: 'error',
+      });
     } finally {
       setLoading(false);
     }

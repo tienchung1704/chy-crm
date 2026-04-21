@@ -1,8 +1,8 @@
-import prisma from '@/lib/prisma';
+export const dynamic = 'force-dynamic';
 import { getSession } from '@/lib/auth';
-import { Rank } from '@prisma/client';
 import Link from 'next/link';
 import TrackingButton from '@/components/customer/TrackingButton';
+import { apiClient } from '@/lib/apiClient';
 
 function fmt(n: number) {
   return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 }).format(n);
@@ -20,54 +20,30 @@ export default async function PortalDashboard() {
   const session = await getSession();
   if (!session) return null;
 
-  // Tính ngày 30 ngày trước (theo giờ Việt Nam - UTC+7)
-  const now = new Date();
-  const vietnamOffset = 7 * 60; // UTC+7 in minutes
-  const localOffset = now.getTimezoneOffset(); // Local offset in minutes
-  const offsetDiff = vietnamOffset + localOffset;
-  
-  const thirtyDaysAgo = new Date(now.getTime() + offsetDiff * 60 * 1000);
-  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-  thirtyDaysAgo.setHours(0, 0, 0, 0);
+  let dashboardData: any;
+  try {
+    dashboardData = await apiClient.get<any>('/users/dashboard');
+  } catch (error) {
+    console.error('Error fetching dashboard data:', error);
+    return (
+      <div className="p-8 text-center bg-white rounded-xl shadow-sm">
+        <h2 className="text-xl font-bold text-red-600">Đã xảy ra lỗi</h2>
+        <p className="text-gray-600 mt-2">Không thể tải dữ liệu bảng điều khiển. Vui lòng thử lại sau.</p>
+      </div>
+    );
+  }
 
-  const [user, voucherCount, orderCount, refereeCount, recentOrders, spentLast30Days] = await Promise.all([
-    prisma.user.findUnique({
-      where: { id: session.id },
-      select: { totalSpent: true, rank: true, commissionBalance: true, points: true, referralCode: true, dob: true },
-    }),
-    prisma.userVoucher.count({ where: { userId: session.id, isUsed: false } }),
-    prisma.order.count({ where: { userId: session.id } }),
-    prisma.user.count({ where: { referrerId: session.id } }),
-    prisma.order.findMany({
-      where: { userId: session.id },
-      take: 5,
-      orderBy: { createdAt: 'desc' },
-      select: { id: true, orderCode: true, totalAmount: true, status: true, createdAt: true },
-    }),
-    // Tính tổng tiền đơn hàng hoàn thành trong 30 ngày gần nhất
-    prisma.order.aggregate({
-      where: {
-        userId: session.id,
-        status: 'COMPLETED',
-        createdAt: { gte: thirtyDaysAgo },
-      },
-      _sum: { totalAmount: true },
-    }),
-  ]);
+  const { user, voucherCount, orderCount, refereeCount, recentOrders, spentInLast30Days } = dashboardData;
 
-  if (!user) return null;
-
-  const spentInLast30Days = spentLast30Days._sum.totalAmount || 0;
-  
   // Calculate effective UI rank based on current spending
-  let effectiveRank: Rank = user.rank as Rank;
+  let effectiveRank: string = user.rank;
   let progress = rankProgress[effectiveRank];
   
   // Virtually upgrade if spending meets the next rank's target
   while (progress && progress.target > 0 && spentInLast30Days >= progress.target) {
     if (progress.next !== 'MAX') {
-      effectiveRank = progress.next as Rank;
-      progress = rankProgress[effectiveRank as string];
+      effectiveRank = progress.next;
+      progress = rankProgress[effectiveRank];
     } else {
       break;
     }
@@ -185,7 +161,7 @@ export default async function PortalDashboard() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {recentOrders.map(o => (
+                {recentOrders.map((o: any) => (
                   <tr key={o.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 text-xs font-mono text-gray-800">{o.orderCode}</td>
                     <td className="px-6 py-4 font-semibold text-gray-800">{fmt(o.totalAmount)}</td>
