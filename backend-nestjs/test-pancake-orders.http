@@ -1,0 +1,247 @@
+### Pancake Order Sync & Webhook Testing
+### Use REST Client extension in VS Code
+
+@baseUrl = http://localhost:3001
+@adminToken = your-admin-jwt-token-here
+@webhookUrl = https://your-domain.com/integrations/pancake/webhook
+
+### ========================================
+### MANUAL SYNC
+### ========================================
+
+### 1. Sync All Orders (No filters)
+POST {{baseUrl}}/integrations/pancake/sync-all-orders
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{}
+
+### 2. Sync Orders with Date Range
+POST {{baseUrl}}/integrations/pancake/sync-all-orders
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "startDate": "2024-01-01",
+  "endDate": "2024-01-31"
+}
+
+### 3. Sync Orders for Specific Store
+POST {{baseUrl}}/integrations/pancake/sync-all-orders
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "storeId": "your-store-uuid-here"
+}
+
+### ========================================
+### WEBHOOK CONFIGURATION
+### ========================================
+
+### 4. Configure Webhook on Pancake
+POST {{baseUrl}}/integrations/pancake/configure-webhook
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "webhookUrl": "{{webhookUrl}}",
+  "webhookTypes": ["orders", "customers"]
+}
+
+### 5. Get Current Webhook Configuration
+POST {{baseUrl}}/integrations/pancake/webhook-config
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+### ========================================
+### WEBHOOK TESTING (Simulate Pancake)
+### ========================================
+
+### 6. Test Webhook - New Order
+POST {{baseUrl}}/integrations/pancake/webhook
+Content-Type: application/json
+
+{
+  "type": "orders",
+  "data": {
+    "id": 9999,
+    "shop_id": 4,
+    "system_id": 1,
+    "inserted_at": "2024-01-15T10:30:00",
+    "updated_at": "2024-01-15T10:30:00",
+    "status": 0,
+    "status_name": "new",
+    "bill_full_name": "Nguyễn Văn Test",
+    "bill_phone_number": "0987654321",
+    "bill_email": "test@example.com",
+    "conversation_id": "test_conversation_123",
+    "page_id": "test_page_456",
+    "post_id": "test_post_789",
+    "ad_id": "test_ad_012",
+    "shipping_fee": 30000,
+    "cod": 0,
+    "cash": 0,
+    "total_discount": 10000,
+    "total_price": 200000,
+    "note": "Test order from webhook",
+    "items": [
+      {
+        "product_id": 123,
+        "variation_id": 456,
+        "quantity": 2,
+        "price": 100000,
+        "variation_info": {
+          "name": "Áo thun nam size L màu Đen",
+          "retail_price": 100000,
+          "images": ["https://example.com/image.jpg"],
+          "display_id": "AT001",
+          "weight": 300
+        }
+      }
+    ],
+    "shipping_address": {
+      "full_name": "Nguyễn Văn Test",
+      "phone_number": "0987654321",
+      "address": "123 Đường Test",
+      "full_address": "123 Đường Test, Phường Test, Quận Test, Hà Nội",
+      "province_id": "101",
+      "district_id": "10113",
+      "commune_id": "1011309"
+    },
+    "partner": {
+      "partner_id": 1,
+      "cod": 0,
+      "extend_code": "TEST123456",
+      "total_fee": 30000,
+      "partner_name": "ViettelPost"
+    }
+  }
+}
+
+### 7. Test Webhook - Completed Order
+POST {{baseUrl}}/integrations/pancake/webhook
+Content-Type: application/json
+
+{
+  "type": "orders",
+  "data": {
+    "id": 9998,
+    "shop_id": 4,
+    "status": 4,
+    "status_name": "completed",
+    "bill_full_name": "Trần Thị Test",
+    "bill_phone_number": "0912345678",
+    "bill_email": "test2@example.com",
+    "total_price": 500000,
+    "shipping_fee": 40000,
+    "total_discount": 50000,
+    "items": [
+      {
+        "product_id": 789,
+        "variation_id": 101,
+        "quantity": 1,
+        "price": 500000,
+        "variation_info": {
+          "name": "Váy dài nữ size M màu Hồng",
+          "retail_price": 500000
+        }
+      }
+    ],
+    "shipping_address": {
+      "full_name": "Trần Thị Test",
+      "phone_number": "0912345678",
+      "address": "456 Đường ABC"
+    }
+  }
+}
+
+### 8. Test Webhook - Customer Update
+POST {{baseUrl}}/integrations/pancake/webhook
+Content-Type: application/json
+
+{
+  "type": "customers",
+  "data": {
+    "id": 123,
+    "name": "Lê Văn Customer",
+    "phone_number": "0909090909",
+    "email": "customer@example.com",
+    "gender": 1,
+    "date_of_birth": "1990-01-15",
+    "shop_customer_addresses": [
+      {
+        "address": "789 Đường XYZ",
+        "full_address": "789 Đường XYZ, Phường ABC, Quận DEF, TP.HCM"
+      }
+    ]
+  }
+}
+
+### 9. Test Webhook - Cancelled Order
+POST {{baseUrl}}/integrations/pancake/webhook
+Content-Type: application/json
+
+{
+  "type": "orders",
+  "data": {
+    "id": 9997,
+    "shop_id": 4,
+    "status": 5,
+    "status_name": "cancelled",
+    "bill_full_name": "Phạm Văn Cancel",
+    "bill_phone_number": "0898989898",
+    "total_price": 300000,
+    "shipping_fee": 0,
+    "total_discount": 0,
+    "items": []
+  }
+}
+
+### ========================================
+### OTHER SYNC ENDPOINTS (Already Implemented)
+### ========================================
+
+### 10. Sync Categories
+POST {{baseUrl}}/integrations/pancake/sync-categories
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+### 11. Sync Products
+POST {{baseUrl}}/integrations/pancake/sync-products
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "storeId": "optional-store-uuid"
+}
+
+### 12. Sync Orders for Specific User (Old endpoint)
+POST {{baseUrl}}/integrations/pancake/sync-orders
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "phone": "0999999999",
+  "userId": "user-uuid-here"
+}
+
+### ========================================
+### NOTES
+### ========================================
+
+# 1. Replace {{adminToken}} with actual JWT token from admin login
+# 2. Replace {{webhookUrl}} with your actual webhook URL
+# 3. For production, use ngrok to test webhook:
+#    ngrok http 3001
+#    Then use: https://your-ngrok-url.ngrok.io/integrations/pancake/webhook
+# 
+# 4. Pancake webhook will send POST requests automatically when:
+#    - New order created
+#    - Order status updated
+#    - Customer created/updated
+#    - Product created/updated
+#    - Inventory updated
+#
+# 5. Check logs for webhook processing:
+#    npm run start:dev | grep "Pancake"

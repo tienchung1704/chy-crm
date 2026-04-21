@@ -1,0 +1,104 @@
+### ViettelPost Webhook + BullMQ Testing
+### Use REST Client extension in VS Code
+
+@baseUrl = http://localhost:3001
+@webhookToken = your-webhook-token-here
+@adminToken = your-admin-jwt-token-here
+@userToken = your-user-jwt-token-here
+
+### 1. Test Webhook - Order Delivered (Status 501)
+POST {{baseUrl}}/webhooks/viettelpost
+Content-Type: application/json
+X-ViettelPost-Token: {{webhookToken}}
+
+{
+  "ORDER_NUMBER": "VTP123456789",
+  "ORDER_STATUS": 501,
+  "ORDER_STATUS_NAME": "Đã giao hàng",
+  "PRODUCT_NAME": "Áo thun nam",
+  "RECEIVER_NAME": "Nguyễn Văn A",
+  "RECEIVER_PHONE": "0901234567",
+  "RECEIVER_ADDRESS": "123 Đường ABC, Quận 1, TP.HCM",
+  "MONEY_COLLECTION": 500000,
+  "MONEY_TOTAL": 500000,
+  "UPDATE_DATE": "2024-01-15 10:30:00"
+}
+
+### 2. Test Webhook - Order Returned (Status 502)
+POST {{baseUrl}}/webhooks/viettelpost
+Content-Type: application/json
+X-ViettelPost-Token: {{webhookToken}}
+
+{
+  "ORDER_NUMBER": "VTP987654321",
+  "ORDER_STATUS": 502,
+  "ORDER_STATUS_NAME": "Hoàn trả",
+  "UPDATE_DATE": "2024-01-15 11:00:00"
+}
+
+### 3. Test Webhook - Order Cancelled (Status 504)
+POST {{baseUrl}}/webhooks/viettelpost
+Content-Type: application/json
+X-ViettelPost-Token: {{webhookToken}}
+
+{
+  "ORDER_NUMBER": "VTP111222333",
+  "ORDER_STATUS": 504,
+  "ORDER_STATUS_NAME": "Đã hủy",
+  "UPDATE_DATE": "2024-01-15 12:00:00"
+}
+
+### 4. Claim QR Voucher (User)
+POST {{baseUrl}}/vouchers/claim-qr
+Content-Type: application/json
+Authorization: Bearer {{userToken}}
+
+{
+  "orderCode": "VTP123456789",
+  "voucherId": "your-voucher-uuid-here"
+}
+
+### 5. Get My Vouchers (User)
+GET {{baseUrl}}/vouchers/user/my-vouchers
+Authorization: Bearer {{userToken}}
+
+### 6. Get All Vouchers (Public)
+GET {{baseUrl}}/vouchers
+
+### 7. Get Voucher by ID (Public)
+GET {{baseUrl}}/vouchers/your-voucher-uuid-here
+
+### 8. Manual Trigger Verification (Admin)
+POST {{baseUrl}}/vouchers/manual-verify
+Authorization: Bearer {{adminToken}}
+
+### 9. Bull Board Dashboard
+# Open in browser: http://localhost:3001/admin/queues
+
+### 10. Test Invalid Webhook Token (Should return 401)
+POST {{baseUrl}}/webhooks/viettelpost
+Content-Type: application/json
+X-ViettelPost-Token: invalid-token
+
+{
+  "ORDER_NUMBER": "TEST123",
+  "ORDER_STATUS": 501
+}
+
+### 11. Test Webhook with Missing Token (Should return 401)
+POST {{baseUrl}}/webhooks/viettelpost
+Content-Type: application/json
+
+{
+  "ORDER_NUMBER": "TEST123",
+  "ORDER_STATUS": 501
+}
+
+### Notes:
+# - Replace {{webhookToken}} with actual token from ViettelPost
+# - Replace {{adminToken}} with JWT token from admin login
+# - Replace {{userToken}} with JWT token from user login
+# - Replace voucher UUIDs with actual IDs from your database
+# - Use ngrok for testing with real ViettelPost webhooks:
+#   ngrok http 3001
+#   Then register: https://your-ngrok-url.ngrok.io/webhooks/viettelpost
