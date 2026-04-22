@@ -54,7 +54,9 @@ function OnboardingContent() {
 
   const checkOnboardingStatus = async () => {
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api'}/users/profile`);
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api'}/users/profile`, {
+        credentials: 'include'
+      });
       if (res.ok) {
         const data = await res.json();
         if (data.onboardingComplete) {
@@ -85,7 +87,7 @@ function OnboardingContent() {
     setLoading(true);
 
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/onboarding`, {
+      const res = await fetch(`/api/onboarding`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -113,7 +115,7 @@ function OnboardingContent() {
     setLoading(true);
     try {
       // Mark onboarding as complete even when skipping
-      await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/onboarding`, {
+      await fetch(`/api/onboarding`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

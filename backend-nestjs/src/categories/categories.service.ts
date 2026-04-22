@@ -5,18 +5,33 @@ import { PrismaService } from '../prisma/prisma.service';
 export class CategoriesService {
   constructor(private prisma: PrismaService) {}
 
-  async create(data: any) {
+  async create(data: any, user?: any) {
+    let storeId = null;
+    
+    if (user && user.role === 'MODERATOR') {
+      const store = await this.prisma.store.findUnique({
+        where: { ownerId: user.userId },
+      });
+      if (store) {
+        storeId = store.id;
+      }
+    }
+
     const slug = data.slug || data.name.toLowerCase().replace(/ /g, '-');
     return this.prisma.category.create({
       data: {
         ...data,
         slug,
+        ...(storeId && { storeId }),
       },
     });
   }
 
-  async findAll(isAdmin: boolean = false) {
-    const where = isAdmin ? {} : { isActive: true };
+  async findAll(isAdmin: boolean = false, storeId?: string) {
+    const where: any = isAdmin ? {} : { isActive: true };
+    if (storeId) {
+      where.storeId = storeId;
+    }
     return this.prisma.category.findMany({
       where,
       include: {

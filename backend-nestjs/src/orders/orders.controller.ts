@@ -121,4 +121,15 @@ export class OrdersController {
   ) {
     return this.ordersService.checkProductPurchase(userId, productId);
   }
+
+  @Patch(':id/cancel')
+  @ApiOperation({ summary: 'Customer cancels their own order (only PENDING/CONFIRMED)' })
+  @ApiResponse({ status: 200, description: 'Order cancelled by customer' })
+  cancelOrder(
+    @Param('id') id: string,
+    @GetUser('id') userId: string,
+    @Body() body: { reason?: string },
+  ) {
+    return this.ordersService.customerCancelOrder(id, userId, body?.reason);
+  }
 }

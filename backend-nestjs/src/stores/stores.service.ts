@@ -1,9 +1,15 @@
 import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import * as bcrypt from 'bcryptjs';
 import { PrismaService } from '../prisma/prisma.service';
+
+import { MailService } from '../mail/mail.service';
 
 @Injectable()
 export class StoresService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private mailService: MailService,
+  ) {}
 
   /**
    * Get all stores (public)
@@ -64,6 +70,50 @@ export class StoresService {
   }
 
   /**
+   * Get public store by slug
+   */
+  async getPublicStoreBySlug(slug: string) {
+    const store = await this.prisma.store.findUnique({
+      where: { slug },
+      include: {
+        owner: {
+          select: { name: true, avatarUrl: true },
+        },
+        _count: {
+          select: { products: true, orders: true },
+        },
+      },
+    });
+
+    if (!store) throw new NotFoundException('Store not found');
+    if (!store.isActive || store.isBanned) throw new ForbiddenException('Store is currently unavailable');
+
+    return store;
+  }
+
+  /**
+   * Get store reviews by store slug
+   */
+  async getPublicStoreReviews(slug: string) {
+    const store = await this.prisma.store.findUnique({
+      where: { slug },
+      select: { id: true },
+    });
+    
+    if (!store) throw new NotFoundException('Store not found');
+
+    return this.prisma.review.findMany({
+      where: { product: { storeId: store.id } },
+      include: {
+        user: { select: { name: true, avatarUrl: true } },
+        product: { select: { name: true, slug: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 20,
+    });
+  }
+
+  /**
    * Get user's store
    */
   async getUserStore(userId: string) {
@@ -99,19 +149,30 @@ export class StoresService {
       throw new ForbiddenException('Bạn đã có cửa hàng rồi');
     }
 
-    const { name, description, address, phone, email, logo } = data;
+    const { 
+      name, slug, description, addressStreet, addressWard, 
+      addressDistrict, addressProvince, phone, email, logoUrl,
+      allowCOD, bankName, bankAccountNo, bankOwnerName
+    } = data;
 
     return this.prisma.store.create({
       data: {
         ownerId: userId,
         name,
-        slug: name.toLowerCase().replace(/\s+/g, '-') + '-' + Date.now(),
+        slug: slug || (name.toLowerCase().replace(/\s+/g, '-') + '-' + Date.now()),
         description: description || null,
-        addressStreet: address || null,
+        addressStreet: addressStreet || null,
+        addressWard: addressWard || null,
+        addressDistrict: addressDistrict || null,
+        addressProvince: addressProvince || null,
         phone: phone || null,
         email: email || null,
-        logoUrl: logo || null,
-        isActive: true,
+        logoUrl: logoUrl || null,
+        allowCOD: allowCOD !== undefined ? allowCOD : true,
+        bankName: bankName || null,
+        bankAccountNo: bankAccountNo || null,
+        bankOwnerName: bankOwnerName || null,
+        isActive: false, // Default to false, wait for admin approval
       },
     });
   }
@@ -128,17 +189,28 @@ export class StoresService {
       throw new NotFoundException('Store not found');
     }
 
-    const { name, description, address, phone, email, logo, isActive } = data;
+    const { 
+      name, description, addressStreet, addressWard, addressDistrict, 
+      addressProvince, phone, email, logoUrl, allowCOD, 
+      bankName, bankAccountNo, bankOwnerName, isActive 
+    } = data;
 
     return this.prisma.store.update({
       where: { id: store.id },
       data: {
         name: name || store.name,
         description: description !== undefined ? description : store.description,
-        addressStreet: address !== undefined ? address : store.addressStreet,
+        addressStreet: addressStreet !== undefined ? addressStreet : store.addressStreet,
+        addressWard: addressWard !== undefined ? addressWard : store.addressWard,
+        addressDistrict: addressDistrict !== undefined ? addressDistrict : store.addressDistrict,
+        addressProvince: addressProvince !== undefined ? addressProvince : store.addressProvince,
         phone: phone !== undefined ? phone : store.phone,
         email: email !== undefined ? email : store.email,
-        logoUrl: logo !== undefined ? logo : store.logoUrl,
+        logoUrl: logoUrl !== undefined ? logoUrl : store.logoUrl,
+        allowCOD: allowCOD !== undefined ? allowCOD : store.allowCOD,
+        bankName: bankName !== undefined ? bankName : store.bankName,
+        bankAccountNo: bankAccountNo !== undefined ? bankAccountNo : store.bankAccountNo,
+        bankOwnerName: bankOwnerName !== undefined ? bankOwnerName : store.bankOwnerName,
         isActive: isActive !== undefined ? isActive : store.isActive,
       },
     });
@@ -224,33 +296,119 @@ export class StoresService {
   }
 
   /**
+   * Helper to generate a random temporary password
+   */
+  private generateTempPassword(length: number = 8): string {
+    const chars = 'abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    let password = '';
+    for (let i = 0; i < length; i++) {
+      password += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return password;
+  }
+
+  /**
    * Approve store
    */
   async approveStore(id: string) {
     const store = await this.prisma.store.findUnique({
       where: { id },
+      include: { owner: true },
     });
 
     if (!store) {
       throw new NotFoundException('Store not found');
     }
 
-    // Upgrade owner to MODERATOR if not already ADMIN/STAFF
-    const owner = await this.prisma.user.findUnique({
-      where: { id: store.ownerId },
-    });
-
-    if (owner && owner.role === 'CUSTOMER') {
-      await this.prisma.user.update({
-        where: { id: owner.id },
-        data: { role: 'MODERATOR' },
-      });
+    if (store.isActive) {
+      return store; // Already active
     }
 
-    return this.prisma.store.update({
-      where: { id },
-      data: { isActive: true },
+    // Generate temporary password
+    const tempPassword = this.generateTempPassword();
+    const hashedPassword = await bcrypt.hash(tempPassword, 12);
+
+    // Prepare moderator account info
+    // Format: localPart@admin.com
+    let modEmail = '';
+    const baseEmail = store.email || store.owner.email || store.slug;
+    
+    if (baseEmail.includes('@')) {
+      const localPart = baseEmail.split('@')[0];
+      modEmail = `${localPart}@admin.com`;
+    } else {
+      modEmail = `${baseEmail}@admin.com`;
+    }
+
+    let modPhone = store.phone;
+
+    // Ensure email is unique
+    let emailExists = true;
+    let counter = 0;
+    const baseModEmail = modEmail;
+    
+    while (emailExists) {
+      const existing = await this.prisma.user.findUnique({ where: { email: modEmail } });
+      if (existing) {
+        counter++;
+        const [local, domain] = baseModEmail.split('@');
+        modEmail = `${local}${counter}@${domain}`;
+      } else {
+        emailExists = false;
+      }
+    }
+    
+    // Ensure phone is unique
+    if (modPhone) {
+      let phoneExists = true;
+      while (phoneExists) {
+        const existing = await this.prisma.user.findUnique({ where: { phone: modPhone } });
+        if (existing) {
+          modPhone = `0${modPhone}`; // Keep adding 0 prefix until unique
+          if (modPhone.length > 20) { // Safety break
+            modPhone = null;
+            phoneExists = false;
+          }
+        } else {
+          phoneExists = false;
+        }
+      }
+    }
+
+    // Create NEW MODERATOR user
+    const modUser = await this.prisma.user.create({
+      data: {
+        name: `Quản lý - ${store.name}`,
+        email: modEmail,
+        phone: modPhone,
+        password: hashedPassword,
+        role: 'MODERATOR',
+        referralCode: `MOD${Math.floor(Math.random() * 90000) + 10000}`,
+        onboardingComplete: true,
+      },
     });
+
+    // Update store: Activate and switch owner to the new MODERATOR user
+    const updatedStore = await this.prisma.store.update({
+      where: { id },
+      data: { 
+        isActive: true,
+        ownerId: modUser.id, // Switch owner to the separate manager account
+      },
+    });
+
+    // Send email to store email (fallback to owner email)
+    const targetEmail = store.email || store.owner.email;
+    if (targetEmail) {
+      await this.mailService.sendModeratorCredentials(
+        targetEmail,
+        store.name,
+        modEmail || modPhone || 'N/A',
+        tempPassword,
+      );
+    }
+
+    return updatedStore;
   }
 
   /**

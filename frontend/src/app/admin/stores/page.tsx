@@ -7,12 +7,12 @@ import { apiClient } from '@/lib/apiClient';
 import { getSession } from '@/lib/auth';
 
 function fmtDate(d: string | Date) {
-  return new Intl.DateTimeFormat('vi-VN', { 
-    day: '2-digit', 
-    month: '2-digit', 
-    year: 'numeric', 
-    hour: '2-digit', 
-    minute: '2-digit' 
+  return new Intl.DateTimeFormat('vi-VN', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
   }).format(new Date(d));
 }
 
@@ -49,10 +49,6 @@ export default async function StoresPage() {
       {/* Pending Stores */}
       {pendingCount > 0 && (
         <div className="mb-6">
-          <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-4">
-            <h3 className="font-bold text-amber-800 mb-1">⏳ Cửa hàng chờ duyệt ({pendingCount})</h3>
-            <p className="text-sm text-amber-700">Các cửa hàng dưới đây vừa đăng ký và cần Admin phê duyệt trước khi hoạt động.</p>
-          </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {stores.filter(s => !s.isActive && !s.isBanned).map(store => (
               <div key={store.id} className="bg-white rounded-xl shadow-sm border-2 border-amber-200 p-5">
@@ -130,7 +126,6 @@ export default async function StoresPage() {
                 <tr>
                   <td colSpan={7}>
                     <div className="text-center py-12">
-                      <div className="text-5xl mb-3">🏪</div>
                       <div className="text-lg font-semibold text-gray-700">Chưa có cửa hàng nào đang hoạt động</div>
                     </div>
                   </td>

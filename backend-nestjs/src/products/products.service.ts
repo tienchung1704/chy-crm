@@ -142,6 +142,7 @@ export class ProductsService {
       page = 1,
       limit = 20,
       search,
+      storeSlug,
       categoryId,
       minPrice,
       maxPrice,
@@ -160,6 +161,10 @@ export class ProductsService {
         { description: { contains: search } },
         { sku: { contains: search } },
       ];
+    }
+
+    if (storeSlug) {
+      where.store = { slug: storeSlug };
     }
 
     if (categoryId) {

@@ -11,7 +11,7 @@ datasource db {
 model User {
   id                 String             @id @default(uuid())
   role               Role               @default(CUSTOMER)
-  name               String
+  name               String?
   email              String?            @unique
   phone              String?            @unique
   password           String?
@@ -114,9 +114,12 @@ model Category {
   parent      Category?  @relation("CategoryHierarchy", fields: [parentId], references: [id])
   children    Category[] @relation("CategoryHierarchy")
   products    Product[]  @relation("categorytoproduct")
+  storeId     String?    @map("store_id")
+  store       Store?     @relation(fields: [storeId], references: [id], onDelete: Cascade)
 
   @@index([parentId])
   @@index([externalId])
+  @@index([storeId])
   @@map("categories")
 }
 
@@ -147,6 +150,7 @@ model Store {
   vouchers        Voucher[]
   orders          Order[]
   integrations    StoreIntegration[]
+  categories      Category[]
 
   @@map("stores")
 }

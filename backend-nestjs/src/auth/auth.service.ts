@@ -73,9 +73,14 @@ export class AuthService {
     // Grant welcome vouchers
     await this.vouchersService.grantWelcomeVouchers(user.id);
 
+    // Generate tokens
+    const tokens = await this.generateTokens(user.id, user.role);
+    await this.storeRefreshToken(user.id, tokens.refreshToken);
+
     return {
       success: true,
       message: 'Đăng ký thành công',
+      redirect: '/onboarding', // Always redirect to onboarding for new customer
       user: {
         id: user.id,
         name: user.name,
@@ -83,6 +88,7 @@ export class AuthService {
         phone: user.phone,
         role: user.role,
       },
+      ...tokens,
     };
   }
 

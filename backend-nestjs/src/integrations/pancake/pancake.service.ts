@@ -174,7 +174,26 @@ export class PancakeService {
    */
   async syncOrdersForUser(phone: string, userId: string, storeId?: string) {
     this.logger.log(`[Pancake] Starting sync for userId: ${userId}, phone: ${phone}`);
-    const orders = await this.fetchOrdersByPhone(phone, storeId);
+    
+    // Get config first to know which storeId we are using
+    const config = await this.getPancakeConfig(storeId);
+    if (!config) {
+      this.logger.warn(`[Pancake] No active integration found for syncOrdersForUser`);
+      return 0;
+    }
+
+    // Find the store ID associated with this config
+    const integration = await this.prisma.storeIntegration.findFirst({
+      where: { shopId: config.shopId, platform: 'PANCAKE', isActive: true }
+    });
+    const activeStoreId = integration?.storeId || storeId;
+
+    if (!activeStoreId) {
+      this.logger.warn(`[Pancake] Could not determine storeId for sync`);
+      return 0;
+    }
+
+    const orders = await this.fetchOrdersByPhone(phone, activeStoreId);
     let totalNewSpent = 0;
     let syncedCount = 0;
     let customerInfoSynced = false;
@@ -185,125 +204,31 @@ export class PancakeService {
     }
 
     for (const pOrder of orders) {
-      const orderCode = `PCK-${pOrder.id}`;
-      
-      const existing = await this.prisma.order.findUnique({
-        where: { orderCode }
-      });
-
-      if (existing) {
-        this.logger.log(`[Pancake] Order ${orderCode} already exists, skipping`);
-        continue;
-      }
-
-      const orderDetail = await this.fetchOrderDetail(pOrder.id, storeId);
-      const detailData = orderDetail || pOrder;
-
-      const itemsMeta = this.extractItemsMetadata(detailData.items || pOrder.items || []);
-
-      const subtotal = detailData.total_price || pOrder.total_price || 0;
-      let itemSubtotal = 0;
-      const items = detailData.items || pOrder.items || [];
-      for (const item of items) {
-        const price = item.variation_info?.retail_price || 0;
-        const amount = price * (item.quantity || 1);
-        itemSubtotal += amount;
-      }
-
-      const finalSubtotal = subtotal > 0 ? subtotal : itemSubtotal;
-      const totalAmount = finalSubtotal - (detailData.total_discount || 0) + (detailData.shipping_fee || 0);
-
-      if (totalAmount <= 0) {
-        this.logger.log(`[Pancake] Order ${orderCode} has 0 amount, skipping`);
-        continue;
-      }
-
-      const shippingAddress = detailData.shipping_address?.full_address 
-        || detailData.bill_full_address 
-        || null;
-
-      const orderItemsData = [];
-      for (const item of items) {
-        const itemName = item.variation_info?.name || item.name || '';
-        const price = item.variation_info?.retail_price || 0;
-        const quantity = item.quantity || 1;
-
-        const baseName = itemName
-          .replace(/\s+size\s+[smlxSMLX]+/gi, '')
-          .replace(/\s+m�u\s+\w+/gi, '')
-          .replace(/\s+[smlxSMLX]$/gi, '')
-          .trim();
-
-        const matchingProduct = await this.prisma.product.findFirst({
-          where: {
-            OR: [
-              { name: { contains: baseName } },
-              { name: { contains: itemName } },
-            ]
+      try {
+        const result = await this.syncSingleOrder(pOrder, activeStoreId);
+        
+        if (result.synced) {
+          totalNewSpent += result.amount;
+          syncedCount++;
+          
+          // Try to sync profile from the first successful order
+          if (!customerInfoSynced) {
+            const orderDetail = await this.fetchOrderDetail(pOrder.id, activeStoreId);
+            if (orderDetail) {
+              const custInfo = this.extractCustomerInfo(orderDetail);
+              if (custInfo.name || custInfo.fullAddress) {
+                await this.syncUserProfile(userId, custInfo);
+                customerInfoSynced = true;
+              }
+            }
           }
-        });
-
-        if (matchingProduct) {
-          orderItemsData.push({
-            productId: matchingProduct.id,
-            quantity,
-            price,
-            isGift: false,
-            size: null,
-            color: null,
-          });
         }
-      }
-
-      await this.prisma.order.create({
-        data: {
-          userId,
-          orderCode,
-          source: 'PANCAKE',
-          subtotal: finalSubtotal,
-          discountAmount: detailData.total_discount || 0,
-          shippingFee: detailData.shipping_fee || 0,
-          totalAmount,
-          status: OrderStatus.COMPLETED,
-          paymentStatus: 'PAID',
-          note: shippingAddress ? `Địa chỉ giao: ${shippingAddress}` : null,
-          metadata: {
-            items: itemsMeta,
-            shippingAddress: detailData.shipping_address || null,
-            partner: detailData.partner ? {
-              name: detailData.partner.partner_name,
-              trackingCode: detailData.partner.extend_code,
-              status: detailData.partner.partner_status,
-            } : null,
-            pancakeOrderId: pOrder.id,
-            pancakeStatus: detailData.status,
-            pancakeStatusName: detailData.status_name,
-          },
-          items: orderItemsData.length > 0 ? {
-            create: orderItemsData
-          } : undefined,
-        }
-      });
-
-      totalNewSpent += totalAmount;
-      syncedCount++;
-      this.logger.log(`[Pancake] Synced order: ${orderCode}, amount: ${totalAmount}`);
-
-      if (!customerInfoSynced && orderDetail) {
-        const custInfo = this.extractCustomerInfo(orderDetail);
-        if (custInfo.name || custInfo.fullAddress) {
-          await this.syncUserProfile(userId, custInfo);
-          customerInfoSynced = true;
-        }
+      } catch (error) {
+        this.logger.error(`[Pancake] Error in syncOrdersForUser for order ${pOrder.id}:`, error);
       }
     }
 
     this.logger.log(`[Pancake] Sync completed. Orders: ${syncedCount}, Amount: ${totalNewSpent}`);
-
-    if (totalNewSpent > 0) {
-      await this.updateUserRankAndSpent(userId, totalNewSpent);
-    }
-
     return totalNewSpent;
   }
 
@@ -1051,20 +976,10 @@ export class PancakeService {
     });
 
     if (!user) {
-      const name = pOrder.bill_full_name || pOrder.shipping_address?.full_name || phone;
-      const referralCode = `REF${Date.now()}${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
-      
-      user = await this.prisma.user.create({
-        data: {
-          phone,
-          name,
-          email: pOrder.bill_email || null,
-          role: 'CUSTOMER',
-          referralCode,
-        }
-      });
-      
-      this.logger.log(`[Pancake] Created new user: ${user.id} (${phone})`);
+      // DON'T create user here - it conflicts with real user registration/login.
+      // Orders for unregistered users will be synced when they register via syncOrdersForUser.
+      this.logger.log(`[Pancake] No existing user for phone ${phone}, skipping order ${orderCode}`);
+      return { synced: false, amount: 0 };
     }
 
     // Update user email/name if missing
@@ -1286,6 +1201,10 @@ export class PancakeService {
       trackingLink: detailData.tracking_link || pOrder.tracking_link || null,
     };
 
+    // Use Pancake's original order creation time
+    const pancakeCreatedAt = detailData.inserted_at || pOrder.inserted_at;
+    const orderCreatedAt = pancakeCreatedAt ? new Date(pancakeCreatedAt) : new Date();
+
     const order = await this.prisma.order.create({
       data: {
         userId: user.id,
@@ -1306,6 +1225,7 @@ export class PancakeService {
         customerNote: pOrder.note_print || detailData.note_print || null,
         metadata,
         storeId,
+        createdAt: orderCreatedAt,
         items: orderItemsData.length > 0 ? {
           create: orderItemsData
         } : undefined,
@@ -1436,20 +1356,9 @@ export class PancakeService {
       });
 
       if (!user) {
-        const referralCode = `REF${Date.now()}${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
-        
-        user = await this.prisma.user.create({
-          data: {
-            phone,
-            name: customerData.name || phone,
-            email: customerData.email || null,
-            role: 'CUSTOMER',
-            referralCode,
-          }
-        });
-
-        this.logger.log(`[Pancake Webhook] Created new user: ${user.id}`);
-        return { processed: true, action: 'created', userId: user.id };
+        // DON'T create user - will be created when they actually register/login
+        this.logger.log(`[Pancake Webhook] No existing user for phone ${phone}, skipping`);
+        return { processed: false, reason: 'User not registered yet' };
       } else {
         const updateData: any = {};
         if (customerData.name && !user.name) updateData.name = customerData.name;

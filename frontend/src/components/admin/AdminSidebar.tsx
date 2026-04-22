@@ -30,6 +30,7 @@ const navItems = [
     items: [
       { name: 'Khách hàng', href: '/admin/customers', roles: ADMIN_STAFF },
       { name: 'Cửa hàng', href: '/admin/stores', roles: ADMIN_ONLY },
+      { name: 'Cửa hàng của tôi', href: '/admin/my-store', roles: ['MODERATOR'] },
       { name: 'Đơn hàng', href: '/admin/orders', roles: ALL_ROLES },
       { name: 'Sản phẩm', href: '/admin/products', roles: ALL_ROLES },
       { name: 'Danh mục', href: '/admin/categories', roles: ALL_ROLES },

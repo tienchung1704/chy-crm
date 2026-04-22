@@ -75,6 +75,20 @@ export class StoresController {
     return this.storesService.getUserStore(userId);
   }
 
+  @Get('public/:slug')
+  @Public()
+  @ApiOperation({ summary: 'Get public store by slug' })
+  async getPublicStoreBySlug(@Param('slug') slug: string) {
+    return this.storesService.getPublicStoreBySlug(slug);
+  }
+
+  @Get('public/:slug/reviews')
+  @Public()
+  @ApiOperation({ summary: 'Get store reviews by slug' })
+  async getPublicStoreReviews(@Param('slug') slug: string) {
+    return this.storesService.getPublicStoreReviews(slug);
+  }
+
   @Get(':id')
   @Public()
   @ApiOperation({ summary: 'Get store by ID' })

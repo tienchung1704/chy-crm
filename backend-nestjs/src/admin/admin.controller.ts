@@ -1,4 +1,4 @@
-import { Controller, Get, UseGuards, Query } from '@nestjs/common';
+import { Controller, Get, UseGuards, Query, Param } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -35,5 +35,11 @@ export class AdminController {
     @Query('rank') rank?: string,
   ) {
     return this.adminService.getCustomers({ page, limit, search, rank });
+  }
+
+  @Get('customers/:id')
+  @ApiOperation({ summary: 'Get customer detail by ID' })
+  async getCustomerDetail(@Param('id') id: string) {
+    return this.adminService.getCustomerDetail(id);
   }
 }

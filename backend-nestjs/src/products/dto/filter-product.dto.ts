@@ -25,6 +25,11 @@ export class FilterProductDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
+  storeSlug?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
   categoryId?: string;
 
   @ApiPropertyOptional()

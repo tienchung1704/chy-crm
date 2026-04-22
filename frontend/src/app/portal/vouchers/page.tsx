@@ -58,9 +58,14 @@ export default async function PortalVouchersPage() {
   const renderVoucherCard = (uv: any) => (
     <div key={uv.id} className="bg-white border border-gray-200 rounded-xl overflow-hidden transition-all hover:shadow-md">
       <div className="p-4">
-        <div className="flex items-center gap-2 mb-2">
+        <div className="flex items-center gap-2 mb-2 flex-wrap">
           <span className="text-xl">{campaignIcons[uv.voucher.campaignCategory] || '🎫'}</span>
           <span className="font-bold text-gray-800">{uv.voucher.name}</span>
+          {uv.voucher.store && (
+            <span className="text-xs px-2 py-0.5 bg-indigo-50 text-indigo-700 rounded border border-indigo-200 whitespace-nowrap">
+              Shop: {uv.voucher.store.name}
+            </span>
+          )}
         </div>
         <div className="font-mono text-sm font-bold text-blue-600 tracking-wide mb-3 bg-blue-50 px-3 py-1.5 rounded inline-block">
           {uv.voucher.code}
@@ -127,6 +132,16 @@ export default async function PortalVouchersPage() {
     </div>
   );
 
+  const groupedVouchersMap = systemVouchers.reduce((acc: any, v: any) => {
+    const storeName = v.store?.name || 'Voucher toàn sàn';
+    const storeSlug = v.store?.slug || 'platform';
+    const key = `${storeName}|${storeSlug}`;
+    if (!acc[key]) acc[key] = { name: storeName, slug: storeSlug, vouchers: [] };
+    acc[key].vouchers.push(v);
+    return acc;
+  }, {});
+  const groupedVouchers = Object.values(groupedVouchersMap) as any[];
+
   return (
     <>
       <div className="mb-8">
@@ -187,8 +202,24 @@ export default async function PortalVouchersPage() {
       {systemVouchers.length === 0 ? (
         <div className="text-sm text-gray-500">Hiện tại hệ thống chưa có voucher nào mới.</div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 mb-8">
-          {systemVouchers.map(renderSystemVoucherCard)}
+        <div className="space-y-8 mb-8">
+          {groupedVouchers.map(({ name: storeName, slug: storeSlug, vouchers }) => (
+            <div key={storeName}>
+              <div className="flex items-center gap-2 mb-4">
+                <span className="text-xl">{storeName === 'Voucher toàn sàn' ? '🏢' : '🏪'}</span>
+                {storeName === 'Voucher toàn sàn' ? (
+                  <h3 className="text-lg font-bold text-gray-800">{storeName}</h3>
+                ) : (
+                  <a href={`/portal/store/${storeSlug}`} className="text-lg font-bold text-gray-800 hover:text-indigo-600 transition-colors flex items-center gap-2">
+                    {storeName} <span className="text-sm font-normal text-indigo-600">Xem Shop →</span>
+                  </a>
+                )}
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                {vouchers.map(renderSystemVoucherCard)}
+              </div>
+            </div>
+          ))}
         </div>
       )}
     </>

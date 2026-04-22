@@ -49,7 +49,7 @@ export default function SellerRegisterClient() {
 
   // Load provinces
   useEffect(() => {
-    fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/address?type=provinces`)
+    fetch('/api/address?type=provinces')
       .then(res => res.json())
       .then(setProvinces).catch(console.error);
   }, []);
@@ -59,7 +59,7 @@ export default function SellerRegisterClient() {
     const p = provinces.find(x => x.name === provinceName);
     if (!p) return;
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/address?type=wards&provinceCode=${p.code}`);
+      const res = await fetch(`/api/address?type=wards&provinceCode=${p.code}`);
       setWards(await res.json());
     } catch {}
   }, [provinces]);
@@ -76,6 +76,7 @@ export default function SellerRegisterClient() {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api'}/stores`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({
           name, slug, description, phone, email,
           addressStreet: street,
@@ -88,14 +89,14 @@ export default function SellerRegisterClient() {
         }),
       });
 
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        alert(data.error || 'Đăng ký thất bại');
+        alert(data.message || data.error || 'Đăng ký thất bại. Vui lòng thử lại.');
       } else {
         setSuccess(true);
       }
-    } catch {
-      alert('Đã xảy ra lỗi kết nối');
+    } catch (error: any) {
+      alert(error.response?.data?.message || error.message || 'Đăng ký thất bại. Vui lòng thử lại.');
     } finally {
       setLoading(false);
     }

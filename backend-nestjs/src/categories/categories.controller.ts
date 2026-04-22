@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Delete, Param, Body, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Param, Body, Query, UseGuards, Req } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { CategoriesService } from './categories.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -15,16 +15,16 @@ export class CategoriesController {
   @Get()
   @Public()
   @ApiOperation({ summary: 'Get all categories' })
-  findAll(@Query('admin') admin?: string) {
-    return this.categoriesService.findAll(admin === 'true');
+  findAll(@Query('admin') admin?: string, @Query('storeId') storeId?: string) {
+    return this.categoriesService.findAll(admin === 'true', storeId);
   }
 
   @Post()
-  @Roles('ADMIN', 'STAFF')
+  @Roles('ADMIN', 'STAFF', 'MODERATOR')
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Create new category (Admin only)' })
-  create(@Body() data: any) {
-    return this.categoriesService.create(data);
+  @ApiOperation({ summary: 'Create new category' })
+  create(@Body() data: any, @Req() req: any) {
+    return this.categoriesService.create(data, req.user);
   }
 
   @Get(':id')

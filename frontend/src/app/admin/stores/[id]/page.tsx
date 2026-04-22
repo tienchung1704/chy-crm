@@ -4,6 +4,7 @@ import Link from 'next/link';
 import StoreStatusManager from '@/components/admin/StoreStatusManager';
 import { apiClient } from '@/lib/apiClient';
 import { getSession } from '@/lib/auth';
+import DeleteStoreButton from '@/components/admin/DeleteStoreButton';
 
 function fmt(amount: number) {
   return new Intl.NumberFormat('vi-VN').format(amount) + ' đ';
@@ -246,7 +247,7 @@ export default async function StoreDetailPage(props: { params: Promise<{ id: str
           <div className="bg-white rounded-xl shadow-sm p-6">
             <h2 className="text-xl font-bold text-gray-800 mb-4 text-lg">Thông tin thanh toán</h2>
             <div className="space-y-4">
-              <div className="flex justify-between items-center bg-gray-50 p-2 rounded-lg">
+              <div className="flex justify-between items-center rounded-lg">
                 <p className="text-xs text-gray-500 uppercase tracking-wider font-semibold">COD</p>
                 <span className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase ${store.allowCOD ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-600'}`}>
                   {store.allowCOD ? 'Cho phép' : 'Không'}
@@ -254,11 +255,11 @@ export default async function StoreDetailPage(props: { params: Promise<{ id: str
               </div>
               <div>
                 <p className="text-xs text-gray-500 uppercase tracking-wider font-semibold">Ngân hàng</p>
-                <p className="font-bold text-indigo-600">{store.bankName || '—'}</p>
+                <p className="font-bold text-gray-800">{store.bankName || '—'}</p>
               </div>
               <div>
                 <p className="text-xs text-gray-500 uppercase tracking-wider font-semibold">Số tài khoản</p>
-                <p className="font-mono font-bold text-gray-800 bg-gray-50 p-2 rounded border border-gray-100 mt-1">{store.bankAccountNo || '—'}</p>
+                <p className="font-mono font-bold text-gray-800 mt-1">{store.bankAccountNo || '—'}</p>
               </div>
               <div>
                 <p className="text-xs text-gray-500 uppercase tracking-wider font-semibold">Chủ tài khoản</p>
@@ -266,6 +267,8 @@ export default async function StoreDetailPage(props: { params: Promise<{ id: str
               </div>
             </div>
           </div>
+
+          <DeleteStoreButton storeId={store.id} storeName={store.name} />
         </div>
       </div>
     </>

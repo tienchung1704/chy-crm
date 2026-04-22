@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import ProductActions from '@/components/admin/ProductActions';
 import ProductRowActions from '@/components/admin/ProductRowActions';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, SearchIcon } from 'lucide-react';
 import { useDebounce } from '@/hooks/useDebounce';
 
 type Product = {
@@ -89,7 +89,7 @@ export default function ProductsClient({ products, categories, userRole }: Props
   const renderPageNumbers = () => {
     const pages = [];
     const maxVisible = 5;
-    
+
     if (totalPages <= maxVisible) {
       for (let i = 1; i <= totalPages; i++) {
         pages.push(i);
@@ -103,7 +103,7 @@ export default function ProductsClient({ products, categories, userRole }: Props
         pages.push(1, '...', currentPage - 1, currentPage, currentPage + 1, '...', totalPages);
       }
     }
-    
+
     return pages;
   };
 
@@ -135,7 +135,7 @@ export default function ProductsClient({ products, categories, userRole }: Props
       {/* Search Input */}
       <div className="mb-6">
         <div className="relative">
-          <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-xl">🔍</span>
+          <SearchIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-xl" />
           <input
             type="text"
             placeholder="Tìm tên sản phẩm, slug, SKU..."
@@ -239,13 +239,12 @@ export default function ProductsClient({ products, categories, userRole }: Props
                     </td>
                     <td className="px-6 py-4">
                       <span
-                        className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                          product.stockQuantity === 0
-                            ? 'bg-red-100 text-red-700'
-                            : product.stockQuantity < 10
+                        className={`px-3 py-1 rounded-full text-xs font-semibold ${product.stockQuantity === 0
+                          ? 'bg-red-100 text-red-700'
+                          : product.stockQuantity < 10
                             ? 'bg-orange-100 text-orange-700'
                             : 'bg-green-100 text-green-700'
-                        }`}
+                          }`}
                       >
                         {product.stockQuantity}
                       </span>
@@ -255,17 +254,16 @@ export default function ProductsClient({ products, categories, userRole }: Props
                     </td>
                     <td className="px-6 py-4">
                       <span
-                        className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                          product.isActive
-                            ? 'bg-green-100 text-green-700'
-                            : 'bg-red-100 text-red-700'
-                        }`}
+                        className={`px-3 py-1 rounded-full text-xs font-semibold ${product.isActive
+                          ? 'bg-green-100 text-green-700'
+                          : 'bg-red-100 text-red-700'
+                          }`}
                       >
                         {product.isActive ? 'Hoạt động' : 'Tắt'}
                       </span>
                     </td>
                     <td className="px-6 py-4">
-                      <ProductRowActions 
+                      <ProductRowActions
                         product={product}
                         allCategories={categories}
                       />
@@ -292,7 +290,7 @@ export default function ProductsClient({ products, categories, userRole }: Props
                 <ChevronLeft className="w-4 h-4" />
                 Trước
               </button>
-              
+
               <div className="flex items-center gap-1">
                 {renderPageNumbers().map((page, index) => (
                   page === '...' ? (
@@ -303,11 +301,10 @@ export default function ProductsClient({ products, categories, userRole }: Props
                     <button
                       key={page}
                       onClick={() => goToPage(page as number)}
-                      className={`px-3 py-2 rounded-lg font-medium transition-colors ${
-                        currentPage === page
-                          ? 'bg-indigo-600 text-white'
-                          : 'text-gray-700 hover:bg-gray-100'
-                      }`}
+                      className={`px-3 py-2 rounded-lg font-medium transition-colors ${currentPage === page
+                        ? 'bg-indigo-600 text-white'
+                        : 'text-gray-700 hover:bg-gray-100'
+                        }`}
                     >
                       {page}
                     </button>

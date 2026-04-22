@@ -13,8 +13,8 @@ export default async function ProfilePage() {
 
   try {
     const [profile, dashboard] = await Promise.all([
-      apiClient.get<any>('/users/profile'),
-      apiClient.get<any>('/users/dashboard'),
+      apiClient.get<any>('/users/profile', { cache: 'no-store' }),
+      apiClient.get<any>('/users/dashboard', { cache: 'no-store' }),
     ]);
     profileData = profile;
     dashboardData = dashboard;
@@ -63,18 +63,18 @@ export default async function ProfilePage() {
       <div className="bg-white rounded-xl shadow-sm p-8 mb-6">
         <div className="flex items-center gap-6">
           <div className="w-24 h-24 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white text-3xl font-bold shadow-lg">
-            {user.avatarUrl ? (
+            {detailedUser.avatarUrl ? (
               <img
-                src={user.avatarUrl}
-                alt={user.name}
+                src={detailedUser.avatarUrl}
+                alt={detailedUser.name}
                 className="w-full h-full rounded-full object-cover"
               />
             ) : (
-              user.name.charAt(0).toUpperCase()
+              (detailedUser.name || 'U').charAt(0).toUpperCase()
             )}
           </div>
           <div>
-            <h2 className="text-2xl font-bold text-gray-800">{user.name}</h2>
+            <h2 className="text-2xl font-bold text-gray-800">{detailedUser.name}</h2>
             <div className="flex items-center gap-3 mt-2">
               <span className={`px-3.5 py-1 rounded-full text-sm font-semibold shadow-sm border ${
                 effectiveRank === 'MEMBER' ? 'bg-gray-50 text-gray-700 border-gray-200' :
@@ -86,7 +86,7 @@ export default async function ProfilePage() {
                 {effectiveRank}
               </span>
               <span className="text-sm text-gray-600">
-                Thành viên từ {new Intl.DateTimeFormat('vi-VN', { month: 'long', year: 'numeric' }).format(new Date(detailedUser.createdAt))}
+                Thành viên từ {detailedUser.createdAt ? new Intl.DateTimeFormat('vi-VN', { month: 'long', year: 'numeric' }).format(new Date(detailedUser.createdAt)) : 'Gần đây'}
               </span>
             </div>
           </div>

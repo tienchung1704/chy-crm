@@ -85,6 +85,7 @@ export class UsersService {
         addressDistrict: true,
         addressProvince: true,
         avatarUrl: true,
+        createdAt: true,
         interests: true,
         onboardingComplete: true,
         role: true,
@@ -233,7 +234,7 @@ export class UsersService {
     return {
       message: 'Onboarding completed successfully',
       user: updatedUser,
-      shouldSyncPancake: !!phone, // Return flag for frontend to trigger sync
+      shouldSyncPancake: !!updatedUser.phone, // Return flag for frontend to trigger sync
     };
   }
 

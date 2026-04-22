@@ -689,4 +689,46 @@ export class OrdersService {
       })),
     );
   }
+
+  async customerCancelOrder(orderId: string, userId: string, reason?: string) {
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      include: { items: true },
+    });
+
+    if (!order) {
+      throw new NotFoundException('Không tìm thấy đơn hàng');
+    }
+
+    if (order.userId !== userId) {
+      throw new BadRequestException('Bạn không có quyền hủy đơn này');
+    }
+
+    const cancellableStatuses = ['PENDING', 'CONFIRMED'];
+    if (!cancellableStatuses.includes(order.status)) {
+      throw new BadRequestException(
+        'Chỉ có thể hủy đơn hàng ở trạng thái "Chờ duyệt" hoặc "Đã xác nhận"',
+      );
+    }
+
+    // Restore stock
+    for (const item of order.items) {
+      await this.prisma.product.update({
+        where: { id: item.productId },
+        data: { stockQuantity: { increment: item.quantity } },
+      });
+    }
+
+    const updated = await this.prisma.order.update({
+      where: { id: orderId },
+      data: {
+        status: 'CANCELLED',
+        customerNote: reason
+          ? `${order.customerNote ? order.customerNote + ' | ' : ''}Lý do hủy: ${reason}`
+          : order.customerNote,
+      },
+    });
+
+    return { success: true, order: updated };
+  }
 }

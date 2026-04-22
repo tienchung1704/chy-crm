@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { ShoppingCart, ChevronDown, ChevronUp, Star } from 'lucide-react';
 import OrderReviewForm from '@/components/customer/OrderReviewForm';
 
@@ -42,7 +43,7 @@ export default function OrderList({ orders }: { orders: Order[] }) {
       alert('Không thể mua lại đơn hàng này (sản phẩm không còn tồn tại)');
       return;
     }
-    
+
     setReordering(order.id);
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api'}/orders/check-stock`, {
@@ -56,7 +57,7 @@ export default function OrderList({ orders }: { orders: Order[] }) {
         }),
       });
       const data = await res.json();
-      
+
       if (res.ok && data.success) {
         // Build checkout query
         const query = new URLSearchParams({
@@ -65,7 +66,7 @@ export default function OrderList({ orders }: { orders: Order[] }) {
         });
         if (mainItem.size) query.append('size', mainItem.size);
         if (mainItem.color) query.append('color', mainItem.color);
-        
+
         router.push(`/portal/checkout?${query.toString()}`);
       } else {
         alert(data.error || 'Sản phẩm này đã hết hàng!');
@@ -115,7 +116,6 @@ export default function OrderList({ orders }: { orders: Order[] }) {
   if (orders.length === 0) {
     return (
       <div className="bg-white rounded-xl shadow-sm p-12 text-center">
-        <div className="text-6xl mb-4">📦</div>
         <h3 className="text-xl font-bold text-gray-800 mb-2">Chưa có đơn hàng nào</h3>
         <p className="text-gray-600">Bạn chưa thực hiện đơn đặt đồ nào. Hãy khám phá sản phẩm của chúng tôi!</p>
       </div>
@@ -138,25 +138,25 @@ export default function OrderList({ orders }: { orders: Order[] }) {
       )}
 
       <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-      <div className="overflow-x-auto">
-        <table className="w-full">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Mã đơn hàng</th>
-              <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Ngày đặt</th>
-              <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Tổng tiền</th>
-              <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Trạng thái</th>
-              <th className="px-6 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">Đánh giá</th>
-              <th className="px-6 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">Mua lại</th>
-              <th className="px-6 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">Chi tiết</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-100">
-            {orders.map(order => {
-              // For Pancake orders, items are in metadata
-              const isPancake = order.source === 'PANCAKE';
-              const displayItems = isPancake && order.metadata?.items 
-                ? (order.metadata.items as any[]).map((it, idx) => ({
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Mã đơn hàng</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Ngày đặt</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Tổng tiền</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Trạng thái</th>
+                <th className="px-6 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">Đánh giá</th>
+                <th className="px-6 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">Mua lại</th>
+                <th className="px-6 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">Chi tiết</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {orders.map(order => {
+                // For Pancake orders, items are in metadata
+                const isPancake = order.source === 'PANCAKE';
+                const displayItems = isPancake && order.metadata?.items
+                  ? (order.metadata.items as any[]).map((it, idx) => ({
                     id: `pck-${order.id}-${idx}`,
                     product: { name: it.name, imageUrl: it.image },
                     quantity: it.quantity,
@@ -165,137 +165,138 @@ export default function OrderList({ orders }: { orders: Order[] }) {
                     size: null,
                     color: null
                   }))
-                : (order.items || []); // Fix: Đảm bảo luôn có array
+                  : (order.items || []); // Fix: Đảm bảo luôn có array
 
-              return (
-                <React.Fragment key={order.id}>
-                  <tr
-                    className={`cursor-pointer transition-colors hover:bg-gray-50 ${expandedRow === order.id ? 'bg-blue-50' : ''}`}
-                    onClick={() => toggleRow(order.id)}
-                  >
-                    <td className="px-6 py-4 font-mono font-semibold text-gray-800">{order.orderCode}</td>
-                    <td className="px-6 py-4 text-sm text-gray-600">
-                      {new Intl.DateTimeFormat('vi-VN', {
-                        year: 'numeric',
-                        month: '2-digit',
-                        day: '2-digit',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      }).format(new Date(order.createdAt))}
-                    </td>
-                    <td className="px-6 py-4 font-bold text-gray-800">{fmt(order.totalAmount)}</td>
-                    <td className="px-6 py-4">{getStatusBadge(order.status)}</td>
-                    <td className="px-6 py-4 text-center">
-                      {(order.status === 'COMPLETED' || order.status === 'DELIVERED') && (
+                return (
+                  <React.Fragment key={order.id}>
+                    <tr
+                      className={`cursor-pointer transition-colors hover:bg-gray-50 ${expandedRow === order.id ? 'bg-blue-50' : ''}`}
+                      onClick={() => toggleRow(order.id)}
+                    >
+                      <td className="px-6 py-4 font-mono font-semibold text-gray-800">{order.orderCode}</td>
+                      <td className="px-6 py-4 text-sm text-gray-600">
+                        {new Intl.DateTimeFormat('vi-VN', {
+                          year: 'numeric',
+                          month: '2-digit',
+                          day: '2-digit',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        }).format(new Date(order.createdAt))}
+                      </td>
+                      <td className="px-6 py-4 font-bold text-gray-800">{fmt(order.totalAmount)}</td>
+                      <td className="px-6 py-4">{getStatusBadge(order.status)}</td>
+                      <td className="px-6 py-4 text-center">
+                        {(order.status === 'COMPLETED' || order.status === 'DELIVERED') && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setReviewingOrder(order);
+                            }}
+                            className="inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-yellow-50 hover:bg-yellow-100 text-yellow-700 text-sm font-medium rounded-lg transition-all border border-yellow-200"
+                            title="Đánh giá đơn hàng"
+                          >
+                            <Star className="w-4 h-4" />
+                            Đánh giá
+                          </button>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 text-center">
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            setReviewingOrder(order);
+                            handleReorder(order);
                           }}
-                          className="inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-yellow-50 hover:bg-yellow-100 text-yellow-700 text-sm font-medium rounded-lg transition-all border border-yellow-200"
-                          title="Đánh giá đơn hàng"
+                          disabled={reordering === order.id || isPancake}
+                          className="inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-gray-100 hover:bg-blue-600 text-gray-700 hover:text-white text-sm font-medium rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-gray-100 disabled:hover:text-gray-700"
+                          title={isPancake ? "Đơn hàng từ Pancake không hỗ trợ mua lại nhanh" : "Mua lại đơn hàng này"}
                         >
-                          <Star className="w-4 h-4" />
-                          Đánh giá
+                          <ShoppingCart className="w-4 h-4" />
+                          {reordering === order.id ? 'Đang xử lý...' : 'Mua lại'}
                         </button>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 text-center">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleReorder(order);
-                        }}
-                        disabled={reordering === order.id || isPancake}
-                        className="inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-gray-100 hover:bg-blue-600 text-gray-700 hover:text-white text-sm font-medium rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-gray-100 disabled:hover:text-gray-700"
-                        title={isPancake ? "Đơn hàng từ Pancake không hỗ trợ mua lại nhanh" : "Mua lại đơn hàng này"}
-                      >
-                        <ShoppingCart className="w-4 h-4" />
-                        {reordering === order.id ? 'Đang xử lý...' : 'Mua lại'}
-                      </button>
-                    </td>
-                    <td className="px-6 py-4 text-center">
-                      <button 
-                        className="inline-flex items-center justify-center w-8 h-8 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-                        title={expandedRow === order.id ? 'Thu gọn' : 'Xem chi tiết'}
-                      >
-                        {expandedRow === order.id ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
-                      </button>
-                    </td>
-                  </tr>
-                  {expandedRow === order.id && (
-                    <tr className="bg-gray-50">
-                      <td colSpan={7} className="p-0">
-                        <div className="p-6 border-b border-gray-200 animate-fadeIn">
-                          <h4 className="text-sm font-semibold mb-3 text-gray-800">
-                            Sản phẩm ({displayItems.length})
-                          </h4>
-                          <div className="flex flex-col gap-3">
-                            {displayItems.length === 0 && (
-                              <div className="text-sm text-gray-500 italic">Không có chi tiết sản phẩm</div>
-                            )}
-                            {displayItems.map(item => {
-                              // Handle deleted products
-                              const productName = item.product?.name || '[Sản phẩm đã bị xóa]';
-                              const productImage = item.product?.imageUrl;
-                              const hasValidImage = productImage && typeof productImage === 'string' && productImage.length > 0;
-                              
-                              return (
-                                <div
-                                  key={item.id}
-                                  className="flex items-center justify-between bg-white p-3 rounded-lg border border-gray-200"
-                                >
-                                  <div className="flex items-center gap-4">
-                                    <div className="w-10 h-10 rounded bg-gradient-to-br from-blue-100 to-purple-100 flex items-center justify-center overflow-hidden border border-gray-200">
-                                      {hasValidImage ? (
-                                        <img
-                                          src={productImage}
-                                          alt={productName}
-                                          className="w-full h-full object-cover"
-                                        />
-                                      ) : (
-                                        <span className="text-xs text-gray-400">📦</span>
-                                      )}
-                                    </div>
-                                    <div>
-                                      <div className={`font-semibold text-sm ${item.product ? 'text-gray-800' : 'text-gray-500 italic'}`}>
-                                        {productName}
+                      </td>
+                      <td className="px-6 py-4 text-center">
+                        <Link
+                          href={`/portal/orders/${order.id}`}
+                          onClick={(e) => e.stopPropagation()}
+                          className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                        >
+                          Chi tiết
+                        </Link>
+                      </td>
+                    </tr>
+                    {expandedRow === order.id && (
+                      <tr className="bg-gray-50">
+                        <td colSpan={7} className="p-0">
+                          <div className="p-6 border-b border-gray-200 animate-fadeIn">
+                            <h4 className="text-sm font-semibold mb-3 text-gray-800">
+                              Sản phẩm ({displayItems.length})
+                            </h4>
+                            <div className="flex flex-col gap-3">
+                              {displayItems.length === 0 && (
+                                <div className="text-sm text-gray-500 italic">Không có chi tiết sản phẩm</div>
+                              )}
+                              {displayItems.map(item => {
+                                // Handle deleted products
+                                const productName = item.product?.name || '[Sản phẩm đã bị xóa]';
+                                const productImage = item.product?.imageUrl;
+                                const hasValidImage = productImage && typeof productImage === 'string' && productImage.length > 0;
+
+                                return (
+                                  <div
+                                    key={item.id}
+                                    className="flex items-center justify-between bg-white p-3 rounded-lg border border-gray-200"
+                                  >
+                                    <div className="flex items-center gap-4">
+                                      <div className="w-10 h-10 rounded bg-gradient-to-br from-blue-100 to-purple-100 flex items-center justify-center overflow-hidden border border-gray-200">
+                                        {hasValidImage ? (
+                                          <img
+                                            src={productImage}
+                                            alt={productName}
+                                            className="w-full h-full object-cover"
+                                          />
+                                        ) : (
+                                          <span className="text-xs text-gray-400">📦</span>
+                                        )}
                                       </div>
-                                      <div className="text-xs text-gray-600">
-                                        Số lượng: {item.quantity}
-                                        {(item.size || item.color) && (
-                                          <span className="ml-2">
-                                            {item.size && <span>• Size: {item.size}</span>}
-                                            {item.color && <span>• Màu: {item.color}</span>}
-                                          </span>
+                                      <div>
+                                        <div className={`font-semibold text-sm ${item.product ? 'text-gray-800' : 'text-gray-500 italic'}`}>
+                                          {productName}
+                                        </div>
+                                        <div className="text-xs text-gray-600">
+                                          Số lượng: {item.quantity}
+                                          {(item.size || item.color) && (
+                                            <span className="ml-2">
+                                              {item.size && <span>• Size: {item.size}</span>}
+                                              {item.color && <span>• Màu: {item.color}</span>}
+                                            </span>
+                                          )}
+                                        </div>
+                                      </div>
+                                    </div>
+                                    <div className="flex items-center gap-6">
+                                      <div className="font-bold text-sm">
+                                        {item.isGift ? (
+                                          <span className="bg-green-100 text-green-700 px-2 py-1 rounded-full text-xs">Quà tặng</span>
+                                        ) : (
+                                          fmt(item.price * item.quantity)
                                         )}
                                       </div>
                                     </div>
                                   </div>
-                                  <div className="flex items-center gap-6">
-                                    <div className="font-bold text-sm">
-                                      {item.isGift ? (
-                                        <span className="bg-green-100 text-green-700 px-2 py-1 rounded-full text-xs">Quà tặng</span>
-                                      ) : (
-                                        fmt(item.price * item.quantity)
-                                      )}
-                                    </div>
-                                  </div>
-                                </div>
-                              );
-                            })}
+                                );
+                              })}
+                            </div>
                           </div>
-                        </div>
-                      </td>
-                    </tr>
-                  )}
-                </React.Fragment>
-              );
-            })}
-          </tbody>
-        </table>
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       </div>
-    </div>
     </>
   );
 }

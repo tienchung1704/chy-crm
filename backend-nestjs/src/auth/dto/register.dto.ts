@@ -2,10 +2,10 @@ import { IsString, IsNotEmpty, IsOptional, IsEmail, MinLength } from 'class-vali
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class RegisterDto {
-  @ApiProperty({ example: 'Nguyễn Văn A' })
+  @ApiPropertyOptional({ example: 'Nguyễn Văn A' })
   @IsString()
-  @IsNotEmpty()
-  name: string;
+  @IsOptional()
+  name?: string;
 
   @ApiPropertyOptional({ example: 'email@example.com' })
   @IsEmail()

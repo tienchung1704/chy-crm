@@ -90,20 +90,18 @@ export default async function OrdersPage(props: { searchParams: Promise<{ page?:
               {orders.length === 0 ? (
                 <tr>
                   <td colSpan={7}>
-                    <div className="text-center py-20 bg-white">
-                      <div className="text-5xl mb-4 bg-gray-50 w-20 h-20 flex items-center justify-center rounded-3xl mx-auto shadow-inner">📦</div>
+                    <div className="text-center py-10 bg-white">
                       <div className="text-xl font-bold text-gray-900">Không tìm thấy đơn hàng</div>
-                      <p className="text-gray-400 mt-1 max-w-[200px] mx-auto text-sm">Thử thay đổi bộ lọc hoặc từ khóa tìm kiếm</p>
                     </div>
                   </td>
                 </tr>
               ) : orders.map((order: any) => {
                 const st = statusMap[order.status] || { cls: 'badge-gray', label: order.status };
                 const isUnread = !order.isRead;
-                
+
                 let firstItemDisplay = 'Chưa có sản phẩm';
                 const isPancake = order.source === 'PANCAKE';
-                
+
                 const metadata = order.metadata as any;
                 if (isPancake && metadata?.items && Array.isArray(metadata.items) && metadata.items.length > 0) {
                   const item = metadata.items[0];
@@ -114,8 +112,8 @@ export default async function OrdersPage(props: { searchParams: Promise<{ page?:
                 }
 
                 return (
-                  <tr 
-                    key={order.id} 
+                  <tr
+                    key={order.id}
                     className={`transition-all duration-200 hover:bg-black/[0.01] ${isUnread ? 'bg-gray-100/60' : 'bg-white'}`}
                   >
                     <td className="px-6 py-5">
@@ -143,14 +141,13 @@ export default async function OrdersPage(props: { searchParams: Promise<{ page?:
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      <span className={`px-3 py-1.5 rounded-full text-[12px] font-bold shadow-sm transition-all ${
-                        st.cls === 'badge-warning' ? 'bg-orange-100 text-orange-700 shadow-orange-100' :
+                      <span className={`px-3 py-1.5 rounded-full text-[12px] font-bold shadow-sm transition-all ${st.cls === 'badge-warning' ? 'bg-orange-100 text-orange-700 shadow-orange-100' :
                         st.cls === 'badge-purple' ? 'bg-purple-100 text-purple-700 shadow-purple-100' :
-                        st.cls === 'badge-info' ? 'bg-cyan-100 text-cyan-700 shadow-cyan-100' :
-                        st.cls === 'badge-success' ? 'bg-green-100 text-green-700 shadow-green-100' :
-                        st.cls === 'badge-blue' ? 'bg-blue-100 text-blue-700 shadow-blue-100' :
-                        'bg-gray-100 text-gray-700'
-                      }`}>
+                          st.cls === 'badge-info' ? 'bg-cyan-100 text-cyan-700 shadow-cyan-100' :
+                            st.cls === 'badge-success' ? 'bg-green-100 text-green-700 shadow-green-100' :
+                              st.cls === 'badge-blue' ? 'bg-blue-100 text-blue-700 shadow-blue-100' :
+                                'bg-gray-100 text-gray-700'
+                        }`}>
                         {st.label}
                       </span>
                     </td>
@@ -193,7 +190,7 @@ export default async function OrdersPage(props: { searchParams: Promise<{ page?:
           {Array.from({ length: pagination.totalPages }, (_, i) => {
             const pageNum = i + 1;
             const shouldShow = pageNum === 1 || pageNum === pagination.totalPages || Math.abs(pageNum - pagination.page) <= 2;
-            
+
             if (!shouldShow) {
               if (pageNum === 2 || pageNum === pagination.totalPages - 1) {
                 return <span key={pageNum} className="px-2 text-gray-400">...</span>;
@@ -210,11 +207,10 @@ export default async function OrdersPage(props: { searchParams: Promise<{ page?:
               <Link
                 key={pageNum}
                 href={`/admin/orders?${params.toString()}`}
-                className={`w-10 h-10 flex items-center justify-center rounded-lg text-sm font-bold transition-all ${
-                  pagination.page === pageNum
-                    ? 'bg-blue-600 text-white shadow-md shadow-blue-200'
-                    : 'bg-white text-gray-600 border border-gray-200 hover:border-blue-400 hover:text-blue-600'
-                }`}
+                className={`w-10 h-10 flex items-center justify-center rounded-lg text-sm font-bold transition-all ${pagination.page === pageNum
+                  ? 'bg-blue-600 text-white shadow-md shadow-blue-200'
+                  : 'bg-white text-gray-600 border border-gray-200 hover:border-blue-400 hover:text-blue-600'
+                  }`}
               >
                 {pageNum}
               </Link>

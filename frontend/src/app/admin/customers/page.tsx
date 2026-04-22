@@ -182,22 +182,67 @@ export default async function CustomersPage(props: {
       </div>
 
       {/* Pagination */}
-      {pagination.totalPages > 1 && (
-        <div className="flex items-center justify-center gap-2 mt-6">
-          {Array.from({ length: pagination.totalPages }, (_, i) => (
-            <Link
-              key={i + 1}
-              href={`/admin/customers?page=${i + 1}${searchParams.search ? `&search=${searchParams.search}` : ''}${searchParams.rank ? `&rank=${searchParams.rank}` : ''}`}
-              className={`px-4 py-2 rounded-lg font-medium transition-colors ${pagination.page === i + 1
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-300'
-                }`}
-            >
-              {i + 1}
-            </Link>
-          ))}
-        </div>
-      )}
+      {pagination.totalPages > 1 && (() => {
+        const currentPage = Number(pagination.page);
+        const totalPages = pagination.totalPages;
+        const pages: (number | string)[] = [];
+        const maxVisible = 5;
+
+        if (totalPages <= maxVisible) {
+          for (let i = 1; i <= totalPages; i++) pages.push(i);
+        } else if (currentPage <= 3) {
+          pages.push(1, 2, 3, 4, '...', totalPages);
+        } else if (currentPage >= totalPages - 2) {
+          pages.push(1, '...', totalPages - 3, totalPages - 2, totalPages - 1, totalPages);
+        } else {
+          pages.push(1, '...', currentPage - 1, currentPage, currentPage + 1, '...', totalPages);
+        }
+
+        const buildHref = (p: number) =>
+          `/admin/customers?page=${p}${searchParams.search ? `&search=${searchParams.search}` : ''}${searchParams.rank ? `&rank=${searchParams.rank}` : ''}`;
+
+        return (
+          <div className="flex items-center justify-center gap-1.5 mt-6">
+            {currentPage > 1 && (
+              <Link
+                href={buildHref(currentPage - 1)}
+                className="flex items-center gap-1 px-3 py-2 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-100 transition-colors"
+              >
+                ← Trước
+              </Link>
+            )}
+
+            {pages.map((page, index) =>
+              page === '...' ? (
+                <span key={`ellipsis-${index}`} className="px-2 py-2 text-gray-400 text-sm">
+                  ...
+                </span>
+              ) : (
+                <Link
+                  key={page}
+                  href={buildHref(page as number)}
+                  className={`px-3.5 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    currentPage === page
+                      ? 'bg-blue-600 text-white'
+                      : 'text-gray-700 hover:bg-gray-100'
+                  }`}
+                >
+                  {page}
+                </Link>
+              )
+            )}
+
+            {currentPage < totalPages && (
+              <Link
+                href={buildHref(currentPage + 1)}
+                className="flex items-center gap-1 px-3 py-2 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-100 transition-colors"
+              >
+                Sau →
+              </Link>
+            )}
+          </div>
+        );
+      })()}
     </>
   );
 }

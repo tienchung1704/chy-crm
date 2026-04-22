@@ -59,7 +59,7 @@ export default function ProfileForm({ user }: ProfileFormProps) {
   // Fetch provinces on mount
   useEffect(() => {
     setLoadingProvinces(true);
-    fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/address?type=provinces`)
+    fetch('/api/address?type=provinces')
       .then(res => res.json())
       .then(data => {
         setProvinces(data);
@@ -90,7 +90,7 @@ export default function ProfileForm({ user }: ProfileFormProps) {
 
     setLoadingWards(true);
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/address?type=wards&provinceCode=${province.code}`);
+      const res = await fetch(`/api/address?type=wards&provinceCode=${province.code}`);
       const data = await res.json();
       setWards(data);
       

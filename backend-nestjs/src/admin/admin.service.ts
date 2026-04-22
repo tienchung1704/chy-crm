@@ -162,4 +162,91 @@ export class AdminService {
 
     return { unreadCount, pendingStoresCount, isStoreActive };
   }
+
+  async getCustomerDetail(id: string) {
+    const customer = await this.prisma.user.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        phone: true,
+        gender: true,
+        dob: true,
+        rank: true,
+        totalSpent: true,
+        commissionBalance: true,
+        referralCode: true,
+        addressStreet: true,
+        addressWard: true,
+        addressProvince: true,
+        createdAt: true,
+        updatedAt: true,
+        referrer: {
+          select: { id: true, name: true, phone: true, referralCode: true },
+        },
+        referees: {
+          select: {
+            id: true, name: true, phone: true, rank: true, totalSpent: true, createdAt: true,
+          },
+          orderBy: { createdAt: 'desc' },
+          take: 20,
+        },
+        orders: {
+          select: {
+            id: true, orderCode: true, totalAmount: true, status: true,
+            paymentStatus: true, source: true, createdAt: true,
+          },
+          orderBy: { createdAt: 'desc' },
+          take: 20,
+        },
+        commissionsEarned: {
+          select: {
+            id: true, amount: true, percentage: true, level: true,
+            status: true, createdAt: true,
+            order: { select: { orderCode: true, totalAmount: true } },
+          },
+          orderBy: { createdAt: 'desc' },
+          take: 20,
+        },
+        userVouchers: {
+          select: {
+            id: true, isUsed: true, usedAt: true, createdAt: true,
+            voucher: { select: { code: true, type: true, value: true, validTo: true } },
+          },
+          orderBy: { createdAt: 'desc' },
+          take: 10,
+        },
+        _count: {
+          select: { orders: true, referees: true, commissionsEarned: true, userVouchers: true },
+        },
+      },
+    });
+
+    if (!customer) {
+      return null;
+    }
+
+    // Aggregate stats
+    const [orderStats, commissionStats] = await Promise.all([
+      this.prisma.order.aggregate({
+        where: { userId: id, status: 'COMPLETED' },
+        _sum: { totalAmount: true },
+        _count: true,
+      }),
+      this.prisma.commissionLedger.aggregate({
+        where: { userId: id },
+        _sum: { amount: true },
+      }),
+    ]);
+
+    return {
+      ...customer,
+      stats: {
+        completedOrders: orderStats._count,
+        completedRevenue: orderStats._sum.totalAmount || 0,
+        totalCommission: commissionStats._sum.amount || 0,
+      },
+    };
+  }
 }

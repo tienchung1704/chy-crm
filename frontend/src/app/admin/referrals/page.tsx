@@ -3,7 +3,7 @@ import { apiClient } from '@/lib/apiClient';
 import CommissionRateEdit from '@/components/admin/CommissionRateEdit';
 export default async function ReferralsPage() {
   let topReferrers: any[] = [];
-  let referralStats: any = { totalReferrals: 0, totalCommPaid: { _sum: { amount: 0 } }, topReferrersCount: 0 };
+  let referralStats: any = { totalReferrals: 0, totalCommPaid: 0, topReferrersCount: 0 };
   let commissionConfigs: any[] = [];
 
   try {
@@ -45,7 +45,7 @@ export default async function ReferralsPage() {
         </div>
         <div className="bg-white p-6 rounded-xl shadow-sm">
           <div className="text-sm text-gray-600 mb-2">Tổng hoa hồng đã trả</div>
-          <div className="text-2xl font-bold text-gray-800">{fmt(totalCommPaid._sum.amount || 0)}</div>
+          <div className="text-2xl font-bold text-gray-800">{fmt(totalCommPaid || 0)}</div>
         </div>
       </div>
 
