@@ -56,10 +56,10 @@ export class WebhooksService {
   }
 
   async processViettelPostWebhook(payload: ViettelPostWebhookDto) {
-    const { ORDER_NUMBER, ORDER_STATUS, ORDER_STATUS_NAME } = payload;
+    const { ORDER_NUMBER, ORDER_STATUS, STATUS_NAME } = payload.DATA;
 
     this.logger.log(
-      `🔍 Processing order ${ORDER_NUMBER} with status ${ORDER_STATUS} (${ORDER_STATUS_NAME})`,
+      `🔍 Processing order ${ORDER_NUMBER} with status ${ORDER_STATUS} (${STATUS_NAME})`,
     );
 
     // Find UserVoucher associated with this order
@@ -145,7 +145,7 @@ export class WebhooksService {
   }
 
   private async scheduleVoucherUnlock(userVoucher: any, payload: ViettelPostWebhookDto) {
-    const { ORDER_NUMBER } = payload;
+    const { ORDER_NUMBER } = payload.DATA;
 
     // Check if queue is available
     if (!this.voucherQueue) {
@@ -220,7 +220,7 @@ export class WebhooksService {
   }
 
   private async rejectVoucherImmediately(userVoucher: any, payload: ViettelPostWebhookDto) {
-    const { ORDER_NUMBER, ORDER_STATUS_NAME } = payload;
+    const { ORDER_NUMBER, STATUS_NAME } = payload.DATA;
 
     try {
       // Cancel any pending unlock jobs
@@ -241,7 +241,7 @@ export class WebhooksService {
       });
 
       this.logger.log(
-        `❌ Voucher ${userVoucher.id} REJECTED due to order status: ${ORDER_STATUS_NAME} (Order: ${ORDER_NUMBER})`,
+        `❌ Voucher ${userVoucher.id} REJECTED due to order status: ${STATUS_NAME} (Order: ${ORDER_NUMBER})`,
       );
 
       // TODO: Send notification to user about rejected voucher
@@ -250,7 +250,7 @@ export class WebhooksService {
       return {
         action: 'rejected',
         userVoucherId: userVoucher.id,
-        reason: ORDER_STATUS_NAME,
+        reason: STATUS_NAME,
       };
     } catch (error) {
       this.logger.error(`❌ Failed to reject voucher: ${error.message}`);
@@ -259,7 +259,7 @@ export class WebhooksService {
   }
 
   private async activateVoucherImmediately(userVoucher: any, payload: ViettelPostWebhookDto) {
-    const { ORDER_NUMBER } = payload;
+    const { ORDER_NUMBER } = payload.DATA;
 
     try {
       // Update voucher status to ACTIVE

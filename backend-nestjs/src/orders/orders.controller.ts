@@ -65,27 +65,39 @@ export class OrdersController {
   @Get(':id')
   @ApiOperation({ summary: 'Get order detail' })
   @ApiResponse({ status: 200, description: 'Order retrieved successfully' })
-  findOne(@Param('id') id: string, @GetUser('id') userId: string, @GetUser('role') role: string) {
-    // Admin can view any order, users can only view their own
-    return this.ordersService.findOne(id, role === 'ADMIN' ? undefined : userId);
+  async findOne(
+    @Param('id') id: string,
+    @GetUser('id') userId: string,
+    @GetUser('role') role: string,
+  ) {
+    return this.ordersService.findOne(id, userId, role);
   }
 
   @Patch(':id/status')
   @UseGuards(RolesGuard)
-  @Roles('ADMIN', 'STAFF')
-  @ApiOperation({ summary: 'Update order status (Admin only)' })
+  @Roles('ADMIN', 'STAFF', 'MODERATOR')
+  @ApiOperation({ summary: 'Update order status' })
   @ApiResponse({ status: 200, description: 'Order status updated' })
-  updateStatus(@Param('id') id: string, @Body() updateDto: UpdateOrderStatusDto) {
-    return this.ordersService.updateStatus(id, updateDto);
+  updateStatus(
+    @Param('id') id: string,
+    @GetUser('id') userId: string,
+    @GetUser('role') role: string,
+    @Body() updateDto: UpdateOrderStatusDto,
+  ) {
+    return this.ordersService.updateStatus(id, updateDto, userId, role);
   }
 
   @Patch(':id/read')
   @UseGuards(RolesGuard)
-  @Roles('ADMIN', 'STAFF')
-  @ApiOperation({ summary: 'Mark order as read (Admin only)' })
+  @Roles('ADMIN', 'STAFF', 'MODERATOR')
+  @ApiOperation({ summary: 'Mark order as read' })
   @ApiResponse({ status: 200, description: 'Order marked as read' })
-  markAsRead(@Param('id') id: string) {
-    return this.ordersService.markAsRead(id);
+  markAsRead(
+    @Param('id') id: string,
+    @GetUser('id') userId: string,
+    @GetUser('role') role: string,
+  ) {
+    return this.ordersService.markAsRead(id, userId, role);
   }
 
   @Post('check-stock')

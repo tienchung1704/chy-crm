@@ -1,6 +1,6 @@
-import { IsString, IsNumber, IsOptional, IsObject } from 'class-validator';
+import { IsString, IsNumber, IsOptional, IsObject, IsBoolean, IsArray } from 'class-validator';
 
-export class ViettelPostWebhookDto {
+export class ViettelPostWebhookDataDto {
   @IsString()
   ORDER_NUMBER: string;
 
@@ -9,23 +9,27 @@ export class ViettelPostWebhookDto {
 
   @IsString()
   @IsOptional()
-  ORDER_STATUS_NAME?: string;
+  STATUS_NAME?: string;
 
   @IsString()
   @IsOptional()
-  PRODUCT_NAME?: string;
+  ORDER_REFERENCE?: string;
 
   @IsString()
   @IsOptional()
-  RECEIVER_NAME?: string;
+  ORDER_STATUSDATE?: string;
 
   @IsString()
   @IsOptional()
-  RECEIVER_PHONE?: string;
+  LOCALION_CURRENTLY?: string;
 
   @IsString()
   @IsOptional()
-  RECEIVER_ADDRESS?: string;
+  LOCATION_CURRENTLY?: string;
+
+  @IsString()
+  @IsOptional()
+  NOTE?: string;
 
   @IsNumber()
   @IsOptional()
@@ -35,15 +39,39 @@ export class ViettelPostWebhookDto {
   @IsOptional()
   MONEY_TOTAL?: number;
 
-  @IsString()
+  @IsNumber()
   @IsOptional()
-  NOTE?: string;
+  PRODUCT_WEIGHT?: number;
 
   @IsString()
   @IsOptional()
-  UPDATE_DATE?: string;
+  ORDER_SERVICE?: string;
+
+  @IsString()
+  @IsOptional()
+  RECEIVER_FULLNAME?: string;
+
+  @IsBoolean()
+  @IsOptional()
+  IS_RETURNING?: boolean;
+
+  @IsArray()
+  @IsOptional()
+  DETAIL?: any[];
 
   @IsObject()
   @IsOptional()
-  EXTRA_DATA?: any;
+  POD?: any;
+
+  // Allow other fields without failing validation
+  [key: string]: any;
+}
+
+export class ViettelPostWebhookDto {
+  @IsObject()
+  DATA: ViettelPostWebhookDataDto;
+
+  @IsString()
+  @IsOptional()
+  TOKEN?: string;
 }

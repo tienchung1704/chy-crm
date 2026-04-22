@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { apiClientClient } from '@/lib/apiClientClient';
+import ImageUpload from './ImageUpload';
 
 interface AddressOption {
   code: string;
@@ -51,9 +52,18 @@ export default function StoreProfileForm({ initialData }: { initialData: StoreDa
   const [bankAccountNo, setBankAccountNo] = useState(initialData.bankAccountNo || '');
   const [bankOwnerName, setBankOwnerName] = useState(initialData.bankOwnerName || '');
 
+  // Password change
+  const [passwordForm, setPasswordForm] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: '',
+  });
+  const [passwordMsg, setPasswordMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [passwordLoading, setPasswordLoading] = useState(false);
+
   // Load provinces
   useEffect(() => {
-    fetch('/api/address?type=provinces')
+    fetch('/internal-api/address?type=provinces')
       .then(res => res.json())
       .then(setProvinces).catch(console.error);
   }, []);
@@ -63,7 +73,7 @@ export default function StoreProfileForm({ initialData }: { initialData: StoreDa
     if (province && provinces.length > 0) {
       const p = provinces.find(x => x.name === province);
       if (p) {
-        fetch(`/api/address?type=wards&provinceCode=${p.code}`)
+        fetch(`/internal-api/address?type=wards&provinceCode=${p.code}`)
           .then(res => res.json())
           .then(setWards).catch(console.error);
       }
@@ -90,20 +100,51 @@ export default function StoreProfileForm({ initialData }: { initialData: StoreDa
         bankAccountNo,
         bankOwnerName: bankOwnerName.toUpperCase(),
       });
-      
+
       setSuccess(true);
       router.refresh();
       setTimeout(() => setSuccess(false), 3000);
     } catch (error: any) {
       alert(error.response?.data?.message || 'Có lỗi xảy ra khi cập nhật thông tin.');
     } finally {
-      setLoading(true); // Keep it busy for a bit for UX
       setTimeout(() => setLoading(false), 500);
     }
   };
 
+  const handlePasswordSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPasswordLoading(true);
+    setPasswordMsg(null);
+
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      setPasswordMsg({ type: 'error', text: 'Mật khẩu xác nhận không khớp' });
+      setPasswordLoading(false);
+      return;
+    }
+
+    if (passwordForm.newPassword.length < 6) {
+      setPasswordMsg({ type: 'error', text: 'Mật khẩu mới phải có ít nhất 6 ký tự' });
+      setPasswordLoading(false);
+      return;
+    }
+
+    try {
+      await apiClientClient.put('/users/password', {
+        currentPassword: passwordForm.currentPassword,
+        newPassword: passwordForm.newPassword,
+      });
+
+      setPasswordMsg({ type: 'success', text: 'Đổi mật khẩu thành công!' });
+      setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+    } catch (error: any) {
+      setPasswordMsg({ type: 'error', text: error.response?.data?.message || 'Mật khẩu hiện tại không đúng' });
+    } finally {
+      setPasswordLoading(false);
+    }
+  };
+
   return (
-    <form onSubmit={handleSubmit} className="space-y-8">
+    <div className="space-y-8">
       {success && (
         <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-xl flex items-center gap-2 animate-in fade-in slide-in-from-top-4">
           <span className="text-xl">✅</span>
@@ -112,193 +153,256 @@ export default function StoreProfileForm({ initialData }: { initialData: StoreDa
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Basic Info */}
+        {/* Basic Info & Address */}
         <div className="lg:col-span-2 space-y-6">
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-            <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
-              <span className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center text-sm">🏪</span>
-              Thông tin cơ bản
-            </h3>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Tên cửa hàng</label>
-                <input
-                  type="text"
-                  required
-                  value={name}
-                  onChange={e => setName(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
-                  placeholder="Ví dụ: Shop Quần Áo XYZ"
-                />
-              </div>
-              
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Mô tả ngắn</label>
-                <textarea
-                  value={description}
-                  onChange={e => setDescription(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all h-24"
-                  placeholder="Giới thiệu ngắn về cửa hàng của bạn..."
-                />
-              </div>
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+              <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+                <span className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center text-sm">🏪</span>
+                Thông tin cơ bản
+              </h3>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Số điện thoại liên hệ</label>
-                <input
-                  type="tel"
-                  value={phone}
-                  onChange={e => setPhone(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
-                />
-              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Tên cửa hàng</label>
+                  <input
+                    type="text"
+                    required
+                    value={name}
+                    onChange={e => setName(e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
+                    placeholder="Ví dụ: Shop Quần Áo XYZ"
+                  />
+                </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Email liên hệ</label>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={e => setEmail(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
-                />
-              </div>
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Mô tả ngắn</label>
+                  <textarea
+                    value={description}
+                    onChange={e => setDescription(e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all h-24"
+                    placeholder="Giới thiệu ngắn về cửa hàng của bạn..."
+                  />
+                </div>
 
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Logo URL</label>
-                <input
-                  type="text"
-                  value={logoUrl}
-                  onChange={e => setLogoUrl(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
-                  placeholder="https://example.com/logo.png"
-                />
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Số điện thoại liên hệ</label>
+                  <input
+                    type="tel"
+                    value={phone}
+                    onChange={e => setPhone(e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Email liên hệ</label>
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={e => setEmail(e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
+                  />
+                </div>
               </div>
             </div>
-          </div>
 
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-            <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
-              <span className="w-8 h-8 rounded-lg bg-orange-50 text-orange-600 flex items-center justify-center text-sm">📍</span>
-              Địa chỉ lấy hàng
-            </h3>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Tỉnh/Thành phố</label>
-                <select
-                  required
-                  value={province}
-                  onChange={e => {
-                    setProvince(e.target.value);
-                    setWard('');
-                  }}
-                  className="w-full px-4 py-2 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="">Chọn tỉnh/thành</option>
-                  {provinces.map(p => <option key={p.code} value={p.name}>{p.name}</option>)}
-                </select>
-              </div>
+            <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+              <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+                <span className="w-8 h-8 rounded-lg bg-orange-50 text-orange-600 flex items-center justify-center text-sm">📍</span>
+                Địa chỉ lấy hàng
+              </h3>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Quận/Huyện/Xã</label>
-                <select
-                  required
-                  value={ward}
-                  onChange={e => setWard(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="">Chọn quận/huyện/xã</option>
-                  {wards.map(w => <option key={w.code} value={w.name}>{w.name}</option>)}
-                </select>
-              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Tỉnh/Thành phố</label>
+                  <select
+                    required
+                    value={province}
+                    onChange={e => {
+                      setProvince(e.target.value);
+                      setWard('');
+                    }}
+                    className="w-full px-4 py-2 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">Chọn tỉnh/thành</option>
+                    {provinces.map(p => <option key={p.code} value={p.name}>{p.name}</option>)}
+                  </select>
+                </div>
 
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Địa chỉ chi tiết (Số nhà, tên đường...)</label>
-                <input
-                  type="text"
-                  required
-                  value={street}
-                  onChange={e => setStreet(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500"
-                />
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Quận/Huyện/Xã</label>
+                  <select
+                    required
+                    value={ward}
+                    onChange={e => setWard(e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">Chọn quận/huyện/xã</option>
+                    {wards.map(w => <option key={w.code} value={w.name}>{w.name}</option>)}
+                  </select>
+                </div>
+
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Địa chỉ chi tiết (Số nhà, tên đường...)</label>
+                  <input
+                    type="text"
+                    required
+                    value={street}
+                    onChange={e => setStreet(e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
               </div>
             </div>
-          </div>
+
+            <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+              <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+                <span className="w-8 h-8 rounded-lg bg-green-50 text-green-600 flex items-center justify-center text-sm">💳</span>
+                Thông tin thanh toán
+              </h3>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Ngân hàng</label>
+                  <input
+                    type="text"
+                    required
+                    value={bankName}
+                    onChange={e => setBankName(e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Ví dụ: Vietcombank"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Số tài khoản</label>
+                  <input
+                    type="text"
+                    required
+                    value={bankAccountNo}
+                    onChange={e => setBankAccountNo(e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Tên chủ tài khoản</label>
+                  <input
+                    type="text"
+                    required
+                    value={bankOwnerName}
+                    onChange={e => setBankOwnerName(e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+
+                <div className="flex items-end">
+                  <label className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl cursor-pointer hover:bg-gray-100 transition-colors w-full">
+                    <input
+                      type="checkbox"
+                      checked={allowCOD}
+                      onChange={e => setAllowCOD(e.target.checked)}
+                      className="w-5 h-5 text-blue-600 rounded focus:ring-blue-500"
+                    />
+                    <span className="text-sm font-medium text-gray-700">Thanh toán khi nhận hàng (COD)</span>
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full py-4 bg-blue-600 text-white rounded-2xl font-bold text-lg shadow-lg shadow-blue-200 hover:bg-blue-700 disabled:opacity-50 transition-all flex items-center justify-center gap-2"
+            >
+              {loading ? (
+                <>
+                  <span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                  Đang lưu...
+                </>
+              ) : '💾 Lưu thay đổi thông tin'}
+            </button>
+          </form>
         </div>
 
-        {/* Payment & Action */}
+        {/* Logo & Password */}
         <div className="space-y-6">
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
             <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
-              <span className="w-8 h-8 rounded-lg bg-green-50 text-green-600 flex items-center justify-center text-sm">💳</span>
-              Thông tin thanh toán
+              <span className="w-8 h-8 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center text-sm">📸</span>
+              Ảnh đại diện cửa hàng
             </h3>
-            
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Ngân hàng</label>
-                <input
-                  type="text"
-                  required
-                  value={bankName}
-                  onChange={e => setBankName(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Ví dụ: Vietcombank"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Số tài khoản</label>
-                <input
-                  type="text"
-                  required
-                  value={bankAccountNo}
-                  onChange={e => setBankAccountNo(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Tên chủ tài khoản</label>
-                <input
-                  type="text"
-                  required
-                  value={bankOwnerName}
-                  onChange={e => setBankOwnerName(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-
-              <label className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl cursor-pointer hover:bg-gray-100 transition-colors">
-                <input
-                  type="checkbox"
-                  checked={allowCOD}
-                  onChange={e => setAllowCOD(e.target.checked)}
-                  className="w-5 h-5 text-blue-600 rounded focus:ring-blue-500"
-                />
-                <span className="text-sm font-medium text-gray-700">Cho phép thanh toán khi nhận hàng (COD)</span>
-              </label>
-            </div>
+            <ImageUpload
+              value={logoUrl}
+              onChange={setLogoUrl}
+              endpoint="storeLogo"
+            />
           </div>
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full py-4 bg-blue-600 text-white rounded-2xl font-bold text-lg shadow-lg shadow-blue-200 hover:bg-blue-700 disabled:opacity-50 transition-all flex items-center justify-center gap-2"
-          >
-            {loading ? (
-              <>
-                <span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
-                Đang lưu...
-              </>
-            ) : 'Lưu thay đổi'}
-          </button>
-          
-          <div className="p-4 bg-blue-50 rounded-2xl text-blue-700 text-xs leading-relaxed">
-            <p><strong>💡 Mẹo:</strong> Cập nhật thông tin chính xác giúp khách hàng tin tưởng hơn và quá trình vận chuyển diễn ra thuận lợi.</p>
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+            <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+              <span className="w-8 h-8 rounded-lg bg-red-50 text-red-600 flex items-center justify-center text-sm">🔒</span>
+              Đổi mật khẩu
+            </h3>
+
+            {passwordMsg && (
+              <div className={`p-3 rounded-lg mb-4 text-sm ${passwordMsg.type === 'success'
+                ? 'bg-green-50 text-green-700 border border-green-200'
+                : 'bg-red-50 text-red-700 border border-red-200'
+                }`}>
+                {passwordMsg.text}
+              </div>
+            )}
+
+            <form onSubmit={handlePasswordSubmit} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Mật khẩu hiện tại</label>
+                <input
+                  type="password"
+                  required
+                  value={passwordForm.currentPassword}
+                  onChange={e => setPasswordForm({ ...passwordForm, currentPassword: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Mật khẩu mới</label>
+                <input
+                  type="password"
+                  required
+                  minLength={6}
+                  value={passwordForm.newPassword}
+                  onChange={e => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Xác nhận mật khẩu mới</label>
+                <input
+                  type="password"
+                  required
+                  minLength={6}
+                  value={passwordForm.confirmPassword}
+                  onChange={e => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={passwordLoading}
+                className="w-full py-3 bg-gray-800 text-white rounded-xl font-bold hover:bg-gray-900 disabled:opacity-50 transition-all"
+              >
+                {passwordLoading ? 'Đang xử lý...' : 'Đổi mật khẩu'}
+              </button>
+            </form>
+          </div>
+
+          <div className="p-4 bg-amber-50 rounded-2xl text-amber-700 text-xs leading-relaxed border border-amber-100">
+            <p><strong>Bảo mật:</strong> Nên thay đổi mật khẩu định kỳ và không chia sẻ tài khoản Moderator cho người khác.</p>
           </div>
         </div>
       </div>
-    </form>
+    </div>
   );
 }

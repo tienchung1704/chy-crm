@@ -87,9 +87,11 @@ function OnboardingContent() {
     setLoading(true);
 
     try {
-      const res = await fetch(`/api/onboarding`, {
+      const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+      const res = await fetch(`${backendUrl}/users/onboarding`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({
           gender: formData.gender || null,
           dob: formData.dob || null,
@@ -100,7 +102,7 @@ function OnboardingContent() {
 
       if (!res.ok) {
         const data = await res.json();
-        throw new Error(data.error || 'Có lỗi xảy ra');
+        throw new Error(data.error || data.message || 'Có lỗi xảy ra');
       }
 
       router.push(returnTo);
@@ -114,10 +116,12 @@ function OnboardingContent() {
   const handleSkip = async () => {
     setLoading(true);
     try {
+      const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
       // Mark onboarding as complete even when skipping
-      await fetch(`/api/onboarding`, {
+      await fetch(`${backendUrl}/users/onboarding`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({
           gender: null,
           dob: null,

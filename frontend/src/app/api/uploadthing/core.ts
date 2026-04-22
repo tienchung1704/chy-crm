@@ -21,7 +21,24 @@ const authAdmin = async () => {
   return { userId: payload.userId, role: payload.role };
 };
 
-// Auth function for customers (for reviews)
+// Auth function for store owners/moderators
+const authStoreOwner = async () => {
+  const cookieStore = await cookies();
+  const token = cookieStore.get('crm_access_token')?.value;
+  
+  if (!token) {
+    throw new Error("Unauthorized");
+  }
+
+  const payload = verifyToken(token);
+  if (!payload || (payload.role !== 'ADMIN' && payload.role !== 'MODERATOR')) {
+    throw new Error("Forbidden");
+  }
+
+  return { userId: payload.userId, role: payload.role };
+};
+
+// Auth function for customers
 const authCustomer = async () => {
   const cookieStore = await cookies();
   const token = cookieStore.get('crm_access_token')?.value;
@@ -32,7 +49,7 @@ const authCustomer = async () => {
 
   const payload = verifyToken(token);
   if (!payload) {
-    throw new Error("Unauthorized");
+    throw new Error("Forbidden");
   }
 
   return { userId: payload.userId, role: payload.role };
@@ -60,6 +77,16 @@ export const ourFileRouter = {
     .onUploadComplete(async ({ metadata, file }) => {
       console.log("Upload complete for userId:", metadata.userId);
       console.log("File URL:", file.url);
+      return { uploadedBy: metadata.userId, url: file.url };
+    }),
+
+  // Store logo uploader (admin & moderator)
+  storeLogo: f({ image: { maxFileSize: "2MB", maxFileCount: 1 } })
+    .middleware(async () => {
+      const user = await authStoreOwner();
+      return { userId: user.userId };
+    })
+    .onUploadComplete(async ({ metadata, file }) => {
       return { uploadedBy: metadata.userId, url: file.url };
     }),
 

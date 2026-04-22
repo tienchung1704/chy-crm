@@ -6,25 +6,31 @@ import {
   UnauthorizedException,
   Logger,
   BadRequestException,
+  HttpCode,
 } from '@nestjs/common';
 import { Public } from '../auth/decorators/public.decorator';
 import { WebhooksService } from './webhooks.service';
 import { ViettelPostWebhookDto } from './dto/viettelpost-webhook.dto';
 
-@Controller('webhooks')
+@Controller('viettelpost')
 export class WebhooksController {
   private readonly logger = new Logger(WebhooksController.name);
 
   constructor(private readonly webhooksService: WebhooksService) {}
 
-  @Post('viettelpost')
+  @Post('webhook')
   @Public()
+  @HttpCode(200)
   async handleViettelPostWebhook(
     @Body() payload: ViettelPostWebhookDto,
-    @Headers('x-viettelpost-token') token: string,
+    @Headers('x-viettelpost-token') headerToken: string,
     @Headers('x-viettelpost-signature') signature: string,
   ) {
-    this.logger.log(`📨 Received ViettelPost webhook for order: ${payload.ORDER_NUMBER}`);
+    // Get token from body (Pancake style) or header
+    const token = payload.TOKEN || headerToken;
+    
+    this.logger.log(`📨 Received ViettelPost webhook. Payload: ${JSON.stringify(payload)}`);
+    this.logger.log(`🔑 Token used for validation: ${token}`);
 
     // Validate webhook token/signature
     const isValid = await this.webhooksService.validateWebhookToken(token, signature, payload);
@@ -37,7 +43,7 @@ export class WebhooksController {
       // Process the webhook
       const result = await this.webhooksService.processViettelPostWebhook(payload);
       
-      this.logger.log(`✅ Webhook processed successfully for order: ${payload.ORDER_NUMBER}`);
+      this.logger.log(`✅ Webhook processed successfully for order: ${payload.DATA?.ORDER_NUMBER}`);
       
       return {
         success: true,

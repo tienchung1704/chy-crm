@@ -31,9 +31,9 @@ function loadWards() {
   return wardsCache!;
 }
 
-// GET /api/address?type=provinces
-// GET /api/address?type=districts&provinceCode=01
-// GET /api/address?type=wards&provinceCode=01
+// GET /internal-api/address?type=provinces
+// GET /internal-api/address?type=districts&provinceCode=01
+// GET /internal-api/address?type=wards&provinceCode=01
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const type = searchParams.get('type');

@@ -30,7 +30,16 @@ export class UsersController {
   @Put('profile')
   @ApiOperation({ summary: 'Update user profile' })
   async updateProfile(@GetUser('id') userId: string, @Body() data: any) {
-    return this.usersService.updateProfile(userId, data);
+    const result = await this.usersService.updateProfile(userId, data);
+    
+    // Auto sync pancake orders if phone is updated
+    if (data.phone) {
+      this.pancakeService.syncOrdersForUser(data.phone, userId).catch(err => {
+        console.error('Error auto-syncing pancake orders after profile update:', err);
+      });
+    }
+    
+    return result;
   }
 
   @Put('password')
@@ -49,7 +58,16 @@ export class UsersController {
   @Post('onboarding')
   @ApiOperation({ summary: 'Complete user onboarding' })
   async completeOnboarding(@GetUser('id') userId: string, @Body() data: any) {
-    return this.usersService.completeOnboarding(userId, data);
+    const result = await this.usersService.completeOnboarding(userId, data);
+    
+    // Auto sync pancake orders if phone is provided
+    if (result.user.phone) {
+      this.pancakeService.syncOrdersForUser(result.user.phone, userId).catch(err => {
+        console.error('Error auto-syncing pancake orders after onboarding:', err);
+      });
+    }
+    
+    return result;
   }
 
   @Post(':userId/sync-pancake-orders')

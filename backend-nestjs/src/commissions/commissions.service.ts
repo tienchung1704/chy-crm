@@ -236,9 +236,10 @@ export class CommissionsService {
   }
 
   async updateConfigAdmin(level: number, percentage: number) {
-    return this.prisma.commissionConfig.update({
+    return this.prisma.commissionConfig.upsert({
       where: { level },
-      data: { percentage },
+      create: { level, percentage, isActive: true },
+      update: { percentage },
     });
   }
 }

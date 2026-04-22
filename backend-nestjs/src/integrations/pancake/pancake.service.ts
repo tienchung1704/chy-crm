@@ -842,110 +842,44 @@ export class PancakeService {
    * Sync all orders from Pancake
    */
   async syncAllOrders(storeId?: string, startDate?: string, endDate?: string) {
-    this.logger.log('[Pancake] Starting full order sync...');
+    this.logger.log('[Pancake] Starting user-targeted order sync...');
     
-    let store = null;
-    if (storeId) {
-      store = await this.prisma.store.findUnique({ where: { id: storeId } });
-    } else {
-      const integration = await this.prisma.storeIntegration.findFirst({
-        where: { platform: 'PANCAKE', isActive: true },
-        include: { store: true }
-      });
-      store = integration?.store;
-    }
+    // Get all users with phone numbers
+    const users = await this.prisma.user.findMany({
+      where: {
+        phone: { not: null },
+        role: 'CUSTOMER'
+      },
+      select: { id: true, phone: true }
+    });
 
-    if (!store) {
-      this.logger.error('[Pancake] No store found for order sync');
-      return { synced: 0, errors: 0, total: 0, totalAmount: 0 };
-    }
+    this.logger.log(`[Pancake] Found ${users.length} users with phone numbers to sync`);
 
-    const config = await this.getPancakeConfig(store.id);
-    if (!config) {
-      return { synced: 0, errors: 0, total: 0, totalAmount: 0 };
-    }
-
-    let page = 1;
     let totalSynced = 0;
     let totalErrors = 0;
     let totalAmount = 0;
-    let hasMore = true;
 
-    const params = new URLSearchParams({
-      api_key: config.apiKey,
-      page_size: '100',
-      page_number: page.toString(),
-      option_sort: 'inserted_at_desc',
-    });
-
-    if (startDate) {
-      const startTimestamp = Math.floor(new Date(startDate).getTime() / 1000);
-      params.append('startDateTime', startTimestamp.toString());
-    }
-    if (endDate) {
-      const endTimestamp = Math.floor(new Date(endDate).getTime() / 1000);
-      params.append('endDateTime', endTimestamp.toString());
-    }
-
-    while (hasMore && page <= 50) {
+    for (const user of users) {
       try {
-        params.set('page_number', page.toString());
-        const url = `https://pos.pages.fm/api/v1/shops/${config.shopId}/orders?${params.toString()}`;
-        
-        const response = await fetch(url, {
-          method: 'GET',
-          headers: { 'Content-Type': 'application/json' }
-        });
-
-        if (!response.ok) {
-          this.logger.error(`[Pancake] Failed to fetch orders page ${page}`);
-          break;
+        const amount = await this.syncOrdersForUser(user.phone!, user.id, storeId);
+        if (amount > 0) {
+          totalAmount += amount;
+          totalSynced++;
         }
-
-        const data = await response.json();
-        
-        if (!data.success || !Array.isArray(data.data)) {
-          this.logger.error('[Pancake] Invalid response format');
-          break;
-        }
-
-        const orders = data.data;
-        const totalPages = data.total_pages || 1;
-        
-        this.logger.log(`[Pancake] Fetched page ${page}/${totalPages}: ${orders.length} orders`);
-
-        for (const order of orders) {
-          try {
-            const result = await this.syncSingleOrder(order, store.id);
-            if (result.synced) {
-              totalSynced++;
-              totalAmount += result.amount;
-            }
-          } catch (error) {
-            this.logger.error(`[Pancake] Error syncing order ${order.id}:`, error);
-            totalErrors++;
-          }
-        }
-
-        hasMore = page < totalPages && orders.length > 0;
-        page++;
-
-        if (hasMore) {
-          await new Promise(resolve => setTimeout(resolve, 500));
-        }
-
       } catch (error) {
-        this.logger.error(`[Pancake] Error fetching orders page ${page}:`, error);
+        this.logger.error(`[Pancake] Error syncing for user ${user.id}:`, error);
         totalErrors++;
-        break;
       }
+      
+      // Small delay to avoid rate limits
+      await new Promise(resolve => setTimeout(resolve, 100));
     }
 
-    this.logger.log(`[Pancake] Order sync completed. Synced: ${totalSynced}, Errors: ${totalErrors}, Total Amount: ${totalAmount}`);
+    this.logger.log(`[Pancake] User-targeted sync completed. Users Synced: ${totalSynced}, Errors: ${totalErrors}, Total Amount: ${totalAmount}`);
     return { 
       synced: totalSynced, 
       errors: totalErrors, 
-      total: totalSynced + totalErrors,
+      total: users.length,
       totalAmount 
     };
   }
@@ -976,10 +910,7 @@ export class PancakeService {
     });
 
     if (!user) {
-      // DON'T create user here - it conflicts with real user registration/login.
-      // Orders for unregistered users will be synced when they register via syncOrdersForUser.
-      this.logger.log(`[Pancake] No existing user for phone ${phone}, skipping order ${orderCode}`);
-      return { synced: false, amount: 0 };
+      this.logger.log(`[Pancake] No existing user for phone ${phone}, creating order without userId`);
     }
 
     // Update user email/name if missing
@@ -1207,7 +1138,7 @@ export class PancakeService {
 
     const order = await this.prisma.order.create({
       data: {
-        userId: user.id,
+        userId: user?.id || null,
         orderCode,
         source: 'PANCAKE',
         shippingName: shippingAddr?.full_name || pOrder.bill_full_name || null,
@@ -1234,7 +1165,7 @@ export class PancakeService {
 
     this.logger.log(`[Pancake] Synced order: ${orderCode}, amount: ${totalAmount}, paid: ${totalPaid}`);
 
-    if (status === OrderStatus.COMPLETED) {
+    if (status === OrderStatus.COMPLETED && user) {
       await this.updateUserRankAndSpent(user.id, totalAmount);
     }
 

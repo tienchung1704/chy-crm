@@ -2,6 +2,8 @@ import { getSession } from '@/lib/auth';
 import ProductsClient from '@/components/customer/ProductsClient';
 import { apiClient } from '@/lib/apiClient';
 
+export const dynamic = 'force-dynamic';
+
 async function getProducts() {
   try {
     const response = await apiClient.get<any>('/products');

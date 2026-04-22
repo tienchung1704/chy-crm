@@ -49,7 +49,7 @@ export default function SellerRegisterClient() {
 
   // Load provinces
   useEffect(() => {
-    fetch('/api/address?type=provinces')
+    fetch('/internal-api/address?type=provinces')
       .then(res => res.json())
       .then(setProvinces).catch(console.error);
   }, []);
@@ -59,7 +59,7 @@ export default function SellerRegisterClient() {
     const p = provinces.find(x => x.name === provinceName);
     if (!p) return;
     try {
-      const res = await fetch(`/api/address?type=wards&provinceCode=${p.code}`);
+      const res = await fetch(`/internal-api/address?type=wards&provinceCode=${p.code}`);
       setWards(await res.json());
     } catch {}
   }, [provinces]);

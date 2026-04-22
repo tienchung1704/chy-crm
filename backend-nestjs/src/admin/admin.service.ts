@@ -5,7 +5,23 @@ import { PrismaService } from '../prisma/prisma.service';
 export class AdminService {
   constructor(private prisma: PrismaService) {}
 
-  async getDashboardStats() {
+  async getDashboardStats(user: any) {
+    const isModerator = user.role === 'MODERATOR';
+    let storeId: string | undefined;
+
+    if (isModerator) {
+      const store = await this.prisma.store.findUnique({
+        where: { ownerId: user.id },
+      });
+      storeId = store?.id;
+    }
+
+    const orderWhere: any = isModerator ? { storeId: storeId || 'no-access' } : {};
+    const customerWhere: any = { role: 'CUSTOMER' };
+    if (isModerator) {
+      customerWhere.orders = { some: { storeId: storeId || 'no-access' } };
+    }
+
     const [
       totalCustomers,
       newCustomersThisMonth,
@@ -17,27 +33,33 @@ export class AdminService {
       recentOrders,
       topCustomers,
     ] = await Promise.all([
-      this.prisma.user.count({ where: { role: 'CUSTOMER' } }),
+      this.prisma.user.count({ where: customerWhere }),
       this.prisma.user.count({
         where: {
-          role: 'CUSTOMER',
+          ...customerWhere,
           createdAt: {
             gte: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
           },
         },
       }),
-      this.prisma.order.count(),
-      this.prisma.order.count({ where: { status: 'COMPLETED' } }),
+      this.prisma.order.count({ where: orderWhere }),
+      this.prisma.order.count({
+        where: { ...orderWhere, status: 'COMPLETED' },
+      }),
       this.prisma.order.aggregate({
-        where: { status: 'COMPLETED' },
+        where: { ...orderWhere, status: 'COMPLETED' },
         _sum: { totalAmount: true },
       }),
       this.prisma.voucher.count({ where: { isActive: true } }),
       this.prisma.commissionLedger.aggregate({
-        where: { status: 'PENDING' },
+        where: {
+          status: 'PENDING',
+          ...(isModerator ? { order: { storeId: storeId || 'no-access' } } : {}),
+        },
         _sum: { amount: true },
       }),
       this.prisma.order.findMany({
+        where: orderWhere,
         take: 8,
         orderBy: { createdAt: 'desc' },
         include: {
@@ -45,7 +67,7 @@ export class AdminService {
         },
       }),
       this.prisma.user.findMany({
-        where: { role: 'CUSTOMER' },
+        where: customerWhere,
         take: 5,
         orderBy: { totalSpent: 'desc' },
         select: {
@@ -54,7 +76,7 @@ export class AdminService {
           email: true,
           rank: true,
           totalSpent: true,
-          _count: { select: { orders: true } },
+          _count: { select: { orders: { where: orderWhere } } },
         },
       }),
     ]);
@@ -72,18 +94,29 @@ export class AdminService {
     };
   }
 
-  async getCustomers(params?: {
-    page?: number;
-    limit?: number;
-    search?: string;
-    rank?: string;
-  }) {
+  async getCustomers(
+    user: any,
+    params?: {
+      page?: number;
+      limit?: number;
+      search?: string;
+      rank?: string;
+    },
+  ) {
     const page = params?.page || 1;
     const limit = params?.limit || 20;
     const search = params?.search || '';
     const rank = params?.rank || '';
 
+    const isModerator = user.role === 'MODERATOR';
     const where: any = { role: 'CUSTOMER' };
+
+    if (isModerator) {
+      const store = await this.prisma.store.findUnique({
+        where: { ownerId: user.id },
+      });
+      where.orders = { some: { storeId: store?.id || 'no-access' } };
+    }
 
     if (search) {
       where.OR = [
@@ -163,7 +196,19 @@ export class AdminService {
     return { unreadCount, pendingStoresCount, isStoreActive };
   }
 
-  async getCustomerDetail(id: string) {
+  async getCustomerDetail(id: string, user: any) {
+    if (user.role === 'MODERATOR') {
+      const store = await this.prisma.store.findUnique({
+        where: { ownerId: user.id },
+      });
+      const hasOrder = await this.prisma.order.findFirst({
+        where: { userId: id, storeId: store?.id || 'no-access' },
+      });
+      if (!hasOrder) {
+        return null;
+      }
+    }
+
     const customer = await this.prisma.user.findUnique({
       where: { id },
       select: {

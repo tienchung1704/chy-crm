@@ -16,8 +16,8 @@ export class AdminController {
 
   @Get('dashboard')
   @ApiOperation({ summary: 'Get admin dashboard statistics' })
-  async getDashboardStats() {
-    return this.adminService.getDashboardStats();
+  async getDashboardStats(@GetUser() user: any) {
+    return this.adminService.getDashboardStats(user);
   }
 
   @Get('dashboard-meta')
@@ -29,17 +29,18 @@ export class AdminController {
   @Get('customers')
   @ApiOperation({ summary: 'Get all customers with filters' })
   async getCustomers(
+    @GetUser() user: any,
     @Query('page') page?: number,
     @Query('limit') limit?: number,
     @Query('search') search?: string,
     @Query('rank') rank?: string,
   ) {
-    return this.adminService.getCustomers({ page, limit, search, rank });
+    return this.adminService.getCustomers(user, { page, limit, search, rank });
   }
 
   @Get('customers/:id')
   @ApiOperation({ summary: 'Get customer detail by ID' })
-  async getCustomerDetail(@Param('id') id: string) {
-    return this.adminService.getCustomerDetail(id);
+  async getCustomerDetail(@GetUser() user: any, @Param('id') id: string) {
+    return this.adminService.getCustomerDetail(id, user);
   }
 }

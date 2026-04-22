@@ -114,7 +114,7 @@ export default function PortalNavbar({ user }: Props) {
                       className="w-full h-full rounded-full object-cover"
                     />
                   ) : (
-                    user.name.charAt(0).toUpperCase()
+                    (user.name || 'User').charAt(0).toUpperCase()
                   )}
                 </div>
                 <div className="hidden md:block text-left">
@@ -137,7 +137,7 @@ export default function PortalNavbar({ user }: Props) {
                           className="w-full h-full rounded-full object-cover"
                         />
                       ) : (
-                        user.name.charAt(0).toUpperCase()
+                        (user.name || 'User').charAt(0).toUpperCase()
                       )}
                     </div>
                     <div>

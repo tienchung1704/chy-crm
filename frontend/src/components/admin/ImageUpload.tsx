@@ -6,7 +6,7 @@ import { useState } from 'react';
 interface ImageUploadProps {
   value: string;
   onChange: (url: string) => void;
-  endpoint: 'productImage' | 'categoryImage';
+  endpoint: 'productImage' | 'categoryImage' | 'storeLogo';
 }
 
 export default function ImageUpload({ value, onChange, endpoint }: ImageUploadProps) {

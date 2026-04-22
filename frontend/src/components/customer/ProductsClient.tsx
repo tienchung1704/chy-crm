@@ -583,7 +583,7 @@ export default function ProductsClient({ products, categories, initialWishlistId
                               {product.store.logoUrl ? (
                                 <img src={product.store.logoUrl} alt={product.store.name} className="w-full h-full object-cover" />
                               ) : (
-                                <span className="text-[8px] font-bold text-gray-500">{product.store.name.charAt(0)}</span>
+                                <span className="text-[8px] font-bold text-gray-500">{(product.store.name || 'S').charAt(0)}</span>
                               )}
                             </div>
                             <span className="text-[11px] font-medium text-gray-500 truncate" title={product.store.name}>

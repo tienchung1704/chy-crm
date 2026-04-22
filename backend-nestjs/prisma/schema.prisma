@@ -211,7 +211,7 @@ model Product {
 
 model Order {
   id               String             @id @default(uuid())
-  userId           String             @map("user_id")
+  userId           String?            @map("user_id")
   orderCode        String             @unique @map("order_code")
   source           String?
   shippingName     String?            @map("shipping_name")
@@ -237,7 +237,7 @@ model Order {
   commissions      CommissionLedger[]
   items            OrderItem[]
   appliedVouchers  OrderVoucher[]
-  user             User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user             User?              @relation(fields: [userId], references: [id], onDelete: Cascade)
   storeId          String?            @map("store_id")
   store            Store?             @relation(fields: [storeId], references: [id], onDelete: SetNull)
 

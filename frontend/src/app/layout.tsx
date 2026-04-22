@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { ToastContainer } from 'react-toastify';
-import { Analytics } from "@vercel/analytics/next";
 import "react-toastify/dist/ReactToastify.css";
 import "./globals.css";
 
@@ -19,7 +18,6 @@ export default function RootLayout({
       <body>
         {children}
         <ToastContainer position="bottom-right" autoClose={3000} hideProgressBar={false} closeOnClick pauseOnHover />
-        <Analytics />
       </body>
     </html>
   );

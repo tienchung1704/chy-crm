@@ -10,10 +10,15 @@ import { JwtRefreshGuard } from './guards/jwt-refresh.guard';
 import { GoogleAuthGuard } from './guards/google-auth.guard';
 import { GetUser } from './decorators/get-user.decorator';
 
+import { PancakeService } from '../integrations/pancake/pancake.service';
+
 @ApiTags('Authentication')
 @Controller('auth')
 export class AuthController {
-  constructor(private authService: AuthService) {}
+  constructor(
+    private authService: AuthService,
+    private pancakeService: PancakeService,
+  ) { }
 
   @Post('register')
   @ApiOperation({ summary: 'Register new user' })
@@ -27,17 +32,24 @@ export class AuthController {
     // Set cookies
     response.cookie('crm_access_token', result.accessToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 15 * 60 * 1000, // 15 minutes
+      secure: true,
+      sameSite: 'none',
+      maxAge: 45 * 60 * 1000, // 45 minutes
     });
 
     response.cookie('crm_refresh_token', result.refreshToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
+      secure: true,
+      sameSite: 'none',
       maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
     });
+
+    // Auto sync pancake orders if phone is provided
+    if (result.user.phone) {
+      this.pancakeService.syncOrdersForUser(result.user.phone, result.user.id).catch(err => {
+        console.error('Error auto-syncing pancake orders after registration:', err);
+      });
+    }
 
     return {
       success: result.success,
@@ -60,15 +72,15 @@ export class AuthController {
     // Set cookies
     response.cookie('crm_access_token', result.accessToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
+      secure: true,
+      sameSite: 'none',
       maxAge: 15 * 60 * 1000, // 15 minutes
     });
 
     response.cookie('crm_refresh_token', result.refreshToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
+      secure: true,
+      sameSite: 'none',
       maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
     });
 
@@ -94,15 +106,15 @@ export class AuthController {
     // Set new cookies
     response.cookie('crm_access_token', tokens.accessToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
+      secure: true,
+      sameSite: 'none',
       maxAge: 15 * 60 * 1000,
     });
 
     response.cookie('crm_refresh_token', tokens.refreshToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
+      secure: true,
+      sameSite: 'none',
       maxAge: 30 * 24 * 60 * 60 * 1000,
     });
 
@@ -145,15 +157,15 @@ export class AuthController {
     // Set cookies
     response.cookie('crm_access_token', result.accessToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
+      secure: true,
+      sameSite: 'none',
       maxAge: 15 * 60 * 1000,
     });
 
     response.cookie('crm_refresh_token', result.refreshToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
+      secure: true,
+      sameSite: 'none',
       maxAge: 30 * 24 * 60 * 60 * 1000,
     });
 
@@ -161,7 +173,7 @@ export class AuthController {
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
     const returnTo = req.user.returnTo || '/portal';
     const needsOnboarding = result.user.role === 'CUSTOMER' && !result.user.onboardingComplete;
-    
+
     let redirect = returnTo;
     if (['ADMIN', 'STAFF', 'MODERATOR'].includes(result.user.role)) {
       redirect = '/admin';

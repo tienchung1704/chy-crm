@@ -30,7 +30,6 @@ const navItems = [
     items: [
       { name: 'Khách hàng', href: '/admin/customers', roles: ADMIN_STAFF },
       { name: 'Cửa hàng', href: '/admin/stores', roles: ADMIN_ONLY },
-      { name: 'Cửa hàng của tôi', href: '/admin/my-store', roles: ['MODERATOR'] },
       { name: 'Đơn hàng', href: '/admin/orders', roles: ALL_ROLES },
       { name: 'Sản phẩm', href: '/admin/products', roles: ALL_ROLES },
       { name: 'Danh mục', href: '/admin/categories', roles: ALL_ROLES },
@@ -49,6 +48,12 @@ const navItems = [
     items: [
       { name: 'Kết nối', href: '/admin/integrations', roles: ALL_ROLES },
       { name: 'Hoa hồng', href: '/admin/commissions', roles: ADMIN_ONLY },
+    ],
+  },
+  {
+    label: 'Thông tin',
+    items: [
+      { name: 'Cửa hàng', href: '/admin/my-store', roles: ['MODERATOR'] },
     ],
   },
 ];

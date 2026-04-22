@@ -349,14 +349,9 @@ export class OrdersService {
     });
   }
 
-  async findOne(id: string, userId?: string) {
-    const where: any = { id };
-    if (userId) {
-      where.userId = userId;
-    }
-
+  async findOne(id: string, userId: string, role: string) {
     const order = await this.prisma.order.findUnique({
-      where,
+      where: { id },
       include: {
         items: {
           include: {
@@ -404,10 +399,33 @@ export class OrdersService {
       throw new NotFoundException('Order not found');
     }
 
-    return order;
+    // Permission check
+    if (role === 'ADMIN' || role === 'STAFF') {
+      return order;
+    }
+
+    if (role === 'MODERATOR') {
+      const store = await this.prisma.store.findUnique({
+        where: { ownerId: userId },
+      });
+      if (order.storeId === store?.id) {
+        return order;
+      }
+    }
+
+    if (order.userId === userId) {
+      return order;
+    }
+
+    throw new NotFoundException('Order not found');
   }
 
-  async updateStatus(id: string, updateDto: UpdateOrderStatusDto) {
+  async updateStatus(
+    id: string,
+    updateDto: UpdateOrderStatusDto,
+    userId?: string,
+    role?: string,
+  ) {
     const { status, paymentStatus } = updateDto;
 
     // Get current order
@@ -430,6 +448,16 @@ export class OrdersService {
 
     if (!currentOrder) {
       throw new NotFoundException('Order not found');
+    }
+
+    // Permission check for MODERATOR
+    if (role === 'MODERATOR' && userId) {
+      const store = await this.prisma.store.findUnique({
+        where: { ownerId: userId },
+      });
+      if (currentOrder.storeId !== store?.id) {
+        throw new NotFoundException('Order not found');
+      }
     }
 
     // Update order
@@ -460,14 +488,16 @@ export class OrdersService {
       }
 
       // Update totalSpent and rank
-      await this.prisma.user.update({
-        where: { id: currentOrder.userId },
-        data: { totalSpent: { increment: currentOrder.totalAmount } },
-      });
-      await this.usersService.updateUserRank(currentOrder.userId);
+      if (currentOrder.userId) {
+        await this.prisma.user.update({
+          where: { id: currentOrder.userId },
+          data: { totalSpent: { increment: currentOrder.totalAmount } },
+        });
+        await this.usersService.updateUserRank(currentOrder.userId);
+      }
 
       // Calculate commissions
-      if (currentOrder.user.referrerId) {
+      if (currentOrder.user && currentOrder.user.referrerId) {
         const existingCommissions = await this.prisma.commissionLedger.findFirst({
           where: {
             orderId: currentOrder.id,
@@ -497,11 +527,13 @@ export class OrdersService {
       }
 
       // Decrease totalSpent and update rank
-      await this.prisma.user.update({
-        where: { id: currentOrder.userId },
-        data: { totalSpent: { decrement: currentOrder.totalAmount } },
-      });
-      await this.usersService.updateUserRank(currentOrder.userId);
+      if (currentOrder.userId) {
+        await this.prisma.user.update({
+          where: { id: currentOrder.userId },
+          data: { totalSpent: { decrement: currentOrder.totalAmount } },
+        });
+        await this.usersService.updateUserRank(currentOrder.userId);
+      }
 
       // Cancel commissions
       await this.commissionsService.cancelCommissions(currentOrder.id);
@@ -510,7 +542,17 @@ export class OrdersService {
     return updatedOrder;
   }
 
-  async markAsRead(id: string) {
+  async markAsRead(id: string, userId?: string, role?: string) {
+    if (role === 'MODERATOR' && userId) {
+      const order = await this.prisma.order.findUnique({ where: { id } });
+      const store = await this.prisma.store.findUnique({
+        where: { ownerId: userId },
+      });
+      if (!order || order.storeId !== store?.id) {
+        throw new NotFoundException('Order not found');
+      }
+    }
+
     return this.prisma.order.update({
       where: { id },
       data: { isRead: true },
