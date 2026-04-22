@@ -7,6 +7,7 @@ import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { JwtRefreshGuard } from './guards/jwt-refresh.guard';
+import { GoogleAuthGuard } from './guards/google-auth.guard';
 import { GetUser } from './decorators/get-user.decorator';
 
 @ApiTags('Authentication')
@@ -101,14 +102,14 @@ export class AuthController {
   }
 
   @Get('google')
-  @UseGuards(AuthGuard('google'))
+  @UseGuards(GoogleAuthGuard)
   @ApiOperation({ summary: 'Google OAuth login' })
-  async googleAuth() {
-    // Guard redirects to Google
+  async googleAuth(@Req() req: Request) {
+    // Guard redirects to Google with state parameter
   }
 
   @Get('google/callback')
-  @UseGuards(AuthGuard('google'))
+  @UseGuards(GoogleAuthGuard)
   @ApiOperation({ summary: 'Google OAuth callback' })
   async googleAuthCallback(
     @Req() req: any,
@@ -131,14 +132,17 @@ export class AuthController {
       maxAge: 30 * 24 * 60 * 60 * 1000,
     });
 
-    // Redirect to frontend
+    // Redirect to frontend with returnTo from state
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    const returnTo = req.user.returnTo || '/portal';
     const needsOnboarding = result.user.role === 'CUSTOMER' && !result.user.onboardingComplete;
-    const redirect = ['ADMIN', 'STAFF', 'MODERATOR'].includes(result.user.role)
-      ? '/admin'
-      : needsOnboarding
-      ? '/onboarding'
-      : '/portal';
+    
+    let redirect = returnTo;
+    if (['ADMIN', 'STAFF', 'MODERATOR'].includes(result.user.role)) {
+      redirect = '/admin';
+    } else if (needsOnboarding) {
+      redirect = '/onboarding';
+    }
 
     response.redirect(`${frontendUrl}${redirect}`);
   }

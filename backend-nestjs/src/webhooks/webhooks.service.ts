@@ -15,16 +15,25 @@ export class WebhooksService {
     @Optional() @InjectQueue('voucher-queue') private voucherQueue?: Queue,
   ) {}
 
-  validateWebhookToken(
+  async validateWebhookToken(
     token: string,
     signature: string,
     payload: ViettelPostWebhookDto,
-  ): boolean {
+  ): Promise<boolean> {
     const expectedToken = process.env.VIETTELPOST_WEBHOOK_TOKEN;
+
+    if (token) {
+      const storeIntegration = await this.prisma.storeIntegration.findFirst({
+        where: { platform: 'VIETTELPOST', isActive: true, accessToken: token }
+      });
+      if (storeIntegration) {
+        return true;
+      }
+    }
 
     // If no token configured, log warning but allow (for development)
     if (!expectedToken) {
-      this.logger.warn('⚠️ VIETTELPOST_WEBHOOK_TOKEN not configured');
+      this.logger.warn('⚠️ VIETTELPOST_WEBHOOK_TOKEN not configured and no store integration matched');
       return true; // Allow in development
     }
 

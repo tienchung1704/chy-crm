@@ -1,4 +1,4 @@
-import { Controller, Post, Body, UseGuards, Headers, UnauthorizedException, Logger } from '@nestjs/common';
+import { Controller, Post, Body, UseGuards, Headers, UnauthorizedException, Logger, Query } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { PancakeService } from './pancake.service';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
@@ -18,10 +18,11 @@ export class PancakeController {
   @Roles('ADMIN')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Sync orders from Pancake for a user (Admin only)' })
-  async syncOrders(@Body() data: { phone: string; userId: string }) {
+  async syncOrders(@Body() data: { phone: string; userId: string; storeId?: string }) {
     const totalSpent = await this.pancakeService.syncOrdersForUser(
       data.phone,
       data.userId,
+      data.storeId,
     );
     return {
       success: true,
@@ -35,8 +36,8 @@ export class PancakeController {
   @Roles('ADMIN')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Sync categories from Pancake (Admin only)' })
-  async syncCategories() {
-    const result = await this.pancakeService.syncAllCategories();
+  async syncCategories(@Body() data?: { storeId?: string }) {
+    const result = await this.pancakeService.syncAllCategories(data?.storeId);
     return {
       success: true,
       message: 'Category sync completed',
@@ -94,7 +95,7 @@ export class PancakeController {
 
     try {
       // Process webhook based on event type
-      const result = await this.pancakeService.handleWebhookEvent(payload);
+      const result = await this.pancakeService.handleWebhookEvent(payload, shopId);
       
       return {
         success: true,
@@ -115,10 +116,11 @@ export class PancakeController {
   @Roles('ADMIN')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Configure webhook on Pancake (Admin only)' })
-  async configureWebhook(@Body() data: { webhookUrl: string; webhookTypes?: string[] }) {
+  async configureWebhook(@Body() data: { webhookUrl: string; webhookTypes?: string[]; storeId?: string }) {
     const result = await this.pancakeService.configureWebhook(
       data.webhookUrl,
       data.webhookTypes || ['orders', 'customers'],
+      data.storeId,
     );
     return {
       success: true,
@@ -132,8 +134,8 @@ export class PancakeController {
   @Roles('ADMIN')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get current webhook configuration from Pancake (Admin only)' })
-  async getWebhookConfig() {
-    const config = await this.pancakeService.getWebhookConfig();
+  async getWebhookConfig(@Query('storeId') storeId?: string) {
+    const config = await this.pancakeService.getWebhookConfig(storeId);
     return {
       success: true,
       data: config,

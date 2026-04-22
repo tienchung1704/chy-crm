@@ -27,7 +27,7 @@ export class WebhooksController {
     this.logger.log(`📨 Received ViettelPost webhook for order: ${payload.ORDER_NUMBER}`);
 
     // Validate webhook token/signature
-    const isValid = this.webhooksService.validateWebhookToken(token, signature, payload);
+    const isValid = await this.webhooksService.validateWebhookToken(token, signature, payload);
     if (!isValid) {
       this.logger.error('❌ Invalid webhook token or signature');
       throw new UnauthorizedException('Invalid webhook credentials');

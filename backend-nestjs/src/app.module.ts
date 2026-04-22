@@ -56,6 +56,10 @@ function getQueueModules(): any[] {
         },
       }),
     }),
+    BullBoardModule.forRoot({
+      route: '/admin/queues',
+      adapter: ExpressAdapter,
+    }),
   ];
 }
 

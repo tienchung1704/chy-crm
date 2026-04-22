@@ -6,42 +6,8 @@ set -e
 # ==========================================
 # Configuration
 # ==========================================
-APP_NAME="frontend"
+APP_NAME="chy_crm_fe"
 
-# Temp directory to backup .env file
-ENV_BACKUP_DIR="/tmp/${APP_NAME}-env-backup-$$"
-
-# Function to backup .env file before branch switch
-backup_env() {
-    echo "📦 Backing up .env file..."
-    mkdir -p "$ENV_BACKUP_DIR"
-    if [ -f ".env" ]; then
-        cp ".env" "$ENV_BACKUP_DIR/.env"
-        echo "✅ Backed up .env to $ENV_BACKUP_DIR"
-    else
-        echo "ℹ️  No .env file found to backup"
-    fi
-}
-
-# Function to restore .env file from backup
-restore_env() {
-    echo ""
-    echo "📝 Restoring .env file from backup..."
-    if [ ! -d "$ENV_BACKUP_DIR" ]; then
-        echo "⚠️  No backup found at $ENV_BACKUP_DIR"
-        return
-    fi
-    
-    local backup_file="$ENV_BACKUP_DIR/.env"
-    if [ -f "$backup_file" ]; then
-        cp "$backup_file" ".env"
-        echo "  ✓ Restored .env"
-    fi
-    
-    # Cleanup backup directory
-    rm -rf "$ENV_BACKUP_DIR"
-    echo "✅ Restored .env file from backup"
-}
 
 # Function to cleanup and switch back to original branch
 cleanup_and_restore() {
@@ -59,9 +25,7 @@ cleanup_and_restore() {
         echo "✅ Returned to branch: $ORIGINAL_BRANCH"
     fi
     
-    # Always restore .env file
-    restore_env
-    
+    # Note: no longer backing up or restoring env file locally    
     if [ $exit_code -ne 0 ]; then
         echo ""
         echo "❌ Deployment failed with exit code: $exit_code"
@@ -104,16 +68,6 @@ SERVER_DIR="/srv/projects-deploy/${APP_NAME}"
 ORIGINAL_BRANCH="$(git rev-parse --abbrev-ref HEAD)"
 echo "ℹ️  Current branch: $ORIGINAL_BRANCH"
 
-# Backup .env file
-backup_env
-
-# Prepare .env file for build
-echo "📝 Preparing .env file for build..."
-if [ -f "$ENV_FILE" ]; then
-    echo "  Copying $ENV_FILE → .env"
-    cp "$ENV_FILE" ".env"
-fi
-echo "✅ .env file prepared for build"
 
 # Clean old .next folder to avoid cache issues
 echo "🗑️  Cleaning old .next folder to avoid cache issues..."
@@ -127,11 +81,15 @@ echo "✅ .next folder cleaned"
 
 # Create archive of source code
 echo "📦 Creating archive of source code..."
-TAR_FILES="src public next.config.ts package.json tsconfig.json tailwind.config.ts postcss.config.mjs ecosystem.config.js"
+TAR_FILES="src public next.config.ts package.json tsconfig.json ecosystem.config.js"
 
 # Add optional files if they exist
 [ -f "yarn.lock" ] && TAR_FILES="$TAR_FILES yarn.lock" && echo "  ✓ Including yarn.lock"
 [ -f "package-lock.json" ] && TAR_FILES="$TAR_FILES package-lock.json" && echo "  ✓ Including package-lock.json"
+[ -f "postcss.config.js" ] && TAR_FILES="$TAR_FILES postcss.config.js" && echo "  ✓ Including postcss.config.js"
+[ -f "postcss.config.mjs" ] && TAR_FILES="$TAR_FILES postcss.config.mjs" && echo "  ✓ Including postcss.config.mjs"
+[ -f "tailwind.config.ts" ] && TAR_FILES="$TAR_FILES tailwind.config.ts" && echo "  ✓ Including tailwind.config.ts"
+[ -f "tailwind.config.js" ] && TAR_FILES="$TAR_FILES tailwind.config.js" && echo "  ✓ Including tailwind.config.js"
 [ -d "prisma" ] && TAR_FILES="$TAR_FILES prisma" && echo "  ✓ Including prisma folder"
 
 tar -czf next-source.tar.gz $TAR_FILES

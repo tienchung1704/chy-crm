@@ -1,4 +1,4 @@
-﻿import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../prisma/prisma.service';
 import { UsersService } from '../../users/users.service';
@@ -14,27 +14,38 @@ export class PancakeService {
     private usersService: UsersService,
   ) {}
 
-  private async getPancakeConfig() {
+  private async getPancakeConfig(storeId?: string, shopId?: string) {
+    // Only get from database, no fallback to env
+    const whereClause: any = { platform: 'PANCAKE', isActive: true };
+    if (storeId) whereClause.storeId = storeId;
+    if (shopId) whereClause.shopId = shopId;
+
     const pConfig = await this.prisma.storeIntegration.findFirst({
-      where: { platform: 'PANCAKE', isActive: true }
+      where: whereClause
     });
     
-    const shopId = pConfig?.shopId || this.configService.get('PANCAKE_SHOP_ID');
-    const apiKey = pConfig?.apiKey || this.configService.get('PANCAKE_API_KEY');
-
-    if (!shopId || !apiKey) {
-      this.logger.error('[Pancake] Missing Shop ID or API Key');
+    if (!pConfig) {
+      this.logger.error(`[Pancake] No active Pancake integration found in database (storeId: ${storeId}, shopId: ${shopId})`);
       return null;
     }
 
-    return { shopId, apiKey };
+    const configShopId = pConfig.shopId;
+    const apiKey = pConfig.apiKey;
+
+    if (!configShopId || !apiKey) {
+      this.logger.error('[Pancake] Pancake integration found but missing Shop ID or API Key');
+      return null;
+    }
+
+    this.logger.log(`[Pancake] Using config from database - Shop ID: ${configShopId.substring(0, 8)}...`);
+    return { shopId: configShopId, apiKey };
   }
 
   /**
    * Fetch orders from Pancake by phone number
    */
-  async fetchOrdersByPhone(phone: string) {
-    const config = await this.getPancakeConfig();
+  async fetchOrdersByPhone(phone: string, storeId?: string) {
+    const config = await this.getPancakeConfig(storeId);
     if (!config) return [];
 
     try {
@@ -66,8 +77,8 @@ export class PancakeService {
   /**
    * Fetch single order detail
    */
-  async fetchOrderDetail(orderId: number) {
-    const config = await this.getPancakeConfig();
+  async fetchOrderDetail(orderId: number, storeId?: string) {
+    const config = await this.getPancakeConfig(storeId);
     if (!config) return null;
 
     try {
@@ -149,9 +160,9 @@ export class PancakeService {
   /**
    * Sync orders for a user
    */
-  async syncOrdersForUser(phone: string, userId: string) {
+  async syncOrdersForUser(phone: string, userId: string, storeId?: string) {
     this.logger.log(`[Pancake] Starting sync for userId: ${userId}, phone: ${phone}`);
-    const orders = await this.fetchOrdersByPhone(phone);
+    const orders = await this.fetchOrdersByPhone(phone, storeId);
     let totalNewSpent = 0;
     let syncedCount = 0;
     let customerInfoSynced = false;
@@ -173,7 +184,7 @@ export class PancakeService {
         continue;
       }
 
-      const orderDetail = await this.fetchOrderDetail(pOrder.id);
+      const orderDetail = await this.fetchOrderDetail(pOrder.id, storeId);
       const detailData = orderDetail || pOrder;
 
       const itemsMeta = this.extractItemsMetadata(detailData.items || pOrder.items || []);
@@ -358,29 +369,37 @@ export class PancakeService {
   /**
    * Fetch categories from Pancake
    */
-  async fetchCategories() {
-    const config = await this.getPancakeConfig();
+  async fetchCategories(storeId?: string) {
+    const config = await this.getPancakeConfig(storeId);
     if (!config) return [];
 
     try {
       const url = `https://pos.pages.fm/api/v1/shops/${config.shopId}/categories?api_key=${config.apiKey}`;
+      
+      this.logger.log(`[Pancake] Fetching categories from: ${url.replace(config.apiKey, '***')}`);
       
       const response = await fetch(url, {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' }
       });
 
+      this.logger.log(`[Pancake] Response status: ${response.status}`);
+
       if (!response.ok) {
-        this.logger.error('[Pancake] Failed to fetch categories');
+        const errorText = await response.text();
+        this.logger.error(`[Pancake] Failed to fetch categories. Status: ${response.status}, Body: ${errorText}`);
         return [];
       }
 
       const data = await response.json();
+      this.logger.log(`[Pancake] Response data:`, JSON.stringify(data).substring(0, 200));
+      
       if (data.success && Array.isArray(data.data)) {
         this.logger.log(`[Pancake] Fetched ${data.data.length} root categories`);
         return data.data;
       }
       
+      this.logger.warn(`[Pancake] Unexpected response format:`, data);
       return [];
     } catch (error) {
       this.logger.error('[Pancake] Error fetching categories:', error);
@@ -391,10 +410,10 @@ export class PancakeService {
   /**
    * Sync all categories
    */
-  async syncAllCategories() {
+  async syncAllCategories(storeId?: string) {
     this.logger.log('[Pancake] Starting category sync...');
     
-    const categories = await this.fetchCategories();
+    const categories = await this.fetchCategories(storeId);
     if (categories.length === 0) {
       this.logger.log('[Pancake] No categories to sync');
       return { synced: 0, errors: 0 };
@@ -477,8 +496,8 @@ export class PancakeService {
   /**
    * Fetch products from Pancake
    */
-  async fetchProducts(page = 1, pageSize = 100) {
-    const config = await this.getPancakeConfig();
+  async fetchProducts(page = 1, pageSize = 100, storeId?: string) {
+    const config = await this.getPancakeConfig(storeId);
     if (!config) return { variations: [], hasMore: false, total: 0 };
 
     try {
@@ -634,7 +653,7 @@ export class PancakeService {
     const productMap = new Map<string, any[]>();
 
     while (hasMore) {
-      const { variations, hasMore: more, total } = await this.fetchProducts(page, 100);
+      const { variations, hasMore: more, total } = await this.fetchProducts(page, 100, store.id);
       hasMore = more;
       
       if (page === 1 && total > 0) {
@@ -904,7 +923,7 @@ export class PancakeService {
       return { synced: 0, errors: 0, total: 0, totalAmount: 0 };
     }
 
-    const config = await this.getPancakeConfig();
+    const config = await this.getPancakeConfig(store.id);
     if (!config) {
       return { synced: 0, errors: 0, total: 0, totalAmount: 0 };
     }
@@ -1036,7 +1055,7 @@ export class PancakeService {
       this.logger.log(`[Pancake] Created new user: ${user.id} (${phone})`);
     }
 
-    const orderDetail = await this.fetchOrderDetail(pOrder.id);
+    const orderDetail = await this.fetchOrderDetail(pOrder.id, storeId);
     const detailData = orderDetail || pOrder;
 
     const itemsMeta = this.extractItemsMetadata(detailData.items || pOrder.items || []);
@@ -1158,8 +1177,8 @@ export class PancakeService {
   /**
    * Handle webhook event from Pancake
    */
-  async handleWebhookEvent(payload: any) {
-    this.logger.log(`[Pancake Webhook] Processing event type: ${payload.type || 'unknown'}`);
+  async handleWebhookEvent(payload: any, shopId?: string) {
+    this.logger.log(`[Pancake Webhook] Processing event type: ${payload.type || 'unknown'} for shopId: ${shopId || 'unknown'}`);
 
     const eventType = payload.type || payload.event_type;
     const eventData = payload.data || payload;
@@ -1167,19 +1186,19 @@ export class PancakeService {
     switch (eventType) {
       case 'orders':
       case 'order':
-        return await this.handleOrderWebhook(eventData);
+        return await this.handleOrderWebhook(eventData, shopId);
 
       case 'customers':
       case 'customer':
-        return await this.handleCustomerWebhook(eventData);
+        return await this.handleCustomerWebhook(eventData, shopId);
 
       case 'products':
       case 'product':
-        return await this.handleProductWebhook(eventData);
+        return await this.handleProductWebhook(eventData, shopId);
 
       case 'variations_warehouses':
       case 'inventory':
-        return await this.handleInventoryWebhook(eventData);
+        return await this.handleInventoryWebhook(eventData, shopId);
 
       default:
         this.logger.warn(`[Pancake Webhook] Unknown event type: ${eventType}`);
@@ -1190,12 +1209,15 @@ export class PancakeService {
   /**
    * Handle order webhook from Pancake
    */
-  private async handleOrderWebhook(orderData: any) {
+  private async handleOrderWebhook(orderData: any, shopId?: string) {
     this.logger.log(`[Pancake Webhook] Processing order: ${orderData.id}`);
 
     try {
+      const whereClause: any = { platform: 'PANCAKE', isActive: true };
+      if (shopId) whereClause.shopId = shopId;
+
       const integration = await this.prisma.storeIntegration.findFirst({
-        where: { platform: 'PANCAKE', isActive: true },
+        where: whereClause,
         include: { store: true }
       });
 
@@ -1221,7 +1243,7 @@ export class PancakeService {
   /**
    * Handle customer webhook from Pancake
    */
-  private async handleCustomerWebhook(customerData: any) {
+  private async handleCustomerWebhook(customerData: any, shopId?: string) {
     this.logger.log(`[Pancake Webhook] Processing customer: ${customerData.id}`);
 
     try {
@@ -1274,12 +1296,15 @@ export class PancakeService {
   /**
    * Handle product webhook from Pancake
    */
-  private async handleProductWebhook(productData: any) {
+  private async handleProductWebhook(productData: any, shopId?: string) {
     this.logger.log(`[Pancake Webhook] Processing product: ${productData.id}`);
 
     try {
+      const whereClause: any = { platform: 'PANCAKE', isActive: true };
+      if (shopId) whereClause.shopId = shopId;
+
       const integration = await this.prisma.storeIntegration.findFirst({
-        where: { platform: 'PANCAKE', isActive: true },
+        where: whereClause,
         include: { store: true }
       });
 
@@ -1287,7 +1312,7 @@ export class PancakeService {
         return { processed: false, reason: 'No active store' };
       }
 
-      const config = await this.getPancakeConfig();
+      const config = await this.getPancakeConfig(integration.storeId, shopId);
       if (!config) return { processed: false, reason: 'No config' };
 
       const url = `https://pos.pages.fm/api/v1/shops/${config.shopId}/products/${productData.id}?api_key=${config.apiKey}`;
@@ -1310,7 +1335,7 @@ export class PancakeService {
   /**
    * Handle inventory webhook from Pancake
    */
-  private async handleInventoryWebhook(inventoryData: any) {
+  private async handleInventoryWebhook(inventoryData: any, shopId?: string) {
     this.logger.log(`[Pancake Webhook] Processing inventory update: ${inventoryData.variation_id}`);
 
     try {
@@ -1326,8 +1351,8 @@ export class PancakeService {
   /**
    * Configure webhook on Pancake
    */
-  async configureWebhook(webhookUrl: string, webhookTypes: string[] = ['orders', 'customers']) {
-    const config = await this.getPancakeConfig();
+  async configureWebhook(webhookUrl: string, webhookTypes: string[] = ['orders', 'customers'], storeId?: string) {
+    const config = await this.getPancakeConfig(storeId);
     if (!config) {
       throw new Error('Pancake configuration not found');
     }
@@ -1371,8 +1396,8 @@ export class PancakeService {
   /**
    * Get webhook configuration from Pancake
    */
-  async getWebhookConfig() {
-    const config = await this.getPancakeConfig();
+  async getWebhookConfig(storeId?: string) {
+    const config = await this.getPancakeConfig(storeId);
     if (!config) {
       throw new Error('Pancake configuration not found');
     }

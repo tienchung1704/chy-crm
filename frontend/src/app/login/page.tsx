@@ -77,12 +77,15 @@ function LoginForm() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
+        credentials: 'include', // Important: include cookies
       });
 
+      console.log('Login response status:', res.status);
       const data = await res.json();
+      console.log('Login response data:', data);
 
       if (!res.ok) {
-        setError(data.error || 'Đã xảy ra lỗi');
+        setError(data.error || data.message || 'Đã xảy ra lỗi');
         return;
       }
 
@@ -92,13 +95,13 @@ function LoginForm() {
       }
 
       if (isLogin) {
-        router.push(data.redirect || '/');
-        router.refresh();
+        console.log('Redirecting to:', data.redirect || '/');
+        // Use window.location for hard navigation to ensure cookies are sent
+        window.location.href = data.redirect || '/';
       } else {
         setSuccess('Đăng ký thành công! Đang chuyển hướng...');
         setTimeout(() => {
-          router.push(data.redirect || '/');
-          router.refresh();
+          window.location.href = data.redirect || '/';
         }, 1000);
       }
     } catch {

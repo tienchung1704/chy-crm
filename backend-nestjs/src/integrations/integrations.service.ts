@@ -1,14 +1,21 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
 export class IntegrationsService {
   constructor(private prisma: PrismaService) {}
 
-  async findAllAdmin(storeId?: string) {
+  async findAll(user: any, storeId?: string) {
+    let targetStoreId = storeId;
+    if (user.role === 'MODERATOR') {
+      const store = await this.prisma.store.findUnique({ where: { ownerId: user.id } });
+      if (!store) return [];
+      targetStoreId = store.id;
+    }
+
     return this.prisma.storeIntegration.findMany({
       where: {
-        ...(storeId && { storeId }),
+        ...(targetStoreId && { storeId: targetStoreId }),
       },
       include: {
         store: {
@@ -24,30 +31,86 @@ export class IntegrationsService {
     });
   }
 
-  async upsertAdmin(data: any) {
+  async upsert(user: any, data: any) {
     const { platform, storeId, ...config } = data;
 
-    // Check if storeId is provided (from Admin)
-    // If not provided, it should fail or handled by controller to get current user's store
-    if (!storeId) {
-      throw new Error('Store ID is required for administrative integration management');
+    let targetStoreId = storeId;
+
+    if (user.role === 'MODERATOR') {
+      const store = await this.prisma.store.findUnique({ where: { ownerId: user.id } });
+      if (!store) {
+        throw new UnauthorizedException('You do not own a store.');
+      }
+      if (storeId && storeId !== store.id) {
+        throw new UnauthorizedException('You can only modify your own store integrations.');
+      }
+      targetStoreId = store.id;
     }
 
-    return this.prisma.storeIntegration.upsert({
-      where: {
-        storeId_platform: {
-          storeId,
-          platform,
+    if (targetStoreId) {
+      // Store-specific integration
+      return this.prisma.storeIntegration.upsert({
+        where: {
+          storeId_platform: {
+            storeId: targetStoreId,
+            platform,
+          },
         },
-      },
-      update: {
-        ...config,
-      },
-      create: {
-        storeId,
-        platform,
-        ...config,
-      },
-    });
+        update: {
+          ...config,
+        },
+        create: {
+          storeId: targetStoreId,
+          platform,
+          ...config,
+        },
+      });
+    } else {
+      // Global integration - find or create a default store
+      let defaultStore = await this.prisma.store.findFirst({
+        where: { isActive: true },
+        select: { id: true },
+      });
+      
+      // If no store exists, create a default one
+      if (!defaultStore) {
+        // Get the first admin user
+        const adminUser = await this.prisma.user.findFirst({
+          where: { role: 'ADMIN' },
+          select: { id: true },
+        });
+        
+        if (!adminUser) {
+          throw new Error('No admin user found. Cannot create default store.');
+        }
+        
+        defaultStore = await this.prisma.store.create({
+          data: {
+            name: 'Default Store',
+            slug: 'default-store',
+            ownerId: adminUser.id,
+            isActive: true,
+          },
+          select: { id: true },
+        });
+      }
+
+      return this.prisma.storeIntegration.upsert({
+        where: {
+          storeId_platform: {
+            storeId: defaultStore.id,
+            platform,
+          },
+        },
+        update: {
+          ...config,
+        },
+        create: {
+          storeId: defaultStore.id,
+          platform,
+          ...config,
+        },
+      });
+    }
   }
 }

@@ -19,7 +19,7 @@ export default function AdminHeader({ user, onToggleSidebar, isSidebarOpen }: Ad
   const handleLogout = async () => {
     try {
       await apiClientClient.post('/auth/logout', {});
-    } catch {}
+    } catch { }
     router.push('/login');
     router.refresh();
   };
@@ -35,14 +35,6 @@ export default function AdminHeader({ user, onToggleSidebar, isSidebarOpen }: Ad
           <Menu size={24} className="text-gray-600" />
         </button>
 
-        <div className="relative flex-1 max-w-2xl">
-          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">🔍</span>
-          <input
-            type="text"
-            placeholder="Tìm kiếm khách hàng, đơn hàng, voucher..."
-            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          />
-        </div>
       </div>
 
       <div className="flex items-center gap-4">
