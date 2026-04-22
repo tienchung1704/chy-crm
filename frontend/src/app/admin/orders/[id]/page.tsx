@@ -8,6 +8,7 @@ function fmt(amount: number) {
 }
 
 function fmtDate(d: string | Date) {
+  if (!d) return '—';
   return new Intl.DateTimeFormat('vi-VN', {
     day: '2-digit',
     month: '2-digit',
@@ -19,11 +20,18 @@ function fmtDate(d: string | Date) {
 
 const statusMap: Record<string, { cls: string; label: string }> = {
   PENDING: { cls: 'bg-orange-100 text-orange-700', label: 'Chờ duyệt' },
+  WAITING_FOR_GOODS: { cls: 'bg-yellow-100 text-yellow-700', label: 'Chờ hàng' },
+  CONFIRMED: { cls: 'bg-cyan-100 text-cyan-700', label: 'Đã xác nhận' },
   PACKAGING: { cls: 'bg-purple-100 text-purple-700', label: 'Đang đóng hàng' },
-  CONFIRMED: { cls: 'bg-cyan-100 text-cyan-700', label: 'Đang giao' },
+  WAITING_FOR_SHIPPING: { cls: 'bg-indigo-100 text-indigo-700', label: 'Chờ chuyển hàng' },
+  SHIPPED: { cls: 'bg-blue-100 text-blue-700', label: 'Đã gửi hàng' },
+  DELIVERED: { cls: 'bg-teal-100 text-teal-700', label: 'Đã nhận hàng' },
+  PAYMENT_COLLECTED: { cls: 'bg-emerald-100 text-emerald-700', label: 'Đã thu tiền' },
+  RETURNING: { cls: 'bg-amber-100 text-amber-700', label: 'Đang hoàn' },
+  EXCHANGING: { cls: 'bg-amber-100 text-amber-700', label: 'Đang đổi' },
   COMPLETED: { cls: 'bg-green-100 text-green-700', label: 'Hoàn thành' },
   CANCELLED: { cls: 'bg-red-100 text-red-700', label: 'Đã hủy' },
-  REFUNDED: { cls: 'bg-red-100 text-red-700', label: 'Hoàn trả' },
+  REFUNDED: { cls: 'bg-red-100 text-red-700', label: 'Đã hoàn trả' },
 };
 
 const paymentStatusMap: Record<string, { cls: string; label: string }> = {
@@ -33,11 +41,31 @@ const paymentStatusMap: Record<string, { cls: string; label: string }> = {
   REFUNDED: { cls: 'bg-red-100 text-red-700', label: 'Đã hoàn tiền' },
 };
 
+/* ----------- helpers to read metadata safely ----------- */
+function meta(order: any, ...keys: string[]) {
+  let v = order?.metadata;
+  for (const k of keys) {
+    if (!v) return null;
+    v = v[k];
+  }
+  return v ?? null;
+}
+
+function InfoRow({ label, value, className }: { label: string; value: any; className?: string }) {
+  if (value === null || value === undefined || value === '') return null;
+  return (
+    <div>
+      <p className="text-xs text-gray-500 mb-0.5">{label}</p>
+      <p className={`text-sm font-medium text-gray-800 ${className || ''}`}>{value}</p>
+    </div>
+  );
+}
+
 export default async function OrderDetailPage(props: {
   params: Promise<{ id: string }>;
 }) {
   const params = await props.params;
-  
+
   let order: any = null;
 
   try {
@@ -71,13 +99,18 @@ export default async function OrderDetailPage(props: {
     label: order.paymentStatus,
   };
 
-  const fullAddress = [
-    order.user?.addressStreet,
-    order.user?.addressWard,
-    order.user?.addressProvince,
-  ]
-    .filter(Boolean)
-    .join(', ');
+  const isPancake = order.source === 'PANCAKE';
+  const m = order.metadata || {};
+  const payment = m.payment || {};
+  const financial = m.financial || {};
+  const partner = m.partner || {};
+  const shippingAddr = m.shippingAddress || {};
+  const customer = m.customer || {};
+  const source = m.source || {};
+
+  const fullAddress = isPancake
+    ? shippingAddr.fullAddress
+    : [order.user?.addressStreet, order.user?.addressWard, order.user?.addressProvince].filter(Boolean).join(', ');
 
   return (
     <>
@@ -89,16 +122,26 @@ export default async function OrderDetailPage(props: {
         >
           ← Quay lại danh sách
         </Link>
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between flex-wrap gap-3">
           <div>
             <h1 className="text-3xl font-bold text-gray-800 mb-1">
               Đơn hàng #{order.orderCode}
             </h1>
-            <p className="text-gray-600 text-sm">
-              Tạo lúc {fmtDate(order.createdAt)}
-            </p>
+            <div className="flex items-center gap-3 text-sm text-gray-500">
+              <span>Tạo lúc {fmtDate(order.createdAt)}</span>
+              {isPancake && m.pancakeCreatedAt && (
+                <span className="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded">
+                  Pancake: {fmtDate(m.pancakeCreatedAt)}
+                </span>
+              )}
+              {isPancake && (
+                <span className="text-xs bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded font-medium">
+                  Pancake #{m.pancakeOrderId}
+                </span>
+              )}
+            </div>
           </div>
-          <div className="flex gap-3">
+          <div className="flex gap-2 flex-wrap">
             <span className={`px-4 py-2 rounded-lg text-sm font-semibold ${st.cls}`}>
               {st.label}
             </span>
@@ -115,9 +158,10 @@ export default async function OrderDetailPage(props: {
           {/* Order Items */}
           <div className="bg-white rounded-xl shadow-sm p-6">
             <h2 className="text-xl font-bold text-gray-800 mb-4">
-              Sản phẩm ({order.items?.length || 0})
+              Sản phẩm ({order.items?.length || m.items?.length || 0})
             </h2>
             <div className="space-y-4">
+              {/* Real order items (linked products) */}
               {order.items?.map((item: any) => (
                 <div
                   key={item.id}
@@ -162,17 +206,93 @@ export default async function OrderDetailPage(props: {
                   </div>
                 </div>
               ))}
+
+              {/* Fallback: show items from metadata if no linked items */}
+              {(!order.items || order.items.length === 0) && m.items?.length > 0 && (
+                <>
+                  {m.items.map((item: any, idx: number) => (
+                    <div
+                      key={idx}
+                      className="flex gap-4 p-4 bg-gray-50 rounded-lg"
+                    >
+                      <div className="w-20 h-20 bg-gray-200 rounded-lg overflow-hidden flex-shrink-0">
+                        {item.image ? (
+                          <img
+                            src={item.image}
+                            alt={item.name}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-gray-400">
+                            📦
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="font-semibold text-gray-800 mb-1">
+                          {item.name || 'Sản phẩm'}
+                        </h3>
+                        {/* SKU / barcode */}
+                        <div className="flex gap-2 flex-wrap mb-1">
+                          {item.displayId && (
+                            <span className="text-xs bg-gray-200 text-gray-600 px-1.5 py-0.5 rounded font-mono">
+                              SKU: {item.displayId}
+                            </span>
+                          )}
+                          {item.barcode && (
+                            <span className="text-xs bg-gray-200 text-gray-600 px-1.5 py-0.5 rounded font-mono">
+                              {item.barcode}
+                            </span>
+                          )}
+                        </div>
+                        {/* Variant fields (size, color etc.) */}
+                        {item.fields && item.fields.length > 0 && (
+                          <p className="text-sm text-gray-600 mb-1">
+                            {item.fields.map((f: any) => `${f.name || f.keyValue}: ${f.value}`).join(' • ')}
+                          </p>
+                        )}
+                        <p className="text-sm text-gray-600">
+                          SL: {item.quantity} {item.weight ? `• ${item.weight}g` : ''}
+                        </p>
+                        <div className="flex gap-1.5 mt-1 flex-wrap">
+                          {item.isBonusProduct && (
+                            <span className="px-2 py-0.5 bg-amber-100 text-amber-700 text-xs font-semibold rounded">
+                              🎁 Quà tặng
+                            </span>
+                          )}
+                          {item.discountEachProduct > 0 && (
+                            <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs font-semibold rounded">
+                              -{item.isDiscountPercent ? `${item.discountEachProduct}%` : fmt(item.discountEachProduct)}
+                            </span>
+                          )}
+                          {item.returnedCount > 0 && (
+                            <span className="px-2 py-0.5 bg-red-100 text-red-700 text-xs font-semibold rounded">
+                              Hoàn: {item.returnedCount}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-bold text-gray-800">{fmt(item.price)}</p>
+                        <p className="text-sm text-gray-600">
+                          Tổng: {fmt(item.price * item.quantity)}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </>
+              )}
             </div>
           </div>
 
-          {/* Order Summary */}
+          {/* Order Summary / Financials */}
           <div className="bg-white rounded-xl shadow-sm p-6">
             <h2 className="text-xl font-bold text-gray-800 mb-4">
-              Tổng quan đơn hàng
+              Tổng quan thanh toán
             </h2>
             <div className="space-y-3">
               <div className="flex justify-between text-gray-700">
-                <span>Tạm tính:</span>
+                <span>Tạm tính (sản phẩm):</span>
                 <span className="font-semibold">{fmt(order.subtotal)}</span>
               </div>
               {order.discountAmount > 0 && (
@@ -193,14 +313,115 @@ export default async function OrderDetailPage(props: {
                   </span>
                 </div>
               )}
-              <div className="pt-3 flex justify-between text-lg font-bold text-gray-900">
+              {isPancake && financial.surcharge > 0 && (
+                <div className="flex justify-between text-gray-700">
+                  <span>Phụ thu:</span>
+                  <span className="font-semibold">{fmt(financial.surcharge)}</span>
+                </div>
+              )}
+              <div className="pt-3 border-t border-gray-200 flex justify-between text-lg font-bold text-gray-900">
                 <span>Tổng cộng:</span>
                 <span className="text-blue-600">{fmt(order.totalAmount)}</span>
               </div>
+
+              {/* Payment breakdown for Pancake orders */}
+              {isPancake && payment.totalPaid > 0 && (
+                <div className="mt-4 pt-4 border-t border-gray-200">
+                  <h3 className="font-semibold text-gray-700 mb-3">Chi tiết thanh toán</h3>
+                  <div className="grid grid-cols-2 gap-1 text-sm">
+                    {payment.cod > 0 && (
+                      <div className="flex justify-between py-1.5 border-b border-gray-100 last:border-0 col-span-2">
+                        <span className="text-gray-600 flex items-center gap-1.5">
+                          <span className="text-lg"></span> Tiền thu hộ (COD):
+                        </span>
+                        <span className="font-semibold text-gray-800">{fmt(payment.cod)}</span>
+                      </div>
+                    )}
+                    {payment.cash > 0 && (
+                      <div className="flex justify-between py-1.5 border-b border-gray-100 last:border-0 col-span-2">
+                        <span className="text-gray-600 flex items-center gap-1.5">
+                          <span className="text-lg"></span> Tiền mặt:
+                        </span>
+                        <span className="font-semibold text-gray-800">{fmt(payment.cash)}</span>
+                      </div>
+                    )}
+                    {payment.transferMoney > 0 && (
+                      <div className="flex justify-between py-1.5 border-b border-gray-100 last:border-0 col-span-2">
+                        <span className="text-gray-600 flex items-center gap-1.5">
+                          <span className="text-lg"></span> Chuyển khoản:
+                        </span>
+                        <span className="font-semibold text-gray-800">{fmt(payment.transferMoney)}</span>
+                      </div>
+                    )}
+                    {payment.chargedByMomo > 0 && (
+                      <div className="flex justify-between py-1.5 border-b border-gray-100 last:border-0 col-span-2">
+                        <span className="text-gray-600 flex items-center gap-1.5">
+                          <span className="text-lg"></span> MoMo:
+                        </span>
+                        <span className="font-semibold text-gray-800">{fmt(payment.chargedByMomo)}</span>
+                      </div>
+                    )}
+                    {payment.chargedByVnpay > 0 && (
+                      <div className="flex justify-between py-1.5 border-b border-gray-100 last:border-0 col-span-2">
+                        <span className="text-gray-600 flex items-center gap-1.5">
+                          <span className="text-lg"></span> VNPay:
+                        </span>
+                        <span className="font-semibold text-gray-800">{fmt(payment.chargedByVnpay)}</span>
+                      </div>
+                    )}
+                    {payment.chargedByCard > 0 && (
+                      <div className="flex justify-between py-1.5 border-b border-gray-100 last:border-0 col-span-2">
+                        <span className="text-gray-600 flex items-center gap-1.5">
+                          <span className="text-lg"></span> Quẹt thẻ:
+                        </span>
+                        <span className="font-semibold text-gray-800">{fmt(payment.chargedByCard)}</span>
+                      </div>
+                    )}
+                    {payment.chargedByQrpay > 0 && (
+                      <div className="flex justify-between py-1.5 border-b border-gray-100 last:border-0 col-span-2">
+                        <span className="text-gray-600 flex items-center gap-1.5">
+                          <span className="text-lg"></span> QR Pay:
+                        </span>
+                        <span className="font-semibold text-gray-800">{fmt(payment.chargedByQrpay)}</span>
+                      </div>
+                    )}
+                    {payment.chargedByFundiin > 0 && (
+                      <div className="flex justify-between py-1.5 border-b border-gray-100 last:border-0 col-span-2">
+                        <span className="text-gray-600">Fundiin:</span>
+                        <span className="font-semibold text-gray-800">{fmt(payment.chargedByFundiin)}</span>
+                      </div>
+                    )}
+                    {payment.chargedByKredivo > 0 && (
+                      <div className="flex justify-between py-1.5 border-b border-gray-100 last:border-0 col-span-2">
+                        <span className="text-gray-600">Kredivo:</span>
+                        <span className="font-semibold text-gray-800">{fmt(payment.chargedByKredivo)}</span>
+                      </div>
+                    )}
+                    {payment.prepaidByPoint && (
+                      <div className="flex justify-between py-1.5 border-b border-gray-100 last:border-0 col-span-2">
+                        <span className="text-gray-600 flex items-center gap-1.5">
+                          <span className="text-lg"></span> Điểm thưởng ({payment.prepaidByPoint.point} điểm):
+                        </span>
+                        <span className="font-semibold text-gray-800">{fmt(payment.prepaidByPoint.money)}</span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="mt-4 pt-3 border-t-2 border-gray-100 flex justify-between font-bold">
+                    <span className="text-gray-800">Đã thanh toán:</span>
+                    <span className="text-blue-600">{fmt(payment.totalPaid)}</span>
+                  </div>
+                  {payment.moneyToCollect > 0 && (
+                    <div className="mt-1 flex justify-between font-bold">
+                      <span className="text-gray-800">Còn cần thu:</span>
+                      <span className="text-red-600">{fmt(payment.moneyToCollect)}</span>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             {order.appliedVouchers?.length > 0 && (
-              <div className="mt-4 pt-4">
+              <div className="mt-4 pt-4 border-t border-gray-200">
                 <h3 className="font-semibold text-gray-800 mb-2">
                   Voucher đã áp dụng:
                 </h3>
@@ -232,7 +453,7 @@ export default async function OrderDetailPage(props: {
             {order.customerNote && (
               <div className="mt-4 pt-4 border-t border-gray-200">
                 <h3 className="font-semibold text-gray-800 mb-2 flex items-center gap-2">
-                  <span>💬</span>
+                  <span></span>
                   Ghi chú từ khách hàng:
                 </h3>
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
@@ -241,6 +462,60 @@ export default async function OrderDetailPage(props: {
               </div>
             )}
           </div>
+
+          {/* Shipping Partner / Tracking for Pancake */}
+          {isPancake && partner && partner.trackingCode && (
+            <div className="bg-white rounded-xl shadow-sm p-6">
+              <h2 className="text-xl font-bold text-gray-800 mb-4">Vận chuyển</h2>
+              <div className="space-y-4">
+                {/* Tracking header */}
+                <div className="flex items-center justify-between p-4 bg-blue-50 rounded-lg">
+                  <div>
+                    <p className="text-xs text-gray-500">Mã vận đơn</p>
+                    <p className="font-mono font-bold text-blue-700 text-lg">{partner.trackingCode}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-xs text-gray-500">Phí ĐVVC</p>
+                    <p className="font-semibold text-gray-800">{fmt(partner.totalFee)}</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <InfoRow label="Tên shipper" value={partner.deliveryName} />
+                  <InfoRow label="SĐT shipper" value={partner.deliveryPhone} />
+                  <InfoRow label="Thời điểm lấy hàng" value={partner.pickedUpAt ? fmtDate(partner.pickedUpAt) : null} />
+                  <InfoRow label="COD (ĐVVC)" value={partner.cod > 0 ? fmt(partner.cod) : null} />
+                  <InfoRow label="Mã phân loại" value={partner.sortCode} />
+                  <InfoRow label="Thời điểm đối soát" value={partner.paidAt ? fmtDate(partner.paidAt) : null} />
+                </div>
+
+                {/* Courier updates */}
+                {partner.courierUpdates && partner.courierUpdates.length > 0 && (
+                  <div className="mt-4">
+                    <h3 className="font-semibold text-gray-700 mb-3">Cập nhật từ ĐVVC</h3>
+                    <div className="space-y-2 max-h-60 overflow-y-auto">
+                      {partner.courierUpdates.map((update: any, idx: number) => (
+                        <div key={idx} className="flex gap-3 p-3 bg-gray-50 rounded-lg text-sm">
+                          <div className="w-2 h-2 rounded-full bg-blue-500 mt-1.5 flex-shrink-0" />
+                          <div className="flex-1">
+                            <div className="flex justify-between">
+                              <span className="font-medium text-gray-800">{update.status || update.key}</span>
+                              {update.update_at && (
+                                <span className="text-xs text-gray-500">{fmtDate(update.update_at)}</span>
+                              )}
+                            </div>
+                            {update.note && (
+                              <p className="text-gray-600 text-xs mt-1">{update.note}</p>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Commissions */}
           {order.commissions?.length > 0 && (
@@ -285,36 +560,75 @@ export default async function OrderDetailPage(props: {
           {/* Customer Info */}
           <div className="bg-white rounded-xl shadow-sm p-6">
             <h2 className="text-xl font-bold text-gray-800 mb-4">
-              Thông tin khách hàng
+              Khách hàng
             </h2>
             <div className="space-y-3">
-              <div>
-                <p className="text-sm text-gray-600">Tên:</p>
-                <p className="font-semibold text-gray-800">{order.user?.name || 'Unknown'}</p>
-              </div>
-              {order.user?.email && (
+              <InfoRow label="Tên" value={isPancake ? (customer.name || order.user?.name) : order.user?.name} />
+              <InfoRow label="Số điện thoại" value={isPancake ? (customer.phone || order.user?.phone) : order.user?.phone} />
+              <InfoRow label="Email" value={isPancake ? (customer.email || order.user?.email) : order.user?.email} />
+              {!isPancake && (
                 <div>
-                  <p className="text-sm text-gray-600">Email:</p>
-                  <p className="font-semibold text-gray-800">{order.user.email}</p>
+                  <p className="text-xs text-gray-500 mb-0.5">Hạng</p>
+                  <span className="inline-block px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-semibold">
+                    {order.user?.rank || 'MEMBER'}
+                  </span>
                 </div>
               )}
-              {order.user?.phone && (
-                <div>
-                  <p className="text-sm text-gray-600">Số điện thoại:</p>
-                  <p className="font-semibold text-gray-800">{order.user.phone}</p>
-                </div>
+              {isPancake && customer.fbId && (
+                <InfoRow label="Facebook ID" value={customer.fbId} />
               )}
-              <div>
-                <p className="text-sm text-gray-600">Hạng:</p>
-                <span className="inline-block px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-semibold">
-                  {order.user?.rank || 'MEMBER'}
-                </span>
+              {isPancake && customer.pancakeCustomerId && (
+                <InfoRow label="Pancake Customer ID" value={customer.pancakeCustomerId} />
+              )}
+              {fullAddress && <InfoRow label="Địa chỉ" value={fullAddress} />}
+            </div>
+
+            {/* Reports by phone (Pancake) */}
+            {isPancake && m.reportsByPhone && (
+              <div className="mt-4 pt-4 border-t border-gray-200">
+                <h3 className="text-sm font-semibold text-gray-700 mb-2">Lịch sử đơn hàng</h3>
+                {Object.entries(m.reportsByPhone).map(([phone, report]: [string, any]) => (
+                  <div key={phone} className="flex gap-3 text-sm">
+                    <div className="flex-1 flex items-center gap-2">
+                      <span className="px-2 py-0.5 bg-green-100 text-green-700 rounded text-xs font-medium">
+                        ✓ {report.order_success || 0}
+                      </span>
+                      <span className="px-2 py-0.5 bg-red-100 text-red-700 rounded text-xs font-medium">
+                        ✗ {report.order_fail || 0}
+                      </span>
+                      {report.warning > 0 && (
+                        <span className="px-2 py-0.5 bg-yellow-100 text-yellow-700 rounded text-xs font-medium">
+                          {report.warning}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                ))}
               </div>
-              {fullAddress && (
-                <div>
-                  <p className="text-sm text-gray-600">Địa chỉ:</p>
-                  <p className="font-semibold text-gray-800">{fullAddress}</p>
-                </div>
+            )}
+          </div>
+
+          {/* Shipping Address */}
+          <div className="bg-white rounded-xl shadow-sm p-6">
+            <h2 className="text-xl font-bold text-gray-800 mb-4">📍 Nhận hàng</h2>
+            <div className="space-y-3">
+              <InfoRow
+                label="Người nhận"
+                value={isPancake ? shippingAddr.fullName : order.shippingName}
+              />
+              <InfoRow
+                label="SĐT"
+                value={isPancake ? shippingAddr.phoneNumber : order.shippingPhone}
+              />
+              <InfoRow
+                label="Địa chỉ"
+                value={isPancake ? (shippingAddr.fullAddress || shippingAddr.address) : order.shippingStreet}
+              />
+              {!isPancake && (
+                <>
+                  <InfoRow label="Phường/Xã" value={order.shippingWard} />
+                  <InfoRow label="Tỉnh/TP" value={order.shippingProvince} />
+                </>
               )}
             </div>
           </div>
@@ -322,31 +636,114 @@ export default async function OrderDetailPage(props: {
           {/* Payment Info */}
           <div className="bg-white rounded-xl shadow-sm p-6">
             <h2 className="text-xl font-bold text-gray-800 mb-4">
-              Thông tin thanh toán
+              Thanh toán
             </h2>
             <div className="space-y-3">
               <div>
-                <p className="text-sm text-gray-600">Phương thức:</p>
-                <p className="font-semibold text-gray-800">
-                  {order.paymentMethod || 'Chưa xác định'}
+                <p className="text-xs text-gray-500 mb-0.5">Phương thức</p>
+                <p className="font-medium text-gray-800 text-sm">
+                  {order.paymentMethod || (isPancake ? 'Thanh toán qua Pancake' : 'Chưa xác định')}
                 </p>
               </div>
               <div>
-                <p className="text-sm text-gray-600">Trạng thái:</p>
+                <p className="text-xs text-gray-500 mb-0.5">Trạng thái</p>
                 <span className={`inline-block px-3 py-1 rounded-full text-sm font-semibold ${pst.cls}`}>
                   {pst.label}
                 </span>
               </div>
               {order.paidAt && (
-                <div>
-                  <p className="text-sm text-gray-600">Thanh toán lúc:</p>
-                  <p className="font-semibold text-gray-800">
-                    {fmtDate(order.paidAt)}
-                  </p>
+                <InfoRow label="Thanh toán lúc" value={fmtDate(order.paidAt)} />
+              )}
+
+              {/* Bank transfer images */}
+              {isPancake && payment.bankTransferImages && payment.bankTransferImages.length > 0 && (
+                <div className="mt-3 pt-3 border-t border-gray-200">
+                  <p className="text-xs text-gray-500 mb-2">Hình ảnh chuyển khoản</p>
+                  <div className="flex gap-2 flex-wrap">
+                    {payment.bankTransferImages.map((img: string, idx: number) => (
+                      <a key={idx} href={img} target="_blank" rel="noreferrer">
+                        <img src={img} alt={`CK ${idx + 1}`} className="w-20 h-20 rounded-lg object-cover border" />
+                      </a>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
           </div>
+
+          {/* Source / Channel Info for Pancake */}
+          {isPancake && (source.accountName || source.pageId || m.trackingLink) && (
+            <div className="bg-white rounded-xl shadow-sm p-6">
+              <h2 className="text-xl font-bold text-gray-800 mb-4">📡 Nguồn đơn</h2>
+              <div className="space-y-3">
+                <InfoRow label="Nguồn" value={source.accountName} />
+                <InfoRow label="Page ID" value={source.pageId} />
+                <InfoRow label="Post ID" value={source.postId} />
+                {source.isFromEcommerce && (
+                  <span className="inline-block px-2 py-0.5 bg-purple-100 text-purple-700 text-xs font-semibold rounded">
+                    Sàn TMĐT
+                  </span>
+                )}
+                {source.isLivestream && (
+                  <span className="inline-block px-2 py-0.5 bg-red-100 text-red-700 text-xs font-semibold rounded">
+                    Livestream
+                  </span>
+                )}
+                {source.receivedAtShop && (
+                  <span className="inline-block px-2 py-0.5 bg-green-100 text-green-700 text-xs font-semibold rounded">
+                    Bán tại quầy
+                  </span>
+                )}
+                {m.trackingLink && (
+                  <div>
+                    <p className="text-xs text-gray-500 mb-0.5">Link xác nhận</p>
+                    <a href={m.trackingLink} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline text-sm break-all">
+                      {m.trackingLink}
+                    </a>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Warehouse Info */}
+          {isPancake && m.warehouseInfo && (
+            <div className="bg-white rounded-xl shadow-sm p-6">
+              <h2 className="text-xl font-bold text-gray-800 mb-4">Kho hàng</h2>
+              <div className="space-y-3">
+                <InfoRow label="Tên kho" value={m.warehouseInfo.name} />
+                <InfoRow label="SĐT kho" value={m.warehouseInfo.phone_number} />
+                <InfoRow label="Địa chỉ" value={m.warehouseInfo.full_address || m.warehouseInfo.address} />
+              </div>
+            </div>
+          )}
+
+          {/* Tags */}
+          {isPancake && m.tags && m.tags.length > 0 && (
+            <div className="bg-white rounded-xl shadow-sm p-6">
+              <h2 className="text-xl font-bold text-gray-800 mb-4">🏷️ Thẻ</h2>
+              <div className="flex gap-2 flex-wrap">
+                {m.tags.map((tag: any, idx: number) => (
+                  <span key={idx} className="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-sm font-medium">
+                    {tag.name || tag}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Staff Assignments */}
+          {isPancake && (m.creator || m.marketer || m.assigningSeller || m.assigningCare) && (
+            <div className="bg-white rounded-xl shadow-sm p-6">
+              <h2 className="text-xl font-bold text-gray-800 mb-4">Nhân viên</h2>
+              <div className="space-y-3">
+                {m.creator && <InfoRow label="Người tạo đơn" value={m.creator.name} />}
+                {m.marketer && <InfoRow label="Marketer" value={m.marketer.name} />}
+                {m.assigningSeller && <InfoRow label="Nhân viên bán hàng" value={m.assigningSeller.name} />}
+                {m.assigningCare && <InfoRow label="Nhân viên chăm sóc" value={m.assigningCare.name} />}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </>

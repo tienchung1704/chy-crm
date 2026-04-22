@@ -23,6 +23,8 @@ function getQueueImports(): any[] {
   return [
     BullModule.registerQueue({
       name: 'voucher-queue',
+      // @ts-ignore
+
       defaultJobOptions: {
         attempts: 3,
         backoff: {

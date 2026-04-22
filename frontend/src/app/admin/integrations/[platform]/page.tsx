@@ -155,6 +155,30 @@ export default function IntegrationDetailPage() {
     }
   };
 
+  const syncPancakeOrders = async () => {
+    if (!confirm('Đồng bộ tất cả đơn hàng từ Pancake? (Chỉ lấy các đơn chưa có trong hệ thống)')) {
+      return;
+    }
+
+    setIsSyncing(true);
+    setSyncMessage('Đang quét và đồng bộ đơn hàng...');
+
+    try {
+      const data = await apiClientClient.post<any>('/integrations/pancake/sync-all-orders', { 
+        storeId: selectedStoreId 
+      });
+      
+      setSyncMessage(`Đã đồng bộ ${data.synced} đơn hàng mới! Tổng tiền: ${data.totalAmount.toLocaleString()}đ`);
+      setTimeout(() => setSyncMessage(''), 8000);
+    } catch (error: any) {
+      console.error(error);
+      setSyncMessage(error.response?.data?.message || 'Lỗi khi đồng bộ đơn hàng');
+      setTimeout(() => setSyncMessage(''), 5000);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
   if (!platformInfo) {
     return <div className="p-8 text-center text-gray-500">Nền tảng không hợp lệ</div>;
   }
@@ -218,6 +242,22 @@ export default function IntegrationDetailPage() {
               {isSyncing ? (
                 <span className="flex items-center gap-2"><span className="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin"></span> Đang tải...</span>
               ) : 'Đồng bộ sản phẩm'}
+            </button>
+          </div>
+
+          <div className="bg-white border border-gray-200 rounded-xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:border-gray-300 transition-colors shadow-sm">
+            <div>
+              <h3 className="font-semibold text-gray-800 text-base">Đồng bộ đơn hàng Pancake</h3>
+              <p className="text-gray-500 text-sm mt-0.5">Kéo đơn hàng từ Pancake, tự động tạo khách hàng và tính doanh số.</p>
+            </div>
+            <button 
+              onClick={syncPancakeOrders} 
+              disabled={isSyncing} 
+              className="px-5 py-2.5 whitespace-nowrap bg-gray-900 hover:bg-gray-800 text-white border border-gray-900 rounded-lg text-sm font-semibold transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+            >
+              {isSyncing ? (
+                <span className="flex items-center gap-2"><span className="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin"></span> Đang chạy...</span>
+              ) : 'Đồng bộ đơn hàng'}
             </button>
           </div>
         </div>

@@ -107,15 +107,27 @@ export class PancakeService {
   private extractItemsMetadata(items: any[]) {
     if (!items || items.length === 0) return [];
     return items.map(item => ({
-      name: item.variation_info?.name || 'S?n ph?m kh�ng r�',
+      name: item.variation_info?.name || 'Sản phẩm không rõ',
       price: item.variation_info?.retail_price || 0,
       quantity: item.quantity || 1,
       image: item.variation_info?.images?.[0] || null,
+      images: item.variation_info?.images || [],
       productId: item.product_id || null,
       variationId: item.variation_id || null,
       displayId: item.variation_info?.display_id || null,
+      productDisplayId: item.variation_info?.product_display_id || null,
+      barcode: item.variation_info?.barcode || null,
       weight: item.variation_info?.weight || 0,
-      discount: item.total_discount || 0,
+      fields: item.variation_info?.fields || [],  // variant attributes (size, color, etc.)
+      detail: item.variation_info?.detail || null,
+      discountEachProduct: item.discount_each_product || 0,
+      isDiscountPercent: item.is_discount_percent || false,
+      isBonusProduct: item.is_bonus_product || false,
+      isWholesale: item.is_wholesale || false,
+      isComposite: item.is_composite || false,
+      note: item.note || item.note_product || null,
+      returnedCount: item.returned_count || 0,
+      categoryIds: item.variation_info?.category_ids || [],
     }));
   }
 
@@ -1055,26 +1067,56 @@ export class PancakeService {
       this.logger.log(`[Pancake] Created new user: ${user.id} (${phone})`);
     }
 
+    // Update user email/name if missing
+    if (user && (!user.email && pOrder.bill_email)) {
+      await this.prisma.user.update({
+        where: { id: user.id },
+        data: { email: pOrder.bill_email },
+      });
+    }
+
     const orderDetail = await this.fetchOrderDetail(pOrder.id, storeId);
     const detailData = orderDetail || pOrder;
 
     const itemsMeta = this.extractItemsMetadata(detailData.items || pOrder.items || []);
 
+    // --- Financial calculations ---
     const subtotal = detailData.total_price || pOrder.total_price || 0;
     const shippingFee = detailData.shipping_fee || pOrder.shipping_fee || 0;
+    const partnerFee = detailData.partner_fee || pOrder.partner_fee || 0;
     const discount = detailData.total_discount || pOrder.total_discount || 0;
-    const totalAmount = subtotal - discount + shippingFee;
+    const surcharge = detailData.surcharge || pOrder.surcharge || 0;
+    const totalAmount = subtotal - discount + shippingFee + surcharge;
 
     if (totalAmount <= 0) {
       this.logger.log(`[Pancake] Order ${orderCode} has 0 amount, skipping`);
       return { synced: false, amount: 0 };
     }
 
-    const status = this.mapPancakeOrderStatus(detailData.status || pOrder.status);
-    const paymentStatus = status === OrderStatus.COMPLETED ? 'PAID' : 'UNPAID';
+    // --- Payment info ---
+    const cod = detailData.cod || pOrder.cod || 0;
+    const cash = detailData.cash || pOrder.cash || 0;
+    const transferMoney = detailData.transfer_money || pOrder.transfer_money || 0;
+    const chargedByMomo = detailData.charged_by_momo || pOrder.charged_by_momo || 0;
+    const chargedByVnpay = detailData.charged_by_vnpay || pOrder.charged_by_vnpay || 0;
+    const chargedByCard = detailData.charged_by_card || pOrder.charged_by_card || 0;
+    const chargedByQrpay = detailData.charged_by_qrpay || pOrder.charged_by_qrpay || 0;
+    const chargedByFundiin = detailData.charged_by_fundiin || pOrder.charged_by_fundiin || 0;
+    const chargedByKredivo = detailData.charged_by_kredivo || pOrder.charged_by_kredivo || 0;
+    const moneyToCollect = detailData.money_to_collect || pOrder.money_to_collect || 0;
+    const totalPaid = cod + cash + transferMoney + chargedByMomo + chargedByVnpay + chargedByCard + chargedByQrpay + chargedByFundiin + chargedByKredivo;
 
+    // --- Status mapping ---
+    const status = this.mapPancakeOrderStatus(detailData.status || pOrder.status);
+    const paymentStatus = totalPaid >= totalAmount ? 'PAID' : totalPaid > 0 ? 'PARTIALLY_PAID' : 'UNPAID';
+
+    // --- Shipping address ---
     const shippingAddr = detailData.shipping_address || pOrder.shipping_address;
     
+    // --- Partner / Shipping provider ---
+    const partner = detailData.partner || pOrder.partner || null;
+
+    // --- Order items ---
     const orderItemsData = [];
     const items = detailData.items || pOrder.items || [];
     
@@ -1104,12 +1146,145 @@ export class PancakeService {
           productId: matchingProduct.id,
           quantity,
           price,
-          isGift: false,
+          isGift: item.is_bonus_product || false,
           size: null,
           color: null,
         });
       }
     }
+
+    // --- Build comprehensive metadata ---
+    const metadata: Record<string, any> = {
+      // Product items detail
+      items: itemsMeta,
+      
+      // Pancake order identifiers
+      pancakeOrderId: pOrder.id,
+      pancakeDisplayId: detailData.display_id || pOrder.display_id || null,
+      pancakeStatus: detailData.status ?? pOrder.status,
+      pancakeStatusName: detailData.status_name || pOrder.status_name || null,
+
+      // Timestamps from Pancake
+      pancakeCreatedAt: detailData.inserted_at || pOrder.inserted_at || null,
+      pancakeUpdatedAt: detailData.updated_at || pOrder.updated_at || null,
+      
+      // Customer info
+      customer: {
+        name: pOrder.bill_full_name || detailData.bill_full_name || null,
+        phone: pOrder.bill_phone_number || detailData.bill_phone_number || null,
+        email: pOrder.bill_email || detailData.bill_email || null,
+        fbId: detailData.customer?.fb_id || pOrder.customer?.fb_id || null,
+        pancakeCustomerId: detailData.customer?.id || pOrder.customer?.id || null,
+      },
+
+      // Full shipping address
+      shippingAddress: shippingAddr ? {
+        fullName: shippingAddr.full_name || null,
+        phoneNumber: shippingAddr.phone_number || null,
+        address: shippingAddr.address || null,
+        fullAddress: shippingAddr.full_address || null,
+        provinceId: shippingAddr.province_id || null,
+        districtId: shippingAddr.district_id || null,
+        communeId: shippingAddr.commune_id || null,
+        countryCode: shippingAddr.country_code || null,
+        postCode: shippingAddr.post_code || null,
+      } : null,
+
+      // Shipping partner (ĐVVC)
+      partner: partner ? {
+        partnerId: partner.partner_id || null,
+        trackingCode: partner.extend_code || null,
+        totalFee: partner.total_fee || 0,
+        cod: partner.cod || 0,
+        deliveryName: partner.delivery_name || null,
+        deliveryPhone: partner.delivery_tel || null,
+        pickedUpAt: partner.picked_up_at || null,
+        paidAt: partner.paid_at || null,
+        sortCode: partner.sort_code || null,
+        updatedAt: partner.updated_at || null,
+        courierUpdates: partner.extend_update || [],
+      } : null,
+
+      // Payment breakdown
+      payment: {
+        cod,
+        cash,
+        transferMoney,
+        chargedByMomo,
+        chargedByVnpay,
+        chargedByCard,
+        chargedByQrpay,
+        chargedByFundiin,
+        chargedByKredivo,
+        moneyToCollect,
+        totalPaid,
+        prepaidByPoint: detailData.prepaid_by_point || pOrder.prepaid_by_point || null,
+        bankTransferImages: detailData.bank_transfer_images || pOrder.bank_transfer_images || [],
+        paymentHistories: detailData.payment_purchase_histories || pOrder.payment_purchase_histories || [],
+        bankPayments: detailData.bank_payments || pOrder.bank_payments || null,
+      },
+
+      // Financial summary
+      financial: {
+        subtotal,
+        discount,
+        shippingFee,
+        partnerFee,
+        surcharge,
+        totalAmount,
+        isFreeShipping: detailData.is_free_shipping || pOrder.is_free_shipping || false,
+        customerPayFee: detailData.customer_pay_fee || pOrder.customer_pay_fee || false,
+      },
+
+      // Order source / channel info
+      source: {
+        conversationId: pOrder.conversation_id || detailData.conversation_id || null,
+        pageId: pOrder.page_id || detailData.page_id || null,
+        postId: pOrder.post_id || detailData.post_id || null,
+        adId: pOrder.ad_id || detailData.ad_id || null,
+        accountId: pOrder.account || detailData.account || null,
+        accountName: pOrder.account_name || detailData.account_name || null,
+        isFromEcommerce: detailData.is_from_ecommerce || pOrder.is_from_ecommerce || false,
+        marketplaceId: detailData.marketplace_id || pOrder.marketplace_id || null,
+        isLivestream: detailData.is_livestream || pOrder.is_livestream || false,
+        receivedAtShop: detailData.received_at_shop || pOrder.received_at_shop || false,
+      },
+
+      // UTM tracking
+      utm: {
+        source: pOrder.p_utm_source || null,
+        medium: pOrder.p_utm_medium || null,
+        campaign: pOrder.p_utm_campaign || null,
+        term: pOrder.p_utm_term || null,
+        content: pOrder.p_utm_content || null,
+      },
+
+      // Notes
+      note: pOrder.note || detailData.note || null,
+      notePrint: pOrder.note_print || detailData.note_print || null,
+
+      // Warehouse info
+      warehouseId: detailData.warehouse_id || pOrder.warehouse_id || null,
+      warehouseInfo: detailData.warehouse_info || pOrder.warehouse_info || null,
+
+      // Order tags
+      tags: detailData.tags || pOrder.tags || [],
+
+      // Reports by phone
+      reportsByPhone: detailData.reports_by_phone || pOrder.reports_by_phone || null,
+
+      // Status history
+      statusHistory: detailData.status_history || pOrder.status_history || [],
+
+      // Staff assignments
+      creator: detailData.creator || pOrder.creator || null,
+      marketer: detailData.marketer || pOrder.marketer || null,
+      assigningSeller: detailData.assigning_seller || pOrder.assigning_seller || null,
+      assigningCare: detailData.assigning_care || pOrder.assigning_care || null,
+
+      // Tracking link
+      trackingLink: detailData.tracking_link || pOrder.tracking_link || null,
+    };
 
     const order = await this.prisma.order.create({
       data: {
@@ -1127,19 +1302,9 @@ export class PancakeService {
         totalAmount,
         status,
         paymentStatus,
-        note: pOrder.note || null,
-        metadata: {
-          items: itemsMeta,
-          shippingAddress: shippingAddr || null,
-          partner: detailData.partner || pOrder.partner || null,
-          pancakeOrderId: pOrder.id,
-          pancakeStatus: detailData.status || pOrder.status,
-          pancakeStatusName: detailData.status_name || pOrder.status_name,
-          conversationId: pOrder.conversation_id || null,
-          pageId: pOrder.page_id || null,
-          postId: pOrder.post_id || null,
-          adId: pOrder.ad_id || null,
-        },
+        note: pOrder.note || detailData.note || null,
+        customerNote: pOrder.note_print || detailData.note_print || null,
+        metadata,
         storeId,
         items: orderItemsData.length > 0 ? {
           create: orderItemsData
@@ -1147,7 +1312,7 @@ export class PancakeService {
       }
     });
 
-    this.logger.log(`[Pancake] Synced order: ${orderCode}, amount: ${totalAmount}`);
+    this.logger.log(`[Pancake] Synced order: ${orderCode}, amount: ${totalAmount}, paid: ${totalPaid}`);
 
     if (status === OrderStatus.COMPLETED) {
       await this.updateUserRankAndSpent(user.id, totalAmount);
@@ -1158,19 +1323,33 @@ export class PancakeService {
 
   /**
    * Map Pancake order status to our OrderStatus enum
+   * Pancake statuses: 0=New, 17=WaitConfirm, 11=Restocking, 12=WaitPrint, 13=Printed,
+   * 20=Purchased, 1=Confirmed, 8=Packaging, 9=WaitPickup, 2=Shipped,
+   * 3=Received, 16=CollectedMoney, 4=Returning, 15=PartialReturn, 5=Returned, 6=Canceled, 7=Deleted
    */
   private mapPancakeOrderStatus(pancakeStatus: number | string): OrderStatus {
+    const statusNum = typeof pancakeStatus === 'string' ? parseInt(pancakeStatus) : pancakeStatus;
+    
     const statusMap: Record<number, OrderStatus> = {
-      0: OrderStatus.PENDING,
-      1: OrderStatus.CONFIRMED,
-      2: OrderStatus.PACKAGING,
-      3: OrderStatus.SHIPPED,
-      4: OrderStatus.COMPLETED,
-      5: OrderStatus.CANCELLED,
-      6: OrderStatus.REFUNDED,
+      0:  OrderStatus.PENDING,              // Mới
+      17: OrderStatus.PENDING,              // Chờ xác nhận
+      11: OrderStatus.WAITING_FOR_GOODS,    // Chờ hàng
+      20: OrderStatus.CONFIRMED,            // Đã đặt hàng
+      1:  OrderStatus.CONFIRMED,            // Đã xác nhận
+      12: OrderStatus.CONFIRMED,            // Chờ in
+      13: OrderStatus.CONFIRMED,            // Đã in
+      8:  OrderStatus.PACKAGING,            // Đang đóng hàng
+      9:  OrderStatus.WAITING_FOR_SHIPPING, // Chờ chuyển hàng
+      2:  OrderStatus.SHIPPED,              // Đã gửi hàng
+      3:  OrderStatus.DELIVERED,            // Đã nhận
+      16: OrderStatus.PAYMENT_COLLECTED,    // Đã thu tiền
+      4:  OrderStatus.RETURNING,            // Đang hoàn
+      15: OrderStatus.RETURNING,            // Hoàn một phần
+      5:  OrderStatus.REFUNDED,             // Đã hoàn
+      6:  OrderStatus.CANCELLED,            // Đã hủy
+      7:  OrderStatus.CANCELLED,            // Đã xóa
     };
 
-    const statusNum = typeof pancakeStatus === 'string' ? parseInt(pancakeStatus) : pancakeStatus;
     return statusMap[statusNum] || OrderStatus.PENDING;
   }
 

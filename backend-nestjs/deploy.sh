@@ -193,8 +193,8 @@ if [ "$RESET_DB" = "yes" ]; then
     
     echo "  ✅ Database reset complete"
     
-    echo "🌱 Running migrations from scratch..."
-    npx prisma migrate deploy
+    echo "🌱 Pushing schema to database..."
+    npx prisma db push
     
     if [ \$? -ne 0 ]; then
         echo "  ❌ Failed to apply migrations"
@@ -212,8 +212,8 @@ if [ "$RESET_DB" = "yes" ]; then
         echo "  ✅ Database seeded successfully"
     fi
 else
-    echo "📦 Running migrations..."
-    npx prisma migrate deploy
+    echo "📦 Syncing database schema..."
+    npx prisma db push
     echo "  ✅ Migrations applied"
 fi
 
