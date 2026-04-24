@@ -1,7 +1,16 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { X, Plus, Trash2, Search } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Plus, Search, Trash2, X } from 'lucide-react';
+import { apiClientClient } from '@/lib/apiClientClient';
+
+interface ProductVariant {
+  id: string;
+  price: number | null;
+  stock: number;
+  size?: { name: string } | null;
+  color?: { name: string } | null;
+}
 
 interface Product {
   id: string;
@@ -10,31 +19,22 @@ interface Product {
   originalPrice: number;
   salePrice: number | null;
   stockQuantity: number;
-  variants: Array<{
-    id: string;
-    sizeId: string | null;
-    colorId: string | null;
-    price: number | null;
-    stock: number;
-    size?: { name: string } | null;
-    color?: { name: string } | null;
-  }>;
+  variants: ProductVariant[];
 }
 
 interface Customer {
   id: string;
-  name: string;
+  name: string | null;
   phone: string | null;
   email: string | null;
 }
 
 interface OrderItem {
   productId: string;
-  productName: string;
   quantity: number;
-  price: number;
   size: string | null;
   color: string | null;
+  product: Product;
 }
 
 interface CreateOrderModalProps {
@@ -42,22 +42,55 @@ interface CreateOrderModalProps {
   onSuccess: () => void;
 }
 
-export default function CreateOrderModal({ onClose, onSuccess }: CreateOrderModalProps) {
-  // Customer search
+function formatCurrency(amount: number) {
+  return new Intl.NumberFormat('vi-VN', {
+    style: 'currency',
+    currency: 'VND',
+    maximumFractionDigits: 0,
+  }).format(amount);
+}
+
+function getAvailableSizes(product: Product) {
+  return Array.from(
+    new Set(product.variants.map((variant) => variant.size?.name).filter(Boolean)),
+  ) as string[];
+}
+
+function getAvailableColors(product: Product) {
+  return Array.from(
+    new Set(product.variants.map((variant) => variant.color?.name).filter(Boolean)),
+  ) as string[];
+}
+
+function getUnitPrice(item: OrderItem) {
+  const match = item.product.variants.find((variant) => {
+    const sameSize = (variant.size?.name || null) === (item.size || null);
+    const sameColor = (variant.color?.name || null) === (item.color || null);
+    return sameSize && sameColor;
+  });
+
+  if (match?.price !== null && match?.price !== undefined) {
+    return match.price;
+  }
+
+  return item.product.salePrice || item.product.originalPrice;
+}
+
+export default function CreateOrderModal({
+  onClose,
+  onSuccess,
+}: CreateOrderModalProps) {
   const [customerSearch, setCustomerSearch] = useState('');
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [searchingCustomers, setSearchingCustomers] = useState(false);
 
-  // Product search
   const [productSearch, setProductSearch] = useState('');
   const [products, setProducts] = useState<Product[]>([]);
   const [searchingProducts, setSearchingProducts] = useState(false);
 
-  // Order items
   const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
 
-  // Shipping info
   const [shippingName, setShippingName] = useState('');
   const [shippingPhone, setShippingPhone] = useState('');
   const [shippingStreet, setShippingStreet] = useState('');
@@ -71,130 +104,119 @@ export default function CreateOrderModal({ onClose, onSuccess }: CreateOrderModa
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
-  // Search customers
-  const searchCustomers = async (query: string) => {
-    if (!query || query.length < 2) {
-      setCustomers([]);
-      return;
-    }
-
-    setSearchingCustomers(true);
-    try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api'}/users?q=${encodeURIComponent(query)}`);
-      if (res.ok) {
-        const data = await res.json();
-        setCustomers(data.customers || []);
-      }
-    } catch (error) {
-      console.error('Error searching customers:', error);
-    } finally {
-      setSearchingCustomers(false);
-    }
-  };
-
-  // Search products
-  const searchProducts = async (query: string) => {
-    if (!query || query.length < 2) {
-      setProducts([]);
-      return;
-    }
-
-    setSearchingProducts(true);
-    try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/admin/products/search?q=${encodeURIComponent(query)}`);
-      if (res.ok) {
-        const data = await res.json();
-        setProducts(data.products || []);
-      }
-    } catch (error) {
-      console.error('Error searching products:', error);
-    } finally {
-      setSearchingProducts(false);
-    }
-  };
-
-  // Debounce customer search
   useEffect(() => {
-    const timer = setTimeout(() => {
-      searchCustomers(customerSearch);
+    if (!selectedCustomer) return;
+    setShippingName(selectedCustomer.name || '');
+    setShippingPhone(selectedCustomer.phone || '');
+  }, [selectedCustomer]);
+
+  useEffect(() => {
+    const timer = setTimeout(async () => {
+      if (!customerSearch || customerSearch.trim().length < 2) {
+        setCustomers([]);
+        return;
+      }
+
+      setSearchingCustomers(true);
+      try {
+        const data = await apiClientClient.get<any>('/admin/customers', {
+          params: {
+            search: customerSearch.trim(),
+            limit: 8,
+            includeAll: true,
+          },
+        });
+        setCustomers(data.customers || []);
+      } catch (err) {
+        console.error('Customer search failed', err);
+      } finally {
+        setSearchingCustomers(false);
+      }
     }, 300);
+
     return () => clearTimeout(timer);
   }, [customerSearch]);
 
-  // Debounce product search
   useEffect(() => {
-    const timer = setTimeout(() => {
-      searchProducts(productSearch);
+    const timer = setTimeout(async () => {
+      if (!productSearch || productSearch.trim().length < 2) {
+        setProducts([]);
+        return;
+      }
+
+      setSearchingProducts(true);
+      try {
+        const data = await apiClientClient.get<any>('/products/admin', {
+          params: {
+            search: productSearch.trim(),
+            limit: 8,
+          },
+        });
+        setProducts(data.data || []);
+      } catch (err) {
+        console.error('Product search failed', err);
+      } finally {
+        setSearchingProducts(false);
+      }
     }, 300);
+
     return () => clearTimeout(timer);
   }, [productSearch]);
 
-  // Auto-fill shipping info when customer selected
-  useEffect(() => {
-    if (selectedCustomer) {
-      setShippingName(selectedCustomer.name);
-      setShippingPhone(selectedCustomer.phone || '');
-    }
-  }, [selectedCustomer]);
-
   const addProduct = (product: Product) => {
-    const price = product.salePrice || product.originalPrice;
-    const newItem: OrderItem = {
-      productId: product.id,
-      productName: product.name,
-      quantity: 1,
-      price: price,
-      size: null,
-      color: null,
-    };
-    setOrderItems([...orderItems, newItem]);
+    setOrderItems((current) => [
+      ...current,
+      {
+        productId: product.id,
+        quantity: 1,
+        size: null,
+        color: null,
+        product,
+      },
+    ]);
     setProductSearch('');
     setProducts([]);
   };
 
-  const removeItem = (index: number) => {
-    setOrderItems(orderItems.filter((_, i) => i !== index));
+  const updateOrderItem = (
+    index: number,
+    next: Partial<Pick<OrderItem, 'quantity' | 'size' | 'color'>>,
+  ) => {
+    setOrderItems((current) =>
+      current.map((item, itemIndex) =>
+        itemIndex === index
+          ? {
+              ...item,
+              ...next,
+            }
+          : item,
+      ),
+    );
   };
 
-  const updateItemQuantity = (index: number, quantity: number) => {
-    const updated = [...orderItems];
-    updated[index].quantity = Math.max(1, quantity);
-    setOrderItems(updated);
+  const removeOrderItem = (index: number) => {
+    setOrderItems((current) => current.filter((_, itemIndex) => itemIndex !== index));
   };
 
-  const updateItemSize = (index: number, size: string | null) => {
-    const updated = [...orderItems];
-    updated[index].size = size;
-    setOrderItems(updated);
-  };
-
-  const updateItemColor = (index: number, color: string | null) => {
-    const updated = [...orderItems];
-    updated[index].color = color;
-    setOrderItems(updated);
-  };
-
-  const calculateSubtotal = () => {
-    return orderItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
-  };
-
-  const calculateTotal = () => {
-    return calculateSubtotal() + shippingFee - discountAmount;
-  };
+  const subtotal = orderItems.reduce(
+    (sum, item) => sum + getUnitPrice(item) * item.quantity,
+    0,
+  );
+  const total = Math.max(0, subtotal + shippingFee - discountAmount);
 
   const handleSubmit = async () => {
     if (!selectedCustomer) {
-      setError('Vui lòng chọn khách hàng');
+      setError('Vui long chon khach hang');
       return;
     }
 
     if (orderItems.length === 0) {
-      setError('Vui lòng thêm ít nhất 1 sản phẩm');
+      setError('Vui long them it nhat 1 san pham');
       return;
     }
 
     if (!shippingName || !shippingPhone) {
-      setError('Vui lòng nhập thông tin giao hàng');
+      setError('Vui long nhap thong tin giao hang');
       return;
     }
 
@@ -202,214 +224,215 @@ export default function CreateOrderModal({ onClose, onSuccess }: CreateOrderModa
     setError('');
 
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/admin/orders/create`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userId: selectedCustomer.id,
-          items: orderItems,
-          shippingName,
-          shippingPhone,
-          shippingStreet,
-          shippingWard,
-          shippingProvince,
-          customerNote,
-          adminNote,
-          shippingFee,
-          discountAmount,
-        }),
+      await apiClientClient.post('/orders/admin', {
+        userId: selectedCustomer.id,
+        items: orderItems.map((item) => ({
+          productId: item.productId,
+          quantity: item.quantity,
+          size: item.size || undefined,
+          color: item.color || undefined,
+        })),
+        shippingName,
+        shippingPhone,
+        shippingStreet,
+        shippingWard,
+        shippingProvince,
+        customerNote,
+        adminNote,
+        shippingFee,
+        discountAmount,
       });
 
-      const data = await res.json();
-
-      if (res.ok) {
-        onSuccess();
-      } else {
-        setError(data.error || 'Có lỗi xảy ra');
-      }
-    } catch (error) {
-      setError('Không thể kết nối đến server');
+      onSuccess();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Khong the tao don hang');
     } finally {
       setSubmitting(false);
     }
   };
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('vi-VN', {
-      style: 'currency',
-      currency: 'VND',
-      maximumFractionDigits: 0,
-    }).format(amount);
-  };
-
-  // Get unique sizes and colors from products
-  const getAvailableSizes = (product: Product) => {
-    const sizes = product.variants
-      .filter((v) => v.size)
-      .map((v) => v.size!.name);
-    return [...new Set(sizes)];
-  };
-
-  const getAvailableColors = (product: Product) => {
-    const colors = product.variants
-      .filter((v) => v.color)
-      .map((v) => v.color!.name);
-    return [...new Set(colors)];
-  };
-
   return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl w-full max-w-6xl max-h-[90vh] overflow-hidden flex flex-col">
-        {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200">
-          <h2 className="text-2xl font-bold text-gray-900">Tạo đơn hàng mới</h2>
+    <div className="fixed inset-0 z-50 bg-black/40 p-4 flex items-center justify-center">
+      <div className="w-full max-w-6xl max-h-[92vh] overflow-hidden rounded-2xl bg-white shadow-xl border border-gray-200 flex flex-col">
+        <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+          <div>
+            <h2 className="text-xl font-semibold text-gray-900">Tao don hang</h2>
+            <p className="text-sm text-gray-500 mt-1">Nhap khach hang, san pham va thong tin giao hang</p>
+          </div>
           <button
+            type="button"
             onClick={onClose}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            className="w-10 h-10 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 flex items-center justify-center"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Content - All in one page */}
         <div className="flex-1 overflow-y-auto p-6">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Left Column - Customer & Products */}
             <div className="lg:col-span-2 space-y-6">
-              {/* Customer Section */}
-              <div className="bg-gray-50 rounded-xl p-4">
-                <h3 className="text-lg font-bold text-gray-900 mb-4">1. Khách hàng</h3>
-                <div className="space-y-3">
+              <section className="rounded-2xl border border-gray-200 bg-white">
+                <div className="px-5 py-4 border-b border-gray-100">
+                  <h3 className="text-sm font-semibold text-gray-900">Khach hang</h3>
+                </div>
+                <div className="p-5 space-y-3">
                   <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                    <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
                     <input
-                      type="text"
                       value={customerSearch}
                       onChange={(e) => setCustomerSearch(e.target.value)}
-                      placeholder="Tìm theo tên, số điện thoại, email..."
-                      className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent text-sm"
+                      placeholder="Tim theo ten, so dien thoai, email"
+                      className="w-full rounded-lg border border-gray-300 pl-9 pr-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
                   </div>
 
-                  {selectedCustomer ? (
-                    <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <div className="font-semibold text-gray-900 text-sm">{selectedCustomer.name}</div>
-                          <div className="text-xs text-gray-600">
-                            {selectedCustomer.phone} • {selectedCustomer.email}
-                          </div>
-                        </div>
-                        <button
-                          onClick={() => setSelectedCustomer(null)}
-                          className="text-red-600 hover:text-red-700"
-                        >
-                          <X className="w-4 h-4" />
-                        </button>
+                  {selectedCustomer && (
+                    <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-medium text-gray-900">
+                          {selectedCustomer.name || selectedCustomer.phone || 'Khach hang'}
+                        </p>
+                        <p className="text-xs text-gray-600 mt-1">
+                          {selectedCustomer.phone || 'Chua co so dien thoai'}
+                          {selectedCustomer.email ? ` • ${selectedCustomer.email}` : ''}
+                        </p>
                       </div>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedCustomer(null)}
+                        className="text-gray-500 hover:text-gray-700"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
                     </div>
-                  ) : (
-                    <>
-                      {searchingCustomers && (
-                        <div className="text-center py-3 text-gray-500 text-sm">Đang tìm kiếm...</div>
-                      )}
-                      {customers.length > 0 && (
-                        <div className="space-y-2 max-h-40 overflow-y-auto">
-                          {customers.map((customer) => (
-                            <button
-                              key={customer.id}
-                              onClick={() => setSelectedCustomer(customer)}
-                              className="w-full p-3 bg-white border border-gray-200 rounded-lg hover:border-indigo-600 hover:bg-indigo-50 transition-colors text-left"
-                            >
-                              <div className="font-semibold text-gray-900 text-sm">{customer.name}</div>
-                              <div className="text-xs text-gray-600">
-                                {customer.phone} • {customer.email}
-                              </div>
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </>
+                  )}
+
+                  {!selectedCustomer && searchingCustomers && (
+                    <div className="text-sm text-gray-500">Dang tim khach hang...</div>
+                  )}
+
+                  {!selectedCustomer && customers.length > 0 && (
+                    <div className="space-y-2 max-h-48 overflow-y-auto">
+                      {customers.map((customer) => (
+                        <button
+                          key={customer.id}
+                          type="button"
+                          onClick={() => setSelectedCustomer(customer)}
+                          className="w-full rounded-xl border border-gray-200 px-4 py-3 text-left hover:border-blue-500 hover:bg-blue-50 transition-colors"
+                        >
+                          <p className="text-sm font-medium text-gray-900">
+                            {customer.name || customer.phone || 'Khach hang'}
+                          </p>
+                          <p className="text-xs text-gray-500 mt-1">
+                            {customer.phone || 'Chua co so dien thoai'}
+                            {customer.email ? ` • ${customer.email}` : ''}
+                          </p>
+                        </button>
+                      ))}
+                    </div>
                   )}
                 </div>
-              </div>
+              </section>
 
-              {/* Products Section */}
-              <div className="bg-gray-50 rounded-xl p-4">
-                <h3 className="text-lg font-bold text-gray-900 mb-4">2. Sản phẩm</h3>
-                <div className="space-y-3">
+              <section className="rounded-2xl border border-gray-200 bg-white">
+                <div className="px-5 py-4 border-b border-gray-100">
+                  <h3 className="text-sm font-semibold text-gray-900">San pham</h3>
+                </div>
+                <div className="p-5 space-y-3">
                   <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                    <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
                     <input
-                      type="text"
                       value={productSearch}
                       onChange={(e) => setProductSearch(e.target.value)}
-                      placeholder="Tìm sản phẩm..."
-                      className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent text-sm"
+                      placeholder="Tim san pham"
+                      className="w-full rounded-lg border border-gray-300 pl-9 pr-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
                   </div>
 
                   {searchingProducts && (
-                    <div className="text-center py-3 text-gray-500 text-sm">Đang tìm kiếm...</div>
+                    <div className="text-sm text-gray-500">Dang tim san pham...</div>
                   )}
 
                   {products.length > 0 && (
-                    <div className="space-y-2 max-h-48 overflow-y-auto">
+                    <div className="space-y-2 max-h-56 overflow-y-auto">
                       {products.map((product) => (
                         <button
                           key={product.id}
+                          type="button"
                           onClick={() => addProduct(product)}
-                          className="w-full p-3 bg-white border border-gray-200 rounded-lg hover:border-indigo-600 hover:bg-indigo-50 transition-colors text-left flex items-center gap-3"
+                          className="w-full rounded-xl border border-gray-200 px-4 py-3 text-left hover:border-blue-500 hover:bg-blue-50 transition-colors flex items-center gap-3"
                         >
                           {product.imageUrl ? (
                             <img
                               src={product.imageUrl}
                               alt={product.name}
-                              className="w-10 h-10 rounded object-cover"
+                              className="w-12 h-12 rounded-lg object-cover border border-gray-200"
                             />
                           ) : (
-                            <div className="w-10 h-10 rounded bg-gray-100 flex items-center justify-center text-lg">
-                              📦
+                            <div className="w-12 h-12 rounded-lg bg-gray-100 border border-gray-200 flex items-center justify-center text-gray-400">
+                              <Plus className="w-4 h-4" />
                             </div>
                           )}
+
                           <div className="flex-1 min-w-0">
-                            <div className="font-semibold text-gray-900 text-sm truncate">{product.name}</div>
-                            <div className="text-xs text-gray-600">
-                              {formatCurrency(product.salePrice || product.originalPrice)} • Tồn: {product.stockQuantity}
-                            </div>
+                            <p className="text-sm font-medium text-gray-900 truncate">{product.name}</p>
+                            <p className="text-xs text-gray-500 mt-1">
+                              {formatCurrency(product.salePrice || product.originalPrice)} • Ton {product.stockQuantity}
+                            </p>
                           </div>
-                          <Plus className="w-5 h-5 text-indigo-600 flex-shrink-0" />
                         </button>
                       ))}
                     </div>
                   )}
 
                   {orderItems.length > 0 && (
-                    <div className="space-y-2 border-t border-gray-200 pt-3 mt-3">
-                      <h4 className="font-semibold text-gray-900 text-sm">Đã chọn ({orderItems.length})</h4>
+                    <div className="border-t border-gray-100 pt-4 space-y-3">
                       {orderItems.map((item, index) => {
-                        const product = products.find((p) => p.id === item.productId);
-                        const availableSizes = product ? getAvailableSizes(product) : [];
-                        const availableColors = product ? getAvailableColors(product) : [];
+                        const sizes = getAvailableSizes(item.product);
+                        const colors = getAvailableColors(item.product);
+                        const unitPrice = getUnitPrice(item);
 
                         return (
-                          <div key={index} className="p-3 bg-white rounded-lg border border-gray-200">
-                            <div className="flex items-start gap-3">
-                              <div className="flex-1 space-y-2">
-                                <div className="font-medium text-gray-900 text-sm">{item.productName}</div>
-                                
-                                {/* Size & Color Selection */}
-                                <div className="grid grid-cols-2 gap-2">
-                                  {availableSizes.length > 0 && (
+                          <div key={`${item.productId}-${index}`} className="rounded-xl border border-gray-200 p-4">
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="flex-1 space-y-3">
+                                <div>
+                                  <p className="text-sm font-medium text-gray-900">{item.product.name}</p>
+                                  <p className="text-xs text-gray-500 mt-1">
+                                    Don gia {formatCurrency(unitPrice)}
+                                  </p>
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                  <div>
+                                    <label className="block text-xs font-medium text-gray-600 mb-1">So luong</label>
+                                    <input
+                                      type="number"
+                                      min="1"
+                                      value={item.quantity}
+                                      onChange={(e) =>
+                                        updateOrderItem(index, {
+                                          quantity: Math.max(1, Number(e.target.value) || 1),
+                                        })
+                                      }
+                                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    />
+                                  </div>
+
+                                  {sizes.length > 0 && (
                                     <div>
-                                      <label className="text-xs text-gray-600 block mb-1">Size</label>
+                                      <label className="block text-xs font-medium text-gray-600 mb-1">Size</label>
                                       <select
                                         value={item.size || ''}
-                                        onChange={(e) => updateItemSize(index, e.target.value || null)}
-                                        className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
+                                        onChange={(e) =>
+                                          updateOrderItem(index, {
+                                            size: e.target.value || null,
+                                          })
+                                        }
+                                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                                       >
-                                        <option value="">Chọn size</option>
-                                        {availableSizes.map((size) => (
+                                        <option value="">Chon size</option>
+                                        {sizes.map((size) => (
                                           <option key={size} value={size}>
                                             {size}
                                           </option>
@@ -417,16 +440,21 @@ export default function CreateOrderModal({ onClose, onSuccess }: CreateOrderModa
                                       </select>
                                     </div>
                                   )}
-                                  {availableColors.length > 0 && (
+
+                                  {colors.length > 0 && (
                                     <div>
-                                      <label className="text-xs text-gray-600 block mb-1">Màu</label>
+                                      <label className="block text-xs font-medium text-gray-600 mb-1">Mau</label>
                                       <select
                                         value={item.color || ''}
-                                        onChange={(e) => updateItemColor(index, e.target.value || null)}
-                                        className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
+                                        onChange={(e) =>
+                                          updateOrderItem(index, {
+                                            color: e.target.value || null,
+                                          })
+                                        }
+                                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                                       >
-                                        <option value="">Chọn màu</option>
-                                        {availableColors.map((color) => (
+                                        <option value="">Chon mau</option>
+                                        {colors.map((color) => (
                                           <option key={color} value={color}>
                                             {color}
                                           </option>
@@ -436,29 +464,15 @@ export default function CreateOrderModal({ onClose, onSuccess }: CreateOrderModa
                                   )}
                                 </div>
 
-                                {/* Quantity & Price */}
-                                <div className="flex items-center gap-2">
-                                  <div className="flex items-center gap-2">
-                                    <label className="text-xs text-gray-600">SL:</label>
-                                    <input
-                                      type="number"
-                                      value={item.quantity}
-                                      onChange={(e) => updateItemQuantity(index, parseInt(e.target.value) || 1)}
-                                      className="w-16 px-2 py-1 border border-gray-300 rounded text-xs"
-                                      min="1"
-                                    />
-                                  </div>
-                                  <span className="text-xs text-gray-600">×</span>
-                                  <span className="text-xs text-gray-600">{formatCurrency(item.price)}</span>
-                                  <span className="text-xs text-gray-600">=</span>
-                                  <span className="text-xs font-semibold text-indigo-600">
-                                    {formatCurrency(item.price * item.quantity)}
-                                  </span>
+                                <div className="text-sm font-medium text-gray-900">
+                                  Thanh tien {formatCurrency(unitPrice * item.quantity)}
                                 </div>
                               </div>
+
                               <button
-                                onClick={() => removeItem(index)}
-                                className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                type="button"
+                                onClick={() => removeOrderItem(index)}
+                                className="w-9 h-9 rounded-lg border border-red-200 text-red-600 hover:bg-red-50 flex items-center justify-center"
                               >
                                 <Trash2 className="w-4 h-4" />
                               </button>
@@ -469,146 +483,138 @@ export default function CreateOrderModal({ onClose, onSuccess }: CreateOrderModa
                     </div>
                   )}
                 </div>
-              </div>
+              </section>
             </div>
 
-            {/* Right Column - Shipping & Summary */}
             <div className="space-y-6">
-              {/* Shipping Section */}
-              <div className="bg-gray-50 rounded-xl p-4">
-                <h3 className="text-lg font-bold text-gray-900 mb-4">3. Giao hàng</h3>
-                <div className="space-y-3">
+              <section className="rounded-2xl border border-gray-200 bg-white">
+                <div className="px-5 py-4 border-b border-gray-100">
+                  <h3 className="text-sm font-semibold text-gray-900">Giao hang</h3>
+                </div>
+                <div className="p-5 space-y-3">
                   <div>
-                    <label className="block text-xs font-semibold text-gray-700 mb-1">
-                      Tên người nhận <span className="text-red-500">*</span>
-                    </label>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Ten nguoi nhan</label>
                     <input
-                      type="text"
                       value={shippingName}
                       onChange={(e) => setShippingName(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent text-sm"
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold text-gray-700 mb-1">
-                      Số điện thoại <span className="text-red-500">*</span>
-                    </label>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">So dien thoai</label>
                     <input
-                      type="text"
                       value={shippingPhone}
                       onChange={(e) => setShippingPhone(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent text-sm"
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold text-gray-700 mb-1">Địa chỉ</label>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Dia chi</label>
                     <input
-                      type="text"
                       value={shippingStreet}
                       onChange={(e) => setShippingStreet(e.target.value)}
-                      placeholder="Số nhà, tên đường..."
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent text-sm"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-700 mb-1">Phường/Xã</label>
-                    <input
-                      type="text"
-                      value={shippingWard}
-                      onChange={(e) => setShippingWard(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent text-sm"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-700 mb-1">Tỉnh/TP</label>
-                    <input
-                      type="text"
-                      value={shippingProvince}
-                      onChange={(e) => setShippingProvince(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent text-sm"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-700 mb-1">Ghi chú KH</label>
-                    <textarea
-                      value={customerNote}
-                      onChange={(e) => setCustomerNote(e.target.value)}
-                      rows={2}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent resize-none text-sm"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-700 mb-1">Ghi chú nội bộ</label>
-                    <textarea
-                      value={adminNote}
-                      onChange={(e) => setAdminNote(e.target.value)}
-                      rows={2}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent resize-none text-sm"
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-xs font-semibold text-gray-700 mb-1">Phí ship</label>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">Phuong xa</label>
                       <input
-                        type="number"
-                        value={shippingFee}
-                        onChange={(e) => setShippingFee(parseInt(e.target.value) || 0)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent text-sm"
-                        min="0"
+                        value={shippingWard}
+                        onChange={(e) => setShippingWard(e.target.value)}
+                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-semibold text-gray-700 mb-1">Giảm giá</label>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">Tinh thanh</label>
+                      <input
+                        value={shippingProvince}
+                        onChange={(e) => setShippingProvince(e.target.value)}
+                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Ghi chu khach hang</label>
+                    <textarea
+                      value={customerNote}
+                      onChange={(e) => setCustomerNote(e.target.value)}
+                      rows={2}
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Ghi chu noi bo</label>
+                    <textarea
+                      value={adminNote}
+                      onChange={(e) => setAdminNote(e.target.value)}
+                      rows={2}
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">Phi ship</label>
                       <input
                         type="number"
-                        value={discountAmount}
-                        onChange={(e) => setDiscountAmount(parseInt(e.target.value) || 0)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent text-sm"
                         min="0"
+                        value={shippingFee}
+                        onChange={(e) => setShippingFee(Number(e.target.value) || 0)}
+                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">Giam gia</label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={discountAmount}
+                        onChange={(e) => setDiscountAmount(Number(e.target.value) || 0)}
+                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                       />
                     </div>
                   </div>
                 </div>
-              </div>
+              </section>
 
-              {/* Summary */}
-              <div className="bg-indigo-50 rounded-xl p-4 border-2 border-indigo-200">
-                <h3 className="text-lg font-bold text-gray-900 mb-3">Tổng đơn hàng</h3>
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-gray-600">Tạm tính:</span>
-                    <span className="font-semibold">{formatCurrency(calculateSubtotal())}</span>
-                  </div>
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-gray-600">Phí ship:</span>
-                    <span className="font-semibold">{formatCurrency(shippingFee)}</span>
-                  </div>
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-gray-600">Giảm giá:</span>
-                    <span className="font-semibold text-red-600">-{formatCurrency(discountAmount)}</span>
-                  </div>
-                  <div className="flex items-center justify-between pt-2 border-t-2 border-indigo-200">
-                    <span className="font-bold text-gray-900">Tổng cộng:</span>
-                    <span className="text-xl font-bold text-indigo-600">
-                      {formatCurrency(calculateTotal())}
-                    </span>
-                  </div>
+              <section className="rounded-2xl border border-gray-200 bg-white">
+                <div className="px-5 py-4 border-b border-gray-100">
+                  <h3 className="text-sm font-semibold text-gray-900">Tong don hang</h3>
                 </div>
-
-                {error && (
-                  <div className="mt-3 p-2 bg-red-50 border border-red-200 rounded-lg text-red-600 text-xs">
-                    {error}
+                <div className="p-5 space-y-3">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-gray-500">Tam tinh</span>
+                    <span className="font-medium text-gray-900">{formatCurrency(subtotal)}</span>
                   </div>
-                )}
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-gray-500">Phi ship</span>
+                    <span className="font-medium text-gray-900">{formatCurrency(shippingFee)}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-gray-500">Giam gia</span>
+                    <span className="font-medium text-red-600">-{formatCurrency(discountAmount)}</span>
+                  </div>
+                  <div className="pt-3 border-t border-gray-100 flex items-center justify-between">
+                    <span className="text-sm font-semibold text-gray-900">Tong cong</span>
+                    <span className="text-xl font-semibold text-gray-900">{formatCurrency(total)}</span>
+                  </div>
 
-                <button
-                  onClick={handleSubmit}
-                  disabled={submitting || !selectedCustomer || orderItems.length === 0}
-                  className="w-full mt-4 px-6 py-3 bg-indigo-600 text-white rounded-xl font-semibold hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {submitting ? 'Đang tạo...' : 'Tạo đơn hàng'}
-                </button>
-              </div>
+                  {error && (
+                    <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                      {error}
+                    </div>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={handleSubmit}
+                    disabled={submitting || !selectedCustomer || orderItems.length === 0}
+                    className="w-full rounded-xl bg-blue-600 text-white py-3 text-sm font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {submitting ? 'Dang tao...' : 'Tao don hang'}
+                  </button>
+                </div>
+              </section>
             </div>
           </div>
         </div>

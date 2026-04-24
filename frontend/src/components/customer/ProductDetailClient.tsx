@@ -183,6 +183,7 @@ export default function ProductDetailClient({ product, relatedProducts = [], ini
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api'}/wishlist`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ productId: product.id }),
       });
       const data = await res.json();
@@ -247,12 +248,12 @@ export default function ProductDetailClient({ product, relatedProducts = [], ini
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api'}/cart`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({
           productId: product.id,
           quantity,
           size: availableSizes.find(s => s.id === selectedSizeId)?.name || null,
           color: availableColors.find(c => c.id === selectedColorId)?.name || null,
-          variantId: matchingVariants[0]?.id || null, // Optional, can pass to cart
         }),
       });
 

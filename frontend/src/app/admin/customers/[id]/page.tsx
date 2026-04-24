@@ -1,42 +1,54 @@
 import Link from 'next/link';
 import { apiClient } from '@/lib/apiClient';
+import CustomerActions from './CustomerActions';
 
-function fmt(amount: number) {
-  return new Intl.NumberFormat('vi-VN').format(amount || 0) + ' đ';
+function formatMoney(amount: number) {
+  return new Intl.NumberFormat('vi-VN', {
+    style: 'currency',
+    currency: 'VND',
+    maximumFractionDigits: 0,
+  }).format(amount || 0);
 }
 
-function fmtDate(d: string | Date) {
-  if (!d) return '—';
+function formatDate(value: string | Date) {
+  if (!value) return '—';
+
   return new Intl.DateTimeFormat('vi-VN', {
-    day: '2-digit', month: '2-digit', year: 'numeric',
-    hour: '2-digit', minute: '2-digit',
-  }).format(new Date(d));
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  }).format(new Date(value));
 }
 
-function fmtShortDate(d: string | Date) {
-  if (!d) return '—';
+function formatDateTime(value: string | Date) {
+  if (!value) return '—';
+
   return new Intl.DateTimeFormat('vi-VN', {
-    day: '2-digit', month: '2-digit', year: 'numeric',
-  }).format(new Date(d));
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(value));
 }
 
-const statusMap: Record<string, { cls: string; label: string }> = {
-  PENDING: { cls: 'bg-orange-100 text-orange-700', label: 'Chờ duyệt' },
-  CONFIRMED: { cls: 'bg-cyan-100 text-cyan-700', label: 'Xác nhận' },
-  PACKAGING: { cls: 'bg-purple-100 text-purple-700', label: 'Đóng gói' },
-  SHIPPED: { cls: 'bg-blue-100 text-blue-700', label: 'Đã gửi' },
-  DELIVERED: { cls: 'bg-teal-100 text-teal-700', label: 'Đã nhận' },
-  COMPLETED: { cls: 'bg-green-100 text-green-700', label: 'Hoàn thành' },
-  CANCELLED: { cls: 'bg-red-100 text-red-700', label: 'Đã hủy' },
-  REFUNDED: { cls: 'bg-red-100 text-red-700', label: 'Hoàn trả' },
+const statusMap: Record<string, { label: string; className: string }> = {
+  PENDING: { label: 'Cho duyet', className: 'bg-orange-50 text-orange-700 border-orange-200' },
+  CONFIRMED: { label: 'Da xac nhan', className: 'bg-cyan-50 text-cyan-700 border-cyan-200' },
+  PACKAGING: { label: 'Dang dong hang', className: 'bg-violet-50 text-violet-700 border-violet-200' },
+  SHIPPED: { label: 'Da gui hang', className: 'bg-blue-50 text-blue-700 border-blue-200' },
+  DELIVERED: { label: 'Da nhan hang', className: 'bg-teal-50 text-teal-700 border-teal-200' },
+  COMPLETED: { label: 'Hoan thanh', className: 'bg-green-50 text-green-700 border-green-200' },
+  CANCELLED: { label: 'Da huy', className: 'bg-red-50 text-red-700 border-red-200' },
+  REFUNDED: { label: 'Hoan tra', className: 'bg-red-50 text-red-700 border-red-200' },
 };
 
-const rankConfig: Record<string, { cls: string; bg: string }> = {
-  MEMBER: { cls: 'text-gray-700', bg: 'bg-gray-100' },
-  SILVER: { cls: 'text-gray-600', bg: 'bg-gray-200' },
-  GOLD: { cls: 'text-yellow-700', bg: 'bg-yellow-100' },
-  DIAMOND: { cls: 'text-blue-700', bg: 'bg-blue-100' },
-  PLATINUM: { cls: 'text-purple-700', bg: 'bg-purple-100' },
+const rankMap: Record<string, string> = {
+  MEMBER: 'bg-gray-100 text-gray-700',
+  SILVER: 'bg-gray-200 text-gray-700',
+  GOLD: 'bg-yellow-100 text-yellow-800',
+  DIAMOND: 'bg-blue-100 text-blue-700',
+  PLATINUM: 'bg-slate-200 text-slate-800',
 };
 
 export default async function CustomerDetailPage(props: {
@@ -46,243 +58,279 @@ export default async function CustomerDetailPage(props: {
 
   let customer: any = null;
   try {
-    customer = await apiClient.get<any>(`/admin/customers/${params.id}`);
+    customer = await apiClient.get(`/admin/customers/${params.id}`);
   } catch (error) {
-    console.error('Error fetching customer:', error);
+    console.error('Failed to load customer detail', error);
   }
 
   if (!customer) {
     return (
-      <div className="text-center py-12">
-        <h1 className="text-2xl font-bold text-gray-800 mb-4">Không tìm thấy khách hàng</h1>
-        <Link href="/admin/customers" className="text-blue-600 hover:text-blue-700 font-medium">
-          ← Quay lại danh sách
+      <div className="py-16 text-center">
+        <h1 className="text-2xl font-semibold text-gray-900">Khong tim thay khach hang</h1>
+        <Link href="/admin/customers" className="inline-block mt-4 text-sm font-medium text-blue-600 hover:text-blue-700">
+          Quay lai danh sach
         </Link>
       </div>
     );
   }
 
-  const rank = rankConfig[customer.rank] || rankConfig.MEMBER;
-  const address = [customer.addressStreet, customer.addressWard, customer.addressProvince].filter(Boolean).join(', ');
+  const address = [
+    customer.addressStreet,
+    customer.addressWard,
+    customer.addressProvince,
+  ]
+    .filter(Boolean)
+    .join(', ');
+
+  const customerName = customer.name || customer.phone || 'Khach hang';
 
   return (
-    <>
-      <div className="mb-6">
-        <Link href="/admin/customers" className="text-blue-600 hover:text-blue-700 font-medium text-sm mb-4 inline-block">
-          ← Quay lại danh sách
-        </Link>
-      </div>
-
-      {/* Profile Header */}
-      <div className="bg-white rounded-xl shadow-sm p-6 mb-6">
-        <div className="flex items-start gap-5">
-          <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-2xl font-bold flex-shrink-0">
-            {(customer.name || customer.phone || '?').charAt(0).toUpperCase()}
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-3 mb-1">
-              <h1 className="text-2xl font-bold text-gray-800 truncate">
-                {customer.name || customer.phone}
-              </h1>
-              <span className={`px-3 py-1 rounded-full text-xs font-semibold ${rank.bg} ${rank.cls}`}>
-                {customer.rank}
-              </span>
-            </div>
-            <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm text-gray-600">
-              {customer.phone && <span>📞 {customer.phone}</span>}
-              {customer.email && <span>✉ {customer.email}</span>}
-              {customer.gender && <span>{customer.gender === 'MALE' ? '♂ Nam' : customer.gender === 'FEMALE' ? '♀ Nữ' : ''}</span>}
-              {customer.dob && <span>🎂 {fmtShortDate(customer.dob)}</span>}
-              <span>Tham gia: {fmtShortDate(customer.createdAt)}</span>
-            </div>
-            {address && <p className="text-sm text-gray-500 mt-1">{address}</p>}
-            {customer.referralCode && (
-              <p className="text-sm text-gray-500 mt-1">
-                Mã giới thiệu: <span className="font-mono font-semibold text-gray-700">{customer.referralCode}</span>
-              </p>
-            )}
-          </div>
+    <div className="space-y-6">
+      <div className="flex items-center justify-between gap-4">
+        <div>
+          <Link href="/admin/customers" className="text-sm font-medium text-blue-600 hover:text-blue-700">
+            Quay lai danh sach
+          </Link>
+          <h1 className="mt-2 text-3xl font-semibold text-gray-900">{customerName}</h1>
+          <p className="mt-1 text-sm text-gray-500">
+            Tao luc {formatDate(customer.createdAt)}
+          </p>
+        </div>
+        <div className="flex items-center gap-4">
+          <span className={`px-3 py-1.5 rounded-full text-xs font-semibold ${rankMap[customer.rank] || rankMap.MEMBER}`}>
+            {customer.rank}
+          </span>
+          {!customer.isActive && (
+            <span className="px-3 py-1.5 rounded-full text-xs font-semibold bg-red-100 text-red-700 border border-red-200">
+              BANNED
+            </span>
+          )}
+          <CustomerActions
+            customerId={customer.id}
+            customerName={customerName}
+            customerPhone={customer.phone}
+            isActive={customer.isActive}
+          />
         </div>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <div className="bg-white rounded-xl shadow-sm p-5">
-          <p className="text-xs text-gray-500 mb-1">Tổng chi tiêu</p>
-          <p className="text-xl font-bold text-gray-800">{fmt(customer.totalSpent)}</p>
-        </div>
-        <div className="bg-white rounded-xl shadow-sm p-5">
-          <p className="text-xs text-gray-500 mb-1">Đơn hàng</p>
-          <p className="text-xl font-bold text-gray-800">{customer._count?.orders || 0}</p>
-          <p className="text-xs text-gray-500">{customer.stats?.completedOrders || 0} hoàn thành</p>
-        </div>
-        <div className="bg-white rounded-xl shadow-sm p-5">
-          <p className="text-xs text-gray-500 mb-1">Hoa hồng</p>
-          <p className="text-xl font-bold text-gray-800">{fmt(customer.commissionBalance)}</p>
-          <p className="text-xs text-gray-500">Tổng: {fmt(customer.stats?.totalCommission)}</p>
-        </div>
-        <div className="bg-white rounded-xl shadow-sm p-5">
-          <p className="text-xs text-gray-500 mb-1">Giới thiệu</p>
-          <p className="text-xl font-bold text-gray-800">{customer._count?.referees || 0} người</p>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left: Orders + Commissions */}
-        <div className="lg:col-span-2 space-y-6">
-          {/* Recent Orders */}
-          <div className="bg-white rounded-xl shadow-sm p-6">
-            <h2 className="text-lg font-bold text-gray-800 mb-4">
-              Đơn hàng gần đây ({customer._count?.orders || 0})
-            </h2>
-            {customer.orders?.length > 0 ? (
-              <div className="space-y-2">
-                {customer.orders.map((order: any) => {
-                  const st = statusMap[order.status] || { cls: 'bg-gray-100 text-gray-700', label: order.status };
-                  return (
-                    <Link
-                      key={order.id}
-                      href={`/admin/orders/${order.id}`}
-                      className="flex items-center justify-between p-3 rounded-lg hover:bg-gray-50 transition-colors group"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div>
-                          <p className="font-semibold text-gray-800 text-sm group-hover:text-blue-600">
-                            #{order.orderCode}
-                          </p>
-                          <p className="text-xs text-gray-500">{fmtDate(order.createdAt)}</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        {order.source === 'PANCAKE' && (
-                          <span className="text-xs border border-gray-200 text-gray-500 px-1.5 py-0.5 rounded">Pancake</span>
-                        )}
-                        <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${st.cls}`}>
-                          {st.label}
-                        </span>
-                        <span className="font-semibold text-gray-800 text-sm w-28 text-right">{fmt(order.totalAmount)}</span>
-                      </div>
-                    </Link>
-                  );
-                })}
+      <section className="rounded-2xl border border-gray-200 bg-white">
+        <div className="px-6 py-5 grid grid-cols-1 lg:grid-cols-[1.4fr_1fr] gap-6">
+          <div className="space-y-4">
+            <div className="flex items-center gap-4">
+              <div className="w-14 h-14 rounded-full bg-gray-900 text-white flex items-center justify-center text-lg font-semibold">
+                {customerName.charAt(0).toUpperCase()}
               </div>
-            ) : (
-              <p className="text-gray-500 text-sm text-center py-6">Chưa có đơn hàng</p>
-            )}
+              <div>
+                <div className="text-lg font-semibold text-gray-900">{customerName}</div>
+                <div className="text-sm text-gray-500 mt-1">
+                  {customer.phone || 'Chua co so dien thoai'}
+                  {customer.email ? ` • ${customer.email}` : ''}
+                </div>
+              </div>
+            </div>
+
+            <dl className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+              <div>
+                <dt className="text-gray-500">Gioi tinh</dt>
+                <dd className="mt-1 font-medium text-gray-900">{customer.gender || '—'}</dd>
+              </div>
+              <div>
+                <dt className="text-gray-500">Ngay sinh</dt>
+                <dd className="mt-1 font-medium text-gray-900">{customer.dob ? formatDate(customer.dob) : '—'}</dd>
+              </div>
+              <div>
+                <dt className="text-gray-500">Ma gioi thieu</dt>
+                <dd className="mt-1 font-medium text-gray-900 font-mono">{customer.referralCode}</dd>
+              </div>
+              <div>
+                <dt className="text-gray-500">Cap nhat lan cuoi</dt>
+                <dd className="mt-1 font-medium text-gray-900">{formatDateTime(customer.updatedAt)}</dd>
+              </div>
+            </dl>
+
+            <div>
+              <p className="text-sm text-gray-500">Dia chi</p>
+              <p className="mt-1 text-sm font-medium text-gray-900">{address || 'Chua cap nhat'}</p>
+            </div>
           </div>
 
-          {/* Commission Ledger */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="rounded-xl border border-gray-200 p-4">
+              <p className="text-xs font-medium text-gray-500">Tong chi tieu</p>
+              <p className="mt-2 text-xl font-semibold text-gray-900">{formatMoney(customer.totalSpent)}</p>
+              <p className="mt-1 text-xs text-gray-500">
+                Hoan thanh {customer.stats?.completedOrders || 0} don
+              </p>
+            </div>
+            <div className="rounded-xl border border-gray-200 p-4">
+              <p className="text-xs font-medium text-gray-500">Hoa hong hien tai</p>
+              <p className="mt-2 text-xl font-semibold text-gray-900">{formatMoney(customer.commissionBalance)}</p>
+              <p className="mt-1 text-xs text-gray-500">
+                Tong da tra {formatMoney(customer.stats?.totalCommission || 0)}
+              </p>
+            </div>
+            <div className="rounded-xl border border-gray-200 p-4">
+              <p className="text-xs font-medium text-gray-500">Don hang</p>
+              <p className="mt-2 text-xl font-semibold text-gray-900">{customer._count?.orders || 0}</p>
+              <p className="mt-1 text-xs text-gray-500">
+                Doanh thu hoan thanh {formatMoney(customer.stats?.completedRevenue || 0)}
+              </p>
+            </div>
+            <div className="rounded-xl border border-gray-200 p-4">
+              <p className="text-xs font-medium text-gray-500">Nguoi duoc gioi thieu</p>
+              <p className="mt-2 text-xl font-semibold text-gray-900">{customer._count?.referees || 0}</p>
+              <p className="mt-1 text-xs text-gray-500">
+                Voucher {customer._count?.userVouchers || 0}
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div className="grid grid-cols-1 xl:grid-cols-[1.6fr_1fr] gap-6">
+        <div className="space-y-6">
+          <section className="rounded-2xl border border-gray-200 bg-white">
+            <div className="px-6 py-4 border-b border-gray-100">
+              <h2 className="text-sm font-semibold text-gray-900">Don hang gan day</h2>
+            </div>
+            <div className="p-4">
+              {customer.orders?.length ? (
+                <div className="space-y-2">
+                  {customer.orders.map((order: any) => {
+                    const status = statusMap[order.status] || {
+                      label: order.status,
+                      className: 'bg-gray-50 text-gray-700 border-gray-200',
+                    };
+
+                    return (
+                      <Link
+                        key={order.id}
+                        href={`/admin/orders/${order.id}`}
+                        className="flex items-center justify-between rounded-xl border border-gray-200 px-4 py-3 hover:bg-gray-50 transition-colors"
+                      >
+                        <div>
+                          <p className="text-sm font-medium text-gray-900">#{order.orderCode}</p>
+                          <p className="mt-1 text-xs text-gray-500">{formatDateTime(order.createdAt)}</p>
+                        </div>
+
+                        <div className="flex items-center gap-3">
+                          <span className={`px-2.5 py-1 rounded-full border text-xs font-medium ${status.className}`}>
+                            {status.label}
+                          </span>
+                          <span className="text-sm font-semibold text-gray-900 min-w-28 text-right">
+                            {formatMoney(order.totalAmount)}
+                          </span>
+                        </div>
+                      </Link>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="px-2 py-8 text-sm text-gray-500 text-center">Chua co don hang</div>
+              )}
+            </div>
+          </section>
+
           {customer.commissionsEarned?.length > 0 && (
-            <div className="bg-white rounded-xl shadow-sm p-6">
-              <h2 className="text-lg font-bold text-gray-800 mb-4">
-                Lịch sử hoa hồng ({customer._count?.commissionsEarned || 0})
-              </h2>
-              <div className="space-y-2">
-                {customer.commissionsEarned.map((comm: any) => (
-                  <div key={comm.id} className="flex items-center justify-between p-3 rounded-lg bg-gray-50">
+            <section className="rounded-2xl border border-gray-200 bg-white">
+              <div className="px-6 py-4 border-b border-gray-100">
+                <h2 className="text-sm font-semibold text-gray-900">Lich su hoa hong</h2>
+              </div>
+              <div className="p-4 space-y-2">
+                {customer.commissionsEarned.map((commission: any) => (
+                  <div key={commission.id} className="rounded-xl border border-gray-200 px-4 py-3 flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium text-gray-800">
-                        Từ đơn #{comm.order?.orderCode || '—'}
+                      <p className="text-sm font-medium text-gray-900">
+                        Don #{commission.order?.orderCode || '—'}
                       </p>
-                      <p className="text-xs text-gray-500">
-                        Cấp {comm.level} • {comm.percentage}% • {fmtShortDate(comm.createdAt)}
+                      <p className="mt-1 text-xs text-gray-500">
+                        Cap {commission.level} • {commission.percentage}% • {formatDate(commission.createdAt)}
                       </p>
                     </div>
                     <div className="text-right">
-                      <p className="font-semibold text-green-600 text-sm">{fmt(comm.amount)}</p>
-                      <p className={`text-xs font-medium ${comm.status === 'COMPLETED' ? 'text-green-600' : comm.status === 'PENDING' ? 'text-orange-600' : 'text-gray-500'}`}>
-                        {comm.status === 'COMPLETED' ? 'Đã duyệt' : comm.status === 'PENDING' ? 'Chờ duyệt' : comm.status}
-                      </p>
+                      <p className="text-sm font-semibold text-gray-900">{formatMoney(commission.amount)}</p>
+                      <p className="mt-1 text-xs text-gray-500">{commission.status}</p>
                     </div>
                   </div>
                 ))}
               </div>
-            </div>
+            </section>
           )}
         </div>
 
-        {/* Right Column */}
         <div className="space-y-6">
-          {/* Referrer */}
           {customer.referrer && (
-            <div className="bg-white rounded-xl shadow-sm p-6">
-              <h2 className="text-lg font-bold text-gray-800 mb-3">Người giới thiệu</h2>
-              <Link
-                href={`/admin/customers/${customer.referrer.id}`}
-                className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50 transition-colors"
-              >
-                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-green-500 to-teal-600 flex items-center justify-center text-white font-semibold text-sm">
-                  {(customer.referrer.name || '?').charAt(0).toUpperCase()}
-                </div>
-                <div>
-                  <p className="font-semibold text-gray-800 text-sm">{customer.referrer.name}</p>
-                  <p className="text-xs text-gray-500">{customer.referrer.phone} • {customer.referrer.referralCode}</p>
-                </div>
-              </Link>
-            </div>
+            <section className="rounded-2xl border border-gray-200 bg-white">
+              <div className="px-6 py-4 border-b border-gray-100">
+                <h2 className="text-sm font-semibold text-gray-900">Nguoi gioi thieu</h2>
+              </div>
+              <div className="p-4">
+                <Link
+                  href={`/admin/customers/${customer.referrer.id}`}
+                  className="block rounded-xl border border-gray-200 px-4 py-3 hover:bg-gray-50 transition-colors"
+                >
+                  <p className="text-sm font-medium text-gray-900">{customer.referrer.name || customer.referrer.phone}</p>
+                  <p className="mt-1 text-xs text-gray-500">
+                    {customer.referrer.phone || 'Chua co so dien thoai'} • {customer.referrer.referralCode}
+                  </p>
+                </Link>
+              </div>
+            </section>
           )}
 
-          {/* Referees */}
           {customer.referees?.length > 0 && (
-            <div className="bg-white rounded-xl shadow-sm p-6">
-              <h2 className="text-lg font-bold text-gray-800 mb-3">
-                Đã giới thiệu ({customer._count?.referees || 0})
-              </h2>
-              <div className="space-y-2 max-h-64 overflow-y-auto">
-                {customer.referees.map((ref: any) => (
+            <section className="rounded-2xl border border-gray-200 bg-white">
+              <div className="px-6 py-4 border-b border-gray-100">
+                <h2 className="text-sm font-semibold text-gray-900">Khach hang duoc gioi thieu</h2>
+              </div>
+              <div className="p-4 space-y-2 max-h-80 overflow-y-auto">
+                {customer.referees.map((referee: any) => (
                   <Link
-                    key={ref.id}
-                    href={`/admin/customers/${ref.id}`}
-                    className="flex items-center justify-between p-2 rounded-lg hover:bg-gray-50 transition-colors"
+                    key={referee.id}
+                    href={`/admin/customers/${referee.id}`}
+                    className="flex items-center justify-between rounded-xl border border-gray-200 px-4 py-3 hover:bg-gray-50 transition-colors"
                   >
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-indigo-500 flex items-center justify-center text-white font-semibold text-xs">
-                        {(ref.name || '?').charAt(0).toUpperCase()}
-                      </div>
-                      <div>
-                        <p className="font-medium text-gray-800 text-sm">{ref.name || ref.phone}</p>
-                        <p className="text-xs text-gray-500">{fmtShortDate(ref.createdAt)}</p>
-                      </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">{referee.name || referee.phone}</p>
+                      <p className="mt-1 text-xs text-gray-500">{formatDate(referee.createdAt)}</p>
                     </div>
-                    <div className="text-right">
-                      <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${(rankConfig[ref.rank] || rankConfig.MEMBER).bg} ${(rankConfig[ref.rank] || rankConfig.MEMBER).cls}`}>
-                        {ref.rank}
-                      </span>
-                    </div>
+                    <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${rankMap[referee.rank] || rankMap.MEMBER}`}>
+                      {referee.rank}
+                    </span>
                   </Link>
                 ))}
               </div>
-            </div>
+            </section>
           )}
 
-          {/* Vouchers */}
           {customer.userVouchers?.length > 0 && (
-            <div className="bg-white rounded-xl shadow-sm p-6">
-              <h2 className="text-lg font-bold text-gray-800 mb-3">
-                Voucher ({customer._count?.userVouchers || 0})
-              </h2>
-              <div className="space-y-2">
-                {customer.userVouchers.map((uv: any) => (
-                  <div key={uv.id} className="flex items-center justify-between p-2.5 rounded-lg bg-gray-50">
+            <section className="rounded-2xl border border-gray-200 bg-white">
+              <div className="px-6 py-4 border-b border-gray-100">
+                <h2 className="text-sm font-semibold text-gray-900">Voucher</h2>
+              </div>
+              <div className="p-4 space-y-2">
+                {customer.userVouchers.map((item: any) => (
+                  <div key={item.id} className="rounded-xl border border-gray-200 px-4 py-3 flex items-center justify-between gap-4">
                     <div>
-                      <p className="font-mono font-semibold text-sm text-gray-800">{uv.voucher?.code}</p>
-                      <p className="text-xs text-gray-500">
-                        {uv.voucher?.type === 'PERCENTAGE'
-                          ? `Giảm ${uv.voucher.value}%`
-                          : `Giảm ${fmt(uv.voucher?.value)}`}
-                        {uv.voucher?.validTo && ` • HSD: ${fmtShortDate(uv.voucher.validTo)}`}
+                      <p className="text-sm font-medium text-gray-900 font-mono">{item.voucher?.code}</p>
+                      <p className="mt-1 text-xs text-gray-500">
+                        {item.voucher?.type === 'PERCENTAGE'
+                          ? `Giam ${item.voucher.value}%`
+                          : `Giam ${formatMoney(item.voucher?.value || 0)}`}
+                        {item.voucher?.validTo ? ` • HSD ${formatDate(item.voucher.validTo)}` : ''}
                       </p>
                     </div>
-                    <span className={`px-2 py-0.5 rounded text-xs font-semibold ${uv.isUsed ? 'bg-gray-200 text-gray-600' : 'bg-green-100 text-green-700'}`}>
-                      {uv.isUsed ? 'Đã dùng' : 'Chưa dùng'}
+                    <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${item.isUsed ? 'bg-gray-100 text-gray-600' : 'bg-green-50 text-green-700'}`}>
+                      {item.isUsed ? 'Da dung' : 'Chua dung'}
                     </span>
                   </div>
                 ))}
               </div>
-            </div>
+            </section>
           )}
         </div>
       </div>
-    </>
+    </div>
   );
 }

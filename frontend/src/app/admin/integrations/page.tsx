@@ -62,7 +62,7 @@ export default function IntegrationsPage() {
         apiClientClient.get<Integration[]>('/integrations', {
           params: { storeId: selectedStoreId }
         }),
-        apiClientClient.get<any>('/auth/me')
+        apiClientClient.get<any>('/users/me')
       ]);
       setIntegrations(integrationsData || []);
       setUserRole(userProfile?.role || 'MODERATOR');

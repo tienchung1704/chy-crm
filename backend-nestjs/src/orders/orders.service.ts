@@ -3,6 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { UsersService } from '../users/users.service';
 import { CommissionsService } from '../commissions/commissions.service';
 import { CreateOrderDto } from './dto/create-order.dto';
+import { CreateAdminOrderDto } from './dto/create-admin-order.dto';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
 
 @Injectable()
@@ -253,6 +254,177 @@ export class OrdersService {
         where: { id: { in: cartItemIds } },
       });
     }
+
+    return { success: true, orderId: order.id, orderCode: order.orderCode };
+  }
+
+  async createAdminOrder(params: {
+    actorId: string;
+    actorRole: string;
+    createOrderDto: CreateAdminOrderDto;
+  }) {
+    const { actorId, actorRole, createOrderDto } = params;
+    const {
+      userId,
+      items,
+      shippingName,
+      shippingPhone,
+      shippingStreet,
+      shippingWard,
+      shippingProvince,
+      customerNote,
+      adminNote,
+      paymentMethod,
+      shippingFee = 0,
+      discountAmount = 0,
+    } = createOrderDto;
+
+    if (!items || items.length === 0) {
+      throw new BadRequestException('Order must contain at least one item');
+    }
+
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        role: true,
+        name: true,
+        phone: true,
+        addressStreet: true,
+        addressWard: true,
+        addressProvince: true,
+      },
+    });
+
+    if (!user || user.role !== 'CUSTOMER') {
+      throw new NotFoundException('Customer not found');
+    }
+
+    let moderatorStoreId: string | null = null;
+    if (actorRole === 'MODERATOR') {
+      const store = await this.prisma.store.findUnique({
+        where: { ownerId: actorId },
+        select: { id: true },
+      });
+      if (!store) {
+        throw new BadRequestException('Store not found for moderator');
+      }
+      moderatorStoreId = store.id;
+    }
+
+    let subtotal = 0;
+    let orderStoreId: string | null | undefined;
+    const orderItemsToCreate: Array<{
+      productId: string;
+      quantity: number;
+      price: number;
+      size: string | null;
+      color: string | null;
+    }> = [];
+
+    for (const item of items) {
+      const product = await this.prisma.product.findUnique({
+        where: { id: item.productId },
+        include: { variants: { include: { size: true, color: true } } },
+      });
+
+      if (!product || !product.isActive) {
+        throw new BadRequestException('Product unavailable');
+      }
+
+      if (actorRole === 'MODERATOR' && product.storeId !== moderatorStoreId) {
+        throw new BadRequestException('Moderator can only create orders for their own store');
+      }
+
+      const currentStoreId = product.storeId || null;
+      if (orderStoreId === undefined) {
+        orderStoreId = currentStoreId;
+      } else if (orderStoreId !== currentStoreId) {
+        throw new BadRequestException('Cannot mix products from different stores in one order');
+      }
+
+      if (product.stockQuantity < item.quantity) {
+        throw new BadRequestException(`Not enough stock for ${product.name}`);
+      }
+
+      let itemPrice = product.salePrice || product.originalPrice;
+
+      if (item.size || item.color) {
+        const matchingVariant = product.variants.find(
+          (variant: any) =>
+            (variant.size?.name || null) === (item.size || null) &&
+            (variant.color?.name || null) === (item.color || null),
+        );
+
+        if (!matchingVariant || matchingVariant.stock < item.quantity) {
+          throw new BadRequestException(
+            `Not enough stock for variant ${item.size || ''} ${item.color || ''} of ${product.name}`.trim(),
+          );
+        }
+
+        if (matchingVariant.price !== null && matchingVariant.price !== undefined) {
+          itemPrice = matchingVariant.price;
+        }
+
+        await this.prisma.productVariant.update({
+          where: { id: matchingVariant.id },
+          data: { stock: { decrement: item.quantity } },
+        });
+      }
+
+      await this.prisma.product.update({
+        where: { id: product.id },
+        data: { stockQuantity: { decrement: item.quantity } },
+      });
+
+      subtotal += itemPrice * item.quantity;
+      orderItemsToCreate.push({
+        productId: product.id,
+        quantity: item.quantity,
+        price: itemPrice,
+        size: item.size || null,
+        color: item.color || null,
+      });
+    }
+
+    const parsedShippingFee = parseFloat(shippingFee.toString()) || 0;
+    const parsedDiscountAmount = Math.max(
+      0,
+      Math.min(subtotal, parseFloat(discountAmount.toString()) || 0),
+    );
+    const totalAmount = Math.max(
+      0,
+      subtotal - parsedDiscountAmount + parsedShippingFee,
+    );
+
+    const order = await this.prisma.order.create({
+      data: {
+        userId: user.id,
+        orderCode: this.generateOrderCode(),
+        shippingName: shippingName || user.name,
+        shippingPhone: shippingPhone || user.phone,
+        shippingStreet: shippingStreet || user.addressStreet,
+        shippingWard: shippingWard || user.addressWard,
+        shippingProvince: shippingProvince || user.addressProvince,
+        subtotal,
+        discountAmount: parsedDiscountAmount,
+        shippingFee: parsedShippingFee,
+        totalAmount,
+        paymentMethod: (paymentMethod || 'COD') as any,
+        paymentStatus: 'UNPAID',
+        note: adminNote || null,
+        customerNote: customerNote || null,
+        source: 'ADMIN_MANUAL',
+        storeId: orderStoreId || null,
+        metadata: {
+          createdBy: actorId,
+          createdByRole: actorRole,
+        },
+        items: {
+          create: orderItemsToCreate,
+        },
+      },
+    });
 
     return { success: true, orderId: order.id, orderCode: order.orderCode };
   }

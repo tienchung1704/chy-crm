@@ -6,52 +6,102 @@ export interface ApiOptions extends RequestInit {
   params?: Record<string, string | number | boolean | undefined>;
 }
 
-export const apiClientClient = {
-  async fetch<T>(endpoint: string, options: ApiOptions = {}): Promise<T> {
-    let url = `${API_URL}${endpoint}`;
-    
-    if (options.params) {
-      const queryParams = new URLSearchParams();
-      Object.entries(options.params).forEach(([key, value]) => {
-        if (value !== undefined && value !== null && value !== '') {
-          queryParams.append(key, value.toString());
-        }
-      });
-      const queryString = queryParams.toString();
-      if (queryString) {
-        url += (url.includes('?') ? '&' : '?') + queryString;
+let refreshPromise: Promise<boolean> | null = null;
+
+function buildUrl(endpoint: string, params?: ApiOptions['params']) {
+  let url = `${API_URL}${endpoint}`;
+
+  if (params) {
+    const queryParams = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== '') {
+        queryParams.append(key, value.toString());
       }
+    });
+    const queryString = queryParams.toString();
+    if (queryString) {
+      url += (url.includes('?') ? '&' : '?') + queryString;
     }
+  }
 
-    const defaultHeaders = {
-      'Content-Type': 'application/json',
-    };
+  return url;
+}
 
-    const config: RequestInit = {
-      ...options,
+async function parseResponseBody(response: Response) {
+  const contentType = response.headers.get('content-type') || '';
+
+  if (contentType.includes('application/json')) {
+    return response.json();
+  }
+
+  const text = await response.text();
+  return text ? { message: text } : null;
+}
+
+async function refreshSession() {
+  if (!refreshPromise) {
+    refreshPromise = fetch(`${API_URL}/auth/refresh`, {
+      method: 'POST',
+      credentials: 'include',
       headers: {
-        ...defaultHeaders,
-        ...options.headers,
+        'Content-Type': 'application/json',
       },
-      credentials: 'include', // Important for cookies
-    };
+    })
+      .then((response) => response.ok)
+      .catch(() => false)
+      .finally(() => {
+        refreshPromise = null;
+      });
+  }
 
-    const response = await fetch(url, config);
-    const data = await response.json();
+  return refreshPromise;
+}
 
-    if (!response.ok) {
-      throw new Error(data.message || data.error || 'API Error');
+async function request<T>(
+  endpoint: string,
+  options: ApiOptions = {},
+  allowRefresh = true,
+): Promise<T> {
+  const url = buildUrl(endpoint, options.params);
+
+  const response = await fetch(url, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+    credentials: 'include',
+  });
+
+  const data = await parseResponseBody(response);
+
+  if ((response.status === 401 || response.status === 403) && allowRefresh) {
+    const refreshed = await refreshSession();
+    if (refreshed) {
+      return request<T>(endpoint, options, false);
     }
+  }
 
-    return data as T;
+  if (!response.ok) {
+    throw new Error(
+      data?.message || data?.error || `API Error (${response.status})`,
+    );
+  }
+
+  return data as T;
+}
+
+export const apiClientClient = {
+  fetch<T>(endpoint: string, options: ApiOptions = {}) {
+    return request<T>(endpoint, options);
   },
 
   get<T>(endpoint: string, options: ApiOptions = {}) {
-    return this.fetch<T>(endpoint, { ...options, method: 'GET' });
+    return request<T>(endpoint, { ...options, method: 'GET' });
   },
 
   post<T>(endpoint: string, body: any, options: ApiOptions = {}) {
-    return this.fetch<T>(endpoint, {
+    return request<T>(endpoint, {
       ...options,
       method: 'POST',
       body: JSON.stringify(body),
@@ -59,7 +109,7 @@ export const apiClientClient = {
   },
 
   patch<T>(endpoint: string, body: any, options: ApiOptions = {}) {
-    return this.fetch<T>(endpoint, {
+    return request<T>(endpoint, {
       ...options,
       method: 'PATCH',
       body: JSON.stringify(body),
@@ -67,7 +117,7 @@ export const apiClientClient = {
   },
 
   put<T>(endpoint: string, body: any, options: ApiOptions = {}) {
-    return this.fetch<T>(endpoint, {
+    return request<T>(endpoint, {
       ...options,
       method: 'PUT',
       body: JSON.stringify(body),
@@ -75,6 +125,6 @@ export const apiClientClient = {
   },
 
   delete<T>(endpoint: string, options: ApiOptions = {}) {
-    return this.fetch<T>(endpoint, { ...options, method: 'DELETE' });
+    return request<T>(endpoint, { ...options, method: 'DELETE' });
   },
 };

@@ -1,9 +1,70 @@
-import { Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { CreateCustomerDto } from './dto/create-customer.dto';
 
 @Injectable()
 export class AdminService {
   constructor(private prisma: PrismaService) {}
+
+  async createCustomer(dto: CreateCustomerDto) {
+    const name = dto.name?.trim();
+    const email = dto.email?.trim().toLowerCase() || null;
+    const phone = dto.phone?.trim() || null;
+    const address = dto.address?.trim() || null;
+
+    if (!name) {
+      throw new BadRequestException('Name is required');
+    }
+
+    if (email) {
+      const existingEmail = await this.prisma.user.findUnique({
+        where: { email },
+      });
+      if (existingEmail) {
+        throw new ConflictException('Email already exists');
+      }
+    }
+
+    if (phone) {
+      const existingPhone = await this.prisma.user.findUnique({
+        where: { phone },
+      });
+      if (existingPhone) {
+        throw new ConflictException('Phone number already exists');
+      }
+    }
+
+    const customer = await this.prisma.user.create({
+      data: {
+        role: 'CUSTOMER',
+        name,
+        email,
+        phone,
+        gender: dto.gender || null,
+        dob: dto.dob ? new Date(dto.dob) : null,
+        address,
+        addressStreet: address,
+        onboardingComplete: true,
+        referralCode: await this.generateUniqueReferralCode(),
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        phone: true,
+        gender: true,
+        dob: true,
+        referralCode: true,
+        createdAt: true,
+      },
+    });
+
+    return { success: true, customer };
+  }
 
   async getDashboardStats(user: any) {
     const isModerator = user.role === 'MODERATOR';
@@ -102,6 +163,7 @@ export class AdminService {
       limit?: number;
       search?: string;
       rank?: string;
+      includeAll?: boolean;
     },
   ) {
     const page = params?.page || 1;
@@ -112,7 +174,7 @@ export class AdminService {
     const isModerator = user.role === 'MODERATOR';
     const where: any = { role: 'CUSTOMER' };
 
-    if (isModerator) {
+    if (isModerator && !params?.includeAll) {
       const store = await this.prisma.store.findUnique({
         where: { ownerId: user.id },
       });
@@ -233,6 +295,7 @@ export class AdminService {
         addressStreet: true,
         addressWard: true,
         addressProvince: true,
+        isActive: true,
         createdAt: true,
         updatedAt: true,
         referrer: {
@@ -308,5 +371,93 @@ export class AdminService {
         totalCommission: commissionStats._sum.amount || 0,
       },
     };
+  }
+
+  private async generateUniqueReferralCode() {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+
+    while (true) {
+      let code = '';
+      for (let i = 0; i < 8; i += 1) {
+        code += chars.charAt(Math.floor(Math.random() * chars.length));
+      }
+
+      const existing = await this.prisma.user.findUnique({
+        where: { referralCode: code },
+      });
+
+      if (!existing) {
+        return code;
+      }
+    }
+  }
+
+  async softDeleteCustomer(id: string) {
+    const customer = await this.prisma.user.findUnique({
+      where: { id },
+      select: { role: true, isActive: true },
+    });
+
+    if (!customer) {
+      throw new BadRequestException('Customer not found');
+    }
+
+    if (customer.role !== 'CUSTOMER') {
+      throw new BadRequestException('Can only soft delete customers');
+    }
+
+    await this.prisma.user.update({
+      where: { id },
+      data: { isActive: false },
+    });
+
+    return { success: true, message: 'Customer has been banned (soft deleted)' };
+  }
+
+  async hardDeleteCustomer(id: string) {
+    const customer = await this.prisma.user.findUnique({
+      where: { id },
+      select: { role: true },
+    });
+
+    if (!customer) {
+      throw new BadRequestException('Customer not found');
+    }
+
+    if (customer.role !== 'CUSTOMER') {
+      throw new BadRequestException('Can only delete customers');
+    }
+
+    // Delete related records first (cascade delete)
+    await this.prisma.$transaction([
+      // Delete cart items
+      this.prisma.cartItem.deleteMany({ where: { cart: { userId: id } } }),
+      // Delete cart
+      this.prisma.cart.deleteMany({ where: { userId: id } }),
+      // Delete user vouchers
+      this.prisma.userVoucher.deleteMany({ where: { userId: id } }),
+      // Delete commission ledgers
+      this.prisma.commissionLedger.deleteMany({ where: { userId: id } }),
+      // Delete reviews
+      this.prisma.review.deleteMany({ where: { userId: id } }),
+      // Delete wishlist
+      this.prisma.wishlist.deleteMany({ where: { userId: id } }),
+      // Delete notifications
+      this.prisma.notification.deleteMany({ where: { userId: id } }),
+      // Delete OAuth accounts
+      this.prisma.oAuthAccount.deleteMany({ where: { userId: id } }),
+      // Update referees to remove referrer
+      this.prisma.user.updateMany({
+        where: { referrerId: id },
+        data: { referrerId: null },
+      }),
+      // Delete orders (if allowed, or update to remove user reference)
+      // Note: You might want to keep orders for record keeping
+      // this.prisma.order.deleteMany({ where: { userId: id } }),
+      // Finally delete the user
+      this.prisma.user.delete({ where: { id } }),
+    ]);
+
+    return { success: true, message: 'Customer has been permanently deleted' };
   }
 }

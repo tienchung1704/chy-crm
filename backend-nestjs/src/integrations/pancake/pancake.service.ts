@@ -14,6 +14,56 @@ export class PancakeService {
     private usersService: UsersService,
   ) {}
 
+  private normalizePhone(phone: string) {
+    return phone.replace(/\D/g, '');
+  }
+
+  private buildPhoneSearchTerms(phone: string) {
+    const rawPhone = phone.trim();
+    const normalizedPhone = this.normalizePhone(rawPhone);
+    const searchTerms = new Set<string>();
+
+    if (rawPhone) searchTerms.add(rawPhone);
+    if (normalizedPhone) searchTerms.add(normalizedPhone);
+
+    if (normalizedPhone.length === 9) {
+      searchTerms.add(`0${normalizedPhone}`);
+    }
+
+    if (normalizedPhone.startsWith('84') && normalizedPhone.length >= 11) {
+      searchTerms.add(`0${normalizedPhone.slice(2)}`);
+    }
+
+    if (normalizedPhone.startsWith('0') && normalizedPhone.length >= 10) {
+      searchTerms.add(`84${normalizedPhone.slice(1)}`);
+    }
+
+    return Array.from(searchTerms).filter(term => term.length >= 9);
+  }
+
+  private async getActivePancakeIntegrations(storeId?: string) {
+    const integrations = await this.prisma.storeIntegration.findMany({
+      where: {
+        platform: 'PANCAKE',
+        isActive: true,
+        ...(storeId ? { storeId } : {}),
+      },
+      select: {
+        storeId: true,
+        shopId: true,
+        apiKey: true,
+      },
+    });
+
+    return integrations.filter((integration) => {
+      if (!integration.storeId || !integration.shopId || !integration.apiKey) {
+        this.logger.warn('[Pancake] Ignoring active integration missing storeId, shopId or apiKey');
+        return false;
+      }
+      return true;
+    });
+  }
+
   private async getPancakeConfig(storeId?: string, shopId?: string) {
     // Only get from database, no fallback to env
     const whereClause: any = { platform: 'PANCAKE', isActive: true };
@@ -174,58 +224,72 @@ export class PancakeService {
    */
   async syncOrdersForUser(phone: string, userId: string, storeId?: string) {
     this.logger.log(`[Pancake] Starting sync for userId: ${userId}, phone: ${phone}`);
-    
-    // Get config first to know which storeId we are using
-    const config = await this.getPancakeConfig(storeId);
-    if (!config) {
+
+    const integrations = await this.getActivePancakeIntegrations(storeId);
+    if (integrations.length === 0) {
       this.logger.warn(`[Pancake] No active integration found for syncOrdersForUser`);
       return 0;
     }
 
-    // Find the store ID associated with this config
-    const integration = await this.prisma.storeIntegration.findFirst({
-      where: { shopId: config.shopId, platform: 'PANCAKE', isActive: true }
-    });
-    const activeStoreId = integration?.storeId || storeId;
-
-    if (!activeStoreId) {
-      this.logger.warn(`[Pancake] Could not determine storeId for sync`);
+    const searchTerms = this.buildPhoneSearchTerms(phone);
+    if (searchTerms.length === 0) {
+      this.logger.warn(`[Pancake] Phone is empty after normalization, skip sync for userId: ${userId}`);
       return 0;
     }
 
-    const orders = await this.fetchOrdersByPhone(phone, activeStoreId);
     let totalNewSpent = 0;
     let syncedCount = 0;
     let customerInfoSynced = false;
-    
-    if (!orders || orders.length === 0) {
-      this.logger.log(`[Pancake] No orders to sync for phone: ${phone}`);
-      return 0;
-    }
+    let totalFetchedOrders = 0;
+    const processedOrders = new Set<string>();
 
-    for (const pOrder of orders) {
-      try {
-        const result = await this.syncSingleOrder(pOrder, activeStoreId);
-        
-        if (result.synced) {
-          totalNewSpent += result.amount;
-          syncedCount++;
-          
-          // Try to sync profile from the first successful order
-          if (!customerInfoSynced) {
-            const orderDetail = await this.fetchOrderDetail(pOrder.id, activeStoreId);
-            if (orderDetail) {
-              const custInfo = this.extractCustomerInfo(orderDetail);
-              if (custInfo.name || custInfo.fullAddress) {
-                await this.syncUserProfile(userId, custInfo);
-                customerInfoSynced = true;
+    for (const integration of integrations) {
+      const orderMap = new Map<string, any>();
+
+      for (const searchTerm of searchTerms) {
+        const orders = await this.fetchOrdersByPhone(searchTerm, integration.storeId);
+        for (const order of orders) {
+          orderMap.set(String(order.id), order);
+        }
+      }
+
+      totalFetchedOrders += orderMap.size;
+
+      for (const pOrder of orderMap.values()) {
+        const dedupeKey = `${integration.storeId}:${pOrder.id}`;
+        if (processedOrders.has(dedupeKey)) {
+          continue;
+        }
+        processedOrders.add(dedupeKey);
+
+        try {
+          const result = await this.syncSingleOrder(pOrder, integration.storeId, userId);
+
+          if (result.synced) {
+            totalNewSpent += result.amount;
+            syncedCount++;
+
+            // Try to sync profile from the first successful order
+            if (!customerInfoSynced) {
+              const orderDetail = await this.fetchOrderDetail(pOrder.id, integration.storeId);
+              if (orderDetail) {
+                const custInfo = this.extractCustomerInfo(orderDetail);
+                if (custInfo.name || custInfo.fullAddress) {
+                  await this.syncUserProfile(userId, custInfo);
+                  customerInfoSynced = true;
+                }
               }
             }
           }
+        } catch (error) {
+          this.logger.error(`[Pancake] Error in syncOrdersForUser for order ${pOrder.id}:`, error);
         }
-      } catch (error) {
-        this.logger.error(`[Pancake] Error in syncOrdersForUser for order ${pOrder.id}:`, error);
       }
+    }
+
+    if (totalFetchedOrders === 0) {
+      this.logger.log(`[Pancake] No orders to sync for phone: ${phone}`);
+      return 0;
     }
 
     this.logger.log(`[Pancake] Sync completed. Orders: ${syncedCount}, Amount: ${totalNewSpent}`);
@@ -887,7 +951,7 @@ export class PancakeService {
   /**
    * Sync single order from Pancake
    */
-  async syncSingleOrder(pOrder: any, storeId: string) {
+  async syncSingleOrder(pOrder: any, storeId: string, targetUserId?: string) {
     const orderCode = `PCK-${pOrder.id}`;
     
     const existing = await this.prisma.order.findUnique({
@@ -900,9 +964,19 @@ export class PancakeService {
       return { synced: false, amount: 0 };
     }
 
-    let user = await this.prisma.user.findFirst({
-      where: { phone }
-    });
+    const phoneSearchTerms = this.buildPhoneSearchTerms(phone);
+
+    let user = targetUserId
+      ? await this.prisma.user.findUnique({
+          where: { id: targetUserId },
+        })
+      : await this.prisma.user.findFirst({
+          where: {
+            phone: {
+              in: phoneSearchTerms,
+            },
+          },
+        });
 
     if (!user) {
       this.logger.log(`[Pancake] No existing user for phone ${phone}, creating order without userId`);

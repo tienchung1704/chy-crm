@@ -16,6 +16,7 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import { GetUser } from '../auth/decorators/get-user.decorator';
 import { Public } from '../auth/decorators/public.decorator';
 import { CreateOrderDto } from './dto/create-order.dto';
+import { CreateAdminOrderDto } from './dto/create-admin-order.dto';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
 import { CheckStockDto } from './dto/check-stock.dto';
 import { ShippingFeeDto } from './dto/shipping-fee.dto';
@@ -32,6 +33,22 @@ export class OrdersController {
   @ApiResponse({ status: 201, description: 'Order created successfully' })
   create(@GetUser('id') userId: string, @Body() createOrderDto: CreateOrderDto) {
     return this.ordersService.create(userId, createOrderDto);
+  }
+
+  @Post('admin')
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN', 'STAFF', 'MODERATOR')
+  @ApiOperation({ summary: 'Create order from admin' })
+  createAdminOrder(
+    @GetUser('id') userId: string,
+    @GetUser('role') role: string,
+    @Body() createOrderDto: CreateAdminOrderDto,
+  ) {
+    return this.ordersService.createAdminOrder({
+      actorId: userId,
+      actorRole: role,
+      createOrderDto,
+    });
   }
 
   @Get()

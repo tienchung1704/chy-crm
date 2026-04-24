@@ -59,15 +59,44 @@ export class UsersController {
   @ApiOperation({ summary: 'Complete user onboarding' })
   async completeOnboarding(@GetUser('id') userId: string, @Body() data: any) {
     const result = await this.usersService.completeOnboarding(userId, data);
-    
-    // Auto sync pancake orders if phone is provided
+
+    let pancakeSync: {
+      success: boolean;
+      totalSpent: number;
+      phone: string | null;
+      error?: string;
+    } = {
+      success: false,
+      totalSpent: 0,
+      phone: result.user.phone || null,
+    };
+
     if (result.user.phone) {
-      this.pancakeService.syncOrdersForUser(result.user.phone, userId).catch(err => {
-        console.error('Error auto-syncing pancake orders after onboarding:', err);
-      });
+      try {
+        const totalSpent = await this.pancakeService.syncOrdersForUser(
+          result.user.phone,
+          userId,
+        );
+        pancakeSync = {
+          success: true,
+          totalSpent,
+          phone: result.user.phone,
+        };
+      } catch (err) {
+        console.error('Error syncing pancake orders after onboarding:', err);
+        pancakeSync = {
+          success: false,
+          totalSpent: 0,
+          phone: result.user.phone,
+          error: err instanceof Error ? err.message : 'Unknown error',
+        };
+      }
     }
-    
-    return result;
+
+    return {
+      ...result,
+      pancakeSync,
+    };
   }
 
   @Post(':userId/sync-pancake-orders')
