@@ -894,11 +894,6 @@ export class PancakeService {
       where: { orderCode }
     });
 
-    if (existing) {
-      this.logger.log(`[Pancake] Order ${orderCode} already exists, skipping`);
-      return { synced: false, amount: 0 };
-    }
-
     const phone = pOrder.bill_phone_number || pOrder.shipping_address?.phone_number;
     if (!phone) {
       this.logger.warn(`[Pancake] Order ${orderCode} has no phone number, skipping`);
@@ -1136,40 +1131,73 @@ export class PancakeService {
     const pancakeCreatedAt = detailData.inserted_at || pOrder.inserted_at;
     const orderCreatedAt = pancakeCreatedAt ? new Date(pancakeCreatedAt) : new Date();
 
-    const order = await this.prisma.order.create({
-      data: {
-        userId: user?.id || null,
-        orderCode,
-        source: 'PANCAKE',
-        shippingName: shippingAddr?.full_name || pOrder.bill_full_name || null,
-        shippingPhone: shippingAddr?.phone_number || pOrder.bill_phone_number || null,
-        shippingStreet: shippingAddr?.address || null,
-        shippingWard: shippingAddr?.commune_id || null,
-        shippingProvince: shippingAddr?.province_id || null,
-        subtotal,
-        discountAmount: discount,
-        shippingFee,
-        totalAmount,
-        status,
-        paymentStatus,
-        note: pOrder.note || detailData.note || null,
-        customerNote: pOrder.note_print || detailData.note_print || null,
-        metadata,
-        storeId,
-        createdAt: orderCreatedAt,
-        items: orderItemsData.length > 0 ? {
-          create: orderItemsData
-        } : undefined,
-      }
-    });
+    let order;
 
-    this.logger.log(`[Pancake] Synced order: ${orderCode}, amount: ${totalAmount}, paid: ${totalPaid}`);
+    if (existing) {
+      // Delete old items so we can recreate them
+      await this.prisma.orderItem.deleteMany({
+        where: { orderId: existing.id }
+      });
 
-    if (status === OrderStatus.COMPLETED && user) {
+      order = await this.prisma.order.update({
+        where: { id: existing.id },
+        data: {
+          shippingName: shippingAddr?.full_name || pOrder.bill_full_name || null,
+          shippingPhone: shippingAddr?.phone_number || pOrder.bill_phone_number || null,
+          shippingStreet: shippingAddr?.address || null,
+          shippingWard: shippingAddr?.commune_id || null,
+          shippingProvince: shippingAddr?.province_id || null,
+          subtotal,
+          discountAmount: discount,
+          shippingFee,
+          totalAmount,
+          status,
+          paymentStatus,
+          note: pOrder.note || detailData.note || null,
+          customerNote: pOrder.note_print || detailData.note_print || null,
+          metadata,
+          storeId,
+          items: orderItemsData.length > 0 ? {
+            create: orderItemsData
+          } : undefined,
+        }
+      });
+      this.logger.log(`[Pancake] Updated order: ${orderCode}, amount: ${totalAmount}, paid: ${totalPaid}`);
+    } else {
+      order = await this.prisma.order.create({
+        data: {
+          userId: user?.id || null,
+          orderCode,
+          source: 'PANCAKE',
+          shippingName: shippingAddr?.full_name || pOrder.bill_full_name || null,
+          shippingPhone: shippingAddr?.phone_number || pOrder.bill_phone_number || null,
+          shippingStreet: shippingAddr?.address || null,
+          shippingWard: shippingAddr?.commune_id || null,
+          shippingProvince: shippingAddr?.province_id || null,
+          subtotal,
+          discountAmount: discount,
+          shippingFee,
+          totalAmount,
+          status,
+          paymentStatus,
+          note: pOrder.note || detailData.note || null,
+          customerNote: pOrder.note_print || detailData.note_print || null,
+          metadata,
+          storeId,
+          createdAt: orderCreatedAt,
+          items: orderItemsData.length > 0 ? {
+            create: orderItemsData
+          } : undefined,
+        }
+      });
+      this.logger.log(`[Pancake] Synced order: ${orderCode}, amount: ${totalAmount}, paid: ${totalPaid}`);
+    }
+
+    if (status === OrderStatus.COMPLETED && user && (!existing || existing.status !== 'COMPLETED')) {
       await this.updateUserRankAndSpent(user.id, totalAmount);
     }
 
-    return { synced: true, amount: totalAmount, orderId: order.id };
+    return { synced: true, amount: totalAmount, orderId: order.id, isUpdate: !!existing };
   }
 
   /**
@@ -1260,7 +1288,7 @@ export class PancakeService {
 
       return {
         processed: true,
-        action: result.synced ? 'created' : 'skipped',
+        action: result.synced ? (result.isUpdate ? 'updated' : 'created') : 'skipped',
         orderCode: `PCK-${orderData.id}`,
         amount: result.amount,
       };

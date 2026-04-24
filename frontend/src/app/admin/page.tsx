@@ -232,7 +232,8 @@ export default async function AdminDashboard() {
                       <td className="px-6 py-4 font-semibold">{formatCurrency(customer.totalSpent)}</td>
                       <td className="px-6 py-4">{customer._count?.orders || 0}</td>
                     </tr>
-                  ))
+                    );
+                  })
                 )}
               </tbody>
             </table>
