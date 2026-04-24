@@ -123,7 +123,7 @@ model Store {
   id          String    @id @default(uuid())
   name        String
   slug        String    @unique
-  logoUrl     String?   @map("logo_url")
+  logoUrl     String?   @map("logo_url") @db.LongText
   description String?   @db.Text
   isActive    Boolean   @default(false) @map("is_active")
   isBanned    Boolean   @default(false) @map("is_banned")
@@ -181,7 +181,7 @@ model Product {
   slug           String          @unique
   sku            String?
   externalId     String?         @map("external_id") // Pancake product ID
-  imageUrl       String?         @map("image_url") @db.Text
+  imageUrl       String?         @map("image_url") @db.LongText
   description    String?         @db.Text
   isComboSet     Boolean         @default(false) @map("is_combo_set")
   originalPrice  Float           @map("original_price")

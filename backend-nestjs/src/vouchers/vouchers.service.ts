@@ -262,10 +262,18 @@ export class VouchersService implements OnModuleInit {
   }
 
   async create(data: any) {
+    const formattedData = { ...data };
+    
+    if (formattedData.validFrom === '') formattedData.validFrom = null;
+    if (formattedData.validTo === '') formattedData.validTo = null;
+    
+    if (formattedData.validFrom) formattedData.validFrom = new Date(formattedData.validFrom);
+    if (formattedData.validTo) formattedData.validTo = new Date(formattedData.validTo);
+
     return this.prisma.voucher.create({
       data: {
-        ...data,
-        isActive: data.isActive !== undefined ? data.isActive : true,
+        ...formattedData,
+        isActive: formattedData.isActive !== undefined ? formattedData.isActive : true,
       },
     });
   }
@@ -279,9 +287,17 @@ export class VouchersService implements OnModuleInit {
       throw new NotFoundException('Voucher not found');
     }
 
+    const formattedData = { ...data };
+    
+    if (formattedData.validFrom === '') formattedData.validFrom = null;
+    if (formattedData.validTo === '') formattedData.validTo = null;
+    
+    if (formattedData.validFrom) formattedData.validFrom = new Date(formattedData.validFrom);
+    if (formattedData.validTo) formattedData.validTo = new Date(formattedData.validTo);
+
     return this.prisma.voucher.update({
       where: { id },
-      data,
+      data: formattedData,
     });
   }
 

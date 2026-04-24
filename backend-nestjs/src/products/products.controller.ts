@@ -32,7 +32,7 @@ export class ProductsController {
   @ApiOperation({ summary: 'Create new product (Admin only)' })
   @ApiResponse({ status: 201, description: 'Product created successfully' })
   create(@GetUser() user: any, @Body() createProductDto: CreateProductDto) {
-    return this.productsService.create(user.userId, user.role, createProductDto);
+    return this.productsService.create(user.id, user.role, createProductDto);
   }
 
   @Get()
@@ -57,7 +57,7 @@ export class ProductsController {
     @Query('isActive') isActive?: string,
   ) {
     return this.productsService.findAdminProducts({
-      userId: user.userId,
+      userId: user.id,
       role: user.role,
       page: page ? parseInt(page) : undefined,
       limit: limit ? parseInt(limit) : undefined,
@@ -109,7 +109,7 @@ export class ProductsController {
     @Param('id') id: string, 
     @Body() updateProductDto: UpdateProductDto
   ) {
-    return this.productsService.update(id, updateProductDto, user.userId, user.role);
+    return this.productsService.update(id, updateProductDto, user.id, user.role);
   }
 
   @Delete(':id')
@@ -118,6 +118,6 @@ export class ProductsController {
   @ApiOperation({ summary: 'Delete product (Admin only)' })
   @ApiResponse({ status: 200, description: 'Product deleted successfully' })
   remove(@GetUser() user: any, @Param('id') id: string) {
-    return this.productsService.remove(id, user.userId, user.role);
+    return this.productsService.remove(id, user.id, user.role);
   }
 }

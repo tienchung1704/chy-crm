@@ -63,7 +63,7 @@ export class AdminService {
         take: 8,
         orderBy: { createdAt: 'desc' },
         include: {
-          user: { select: { name: true, rank: true } },
+          user: { select: { name: true, phone: true, rank: true } },
         },
       }),
       this.prisma.user.findMany({
@@ -74,6 +74,7 @@ export class AdminService {
           id: true,
           name: true,
           email: true,
+          phone: true,
           rank: true,
           totalSpent: true,
           _count: { select: { orders: { where: orderWhere } } },
@@ -197,17 +198,24 @@ export class AdminService {
   }
 
   async getCustomerDetail(id: string, user: any) {
-    if (user.role === 'MODERATOR') {
+    const isModerator = user.role === 'MODERATOR';
+    let storeId: string | undefined;
+
+    if (isModerator) {
       const store = await this.prisma.store.findUnique({
         where: { ownerId: user.id },
       });
+      storeId = store?.id || 'no-access';
+      
       const hasOrder = await this.prisma.order.findFirst({
-        where: { userId: id, storeId: store?.id || 'no-access' },
+        where: { userId: id, storeId },
       });
       if (!hasOrder) {
         return null;
       }
     }
+
+    const orderWhere = isModerator ? { storeId } : {};
 
     const customer = await this.prisma.user.findUnique({
       where: { id },
@@ -238,6 +246,7 @@ export class AdminService {
           take: 20,
         },
         orders: {
+          where: orderWhere,
           select: {
             id: true, orderCode: true, totalAmount: true, status: true,
             paymentStatus: true, source: true, createdAt: true,
@@ -246,6 +255,7 @@ export class AdminService {
           take: 20,
         },
         commissionsEarned: {
+          where: isModerator ? { order: { storeId } } : {},
           select: {
             id: true, amount: true, percentage: true, level: true,
             status: true, createdAt: true,
@@ -263,7 +273,12 @@ export class AdminService {
           take: 10,
         },
         _count: {
-          select: { orders: true, referees: true, commissionsEarned: true, userVouchers: true },
+          select: { 
+            orders: { where: orderWhere }, 
+            referees: true, 
+            commissionsEarned: { where: isModerator ? { order: { storeId } } : {} }, 
+            userVouchers: true 
+          },
         },
       },
     });
@@ -275,12 +290,12 @@ export class AdminService {
     // Aggregate stats
     const [orderStats, commissionStats] = await Promise.all([
       this.prisma.order.aggregate({
-        where: { userId: id, status: 'COMPLETED' },
+        where: { userId: id, status: 'COMPLETED', ...orderWhere },
         _sum: { totalAmount: true },
         _count: true,
       }),
       this.prisma.commissionLedger.aggregate({
-        where: { userId: id },
+        where: { userId: id, status: 'PAID', ...(isModerator ? { order: { storeId } } : {}) },
         _sum: { amount: true },
       }),
     ]);

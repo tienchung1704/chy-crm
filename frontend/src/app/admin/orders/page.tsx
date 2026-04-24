@@ -125,8 +125,12 @@ export default async function OrdersPage(props: { searchParams: Promise<{ page?:
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      <div className={`text-sm font-bold ${isUnread ? 'text-gray-900 font-bold' : 'text-gray-700 font-bold'}`}>{order.user?.name || 'Unknown'}</div>
-                      <div className="text-[11px] text-gray-400 font-medium">{order.user?.phone || ''}</div>
+                      <div className={`text-sm font-bold ${isUnread ? 'text-gray-900 font-bold' : 'text-gray-700 font-bold'}`}>
+                        {order.shippingName || order.user?.name || order.user?.phone || 'Khách lạ'}
+                      </div>
+                      <div className="text-[11px] text-gray-400 font-medium">
+                        {order.shippingPhone || order.user?.phone || ''}
+                      </div>
                     </td>
                     <td className="px-6 py-5">
                       <span className="px-2.5 py-1 rounded-md text-[10px] font-bold bg-gray-100 text-gray-400 uppercase tracking-wider">

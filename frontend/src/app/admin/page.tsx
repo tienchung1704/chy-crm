@@ -139,6 +139,8 @@ export default async function AdminDashboard() {
                 ) : (
                   stats.recentOrders.map((order: any) => {
                     const statusInfo = getStatusBadge(order.status);
+                    const displayName = order.shippingName || order.user?.name || order.user?.phone || 'Khách lạ';
+                    const displayChar = displayName !== 'Khách lạ' ? displayName.charAt(0).toUpperCase() : '?';
                     return (
                       <tr key={order.id} className="hover:bg-gray-50">
                         <td className="px-6 py-4">
@@ -149,9 +151,9 @@ export default async function AdminDashboard() {
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-2">
                             <div className="w-6 h-6 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-xs font-semibold">
-                              {order.user?.name?.charAt(0) || '?'}
+                              {displayChar}
                             </div>
-                            <span className="text-sm">{order.user?.name || 'Khách lạ'}</span>
+                            <span className="text-sm">{displayName}</span>
                           </div>
                         </td>
                         <td className="px-6 py-4 font-semibold">{formatCurrency(order.totalAmount)}</td>
@@ -200,16 +202,19 @@ export default async function AdminDashboard() {
                     </td>
                   </tr>
                 ) : (
-                  stats.topCustomers.map((customer: any) => (
+                  stats.topCustomers.map((customer: any) => {
+                    const displayName = customer.name || customer.phone || 'Khách lạ';
+                    const displayChar = displayName !== 'Khách lạ' ? displayName.charAt(0).toUpperCase() : '?';
+                    return (
                     <tr key={customer.id} className="hover:bg-gray-50">
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-2">
                           <div className="w-6 h-6 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-xs font-semibold">
-                            {customer.name?.charAt(0)}
+                            {displayChar}
                           </div>
                           <div>
-                            <div className="font-semibold text-sm">{customer.name}</div>
-                            <div className="text-xs text-gray-600">{customer.email}</div>
+                            <div className="font-semibold text-sm">{displayName}</div>
+                            <div className="text-xs text-gray-600">{customer.email || customer.phone}</div>
                           </div>
                         </div>
                       </td>
