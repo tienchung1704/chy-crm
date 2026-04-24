@@ -21,6 +21,7 @@ function getTypeBadge(type: string) {
     PERCENT: { class: 'badge-primary', label: 'Giảm %' },
     FIXED_AMOUNT: { class: 'badge-success', label: 'Giảm tiền' },
     FREESHIP: { class: 'badge-info', label: 'Free ship' },
+    STACK: { class: 'badge-warning', label: '📊 Stack' },
   };
   return map[type] || { class: 'badge-member', label: type };
 }
@@ -133,15 +134,25 @@ export default async function VouchersPage() {
                       <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
                         typeInfo.class === 'badge-primary' ? 'bg-blue-100 text-blue-700' :
                         typeInfo.class === 'badge-success' ? 'bg-green-100 text-green-700' :
+                        typeInfo.class === 'badge-warning' ? 'bg-orange-100 text-orange-700' :
                         'bg-cyan-100 text-cyan-700'
                       }`}>
                         {typeInfo.label}
                       </span>
                     </td>
                     <td className="px-6 py-4 font-semibold text-gray-800">
-                      {voucher.type === 'PERCENT'
-                        ? `${voucher.value}%`
-                        : formatCurrency(voucher.value)}
+                      {voucher.type === 'STACK'
+                        ? (() => {
+                            const tiers = voucher.stackTiers as any[] | null;
+                            if (tiers && tiers.length > 0) {
+                              const maxTier = tiers.reduce((max: any, t: any) => t.discount > max.discount ? t : max, tiers[0]);
+                              return `Đến ${maxTier.type === 'PERCENT' ? `${maxTier.discount}%` : formatCurrency(maxTier.discount)}`;
+                            }
+                            return '—';
+                          })()
+                        : voucher.type === 'PERCENT'
+                          ? `${voucher.value}%`
+                          : formatCurrency(voucher.value)}
                     </td>
                     <td className="px-6 py-4 text-gray-700">{formatCurrency(voucher.minOrderValue)}</td>
                     <td className="px-6 py-4 text-gray-700">

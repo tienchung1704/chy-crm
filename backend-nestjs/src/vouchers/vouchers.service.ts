@@ -237,9 +237,30 @@ export class VouchersService implements OnModuleInit {
     };
   }
 
-  async findAllAdmin(excludeGamification: boolean = false) {
+  /**
+   * Helper: get storeId for a MODERATOR user
+   */
+  private async getStoreIdForUser(user: any): Promise<string | null> {
+    if (!user || user.role !== 'MODERATOR') return null;
+    const store = await this.prisma.store.findUnique({
+      where: { ownerId: user.id },
+      select: { id: true },
+    });
+    return store?.id || null;
+  }
+
+  async findAllAdmin(excludeGamification: boolean = false, user?: any) {
+    let storeFilter: any = {};
+
+    if (user?.role === 'MODERATOR') {
+      const storeId = await this.getStoreIdForUser(user);
+      if (!storeId) return [];
+      storeFilter = { storeId };
+    }
+
     return this.prisma.voucher.findMany({
       where: {
+        ...storeFilter,
         ...(excludeGamification && { campaignCategory: { not: 'GAMIFICATION' } }),
       },
       include: {
@@ -261,7 +282,7 @@ export class VouchersService implements OnModuleInit {
     });
   }
 
-  async create(data: any) {
+  async create(data: any, user?: any) {
     const formattedData = { ...data };
     
     if (formattedData.validFrom === '') formattedData.validFrom = null;
@@ -269,6 +290,12 @@ export class VouchersService implements OnModuleInit {
     
     if (formattedData.validFrom) formattedData.validFrom = new Date(formattedData.validFrom);
     if (formattedData.validTo) formattedData.validTo = new Date(formattedData.validTo);
+
+    // Auto-assign storeId for MODERATOR
+    if (user?.role === 'MODERATOR' && !formattedData.storeId) {
+      const storeId = await this.getStoreIdForUser(user);
+      if (storeId) formattedData.storeId = storeId;
+    }
 
     return this.prisma.voucher.create({
       data: {
@@ -278,13 +305,21 @@ export class VouchersService implements OnModuleInit {
     });
   }
 
-  async update(id: string, data: any) {
+  async update(id: string, data: any, user?: any) {
     const voucher = await this.prisma.voucher.findUnique({
       where: { id },
     });
 
     if (!voucher) {
       throw new NotFoundException('Voucher not found');
+    }
+
+    // MODERATOR can only update their own store's vouchers
+    if (user?.role === 'MODERATOR') {
+      const storeId = await this.getStoreIdForUser(user);
+      if (voucher.storeId !== storeId) {
+        throw new NotFoundException('Voucher not found');
+      }
     }
 
     const formattedData = { ...data };
@@ -301,13 +336,21 @@ export class VouchersService implements OnModuleInit {
     });
   }
 
-  async remove(id: string) {
+  async remove(id: string, user?: any) {
     const voucher = await this.prisma.voucher.findUnique({
       where: { id },
     });
 
     if (!voucher) {
       throw new NotFoundException('Voucher not found');
+    }
+
+    // MODERATOR can only delete their own store's vouchers
+    if (user?.role === 'MODERATOR') {
+      const storeId = await this.getStoreIdForUser(user);
+      if (voucher.storeId !== storeId) {
+        throw new NotFoundException('Voucher not found');
+      }
     }
 
     // Instead of deleting, we might want to just deactivate if it has user claims

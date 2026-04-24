@@ -27,6 +27,16 @@ export default function VoucherActions() {
     isStackable: false,
   });
 
+  const defaultStackTiers = [
+    { minProducts: 1, discount: 200000, type: 'FIXED_AMOUNT' },
+    { minProducts: 2, discount: 300000, type: 'FIXED_AMOUNT' },
+    { minProducts: 3, discount: 500000, type: 'FIXED_AMOUNT' },
+    { minProducts: 4, discount: 800000, type: 'FIXED_AMOUNT' },
+    { minProducts: 5, discount: 1000000, type: 'FIXED_AMOUNT' },
+  ];
+
+  const [stackTiers, setStackTiers] = useState(defaultStackTiers);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -35,12 +45,13 @@ export default function VoucherActions() {
     try {
       await apiClientClient.post('/vouchers', {
         ...form,
-        value: parseFloat(form.value),
+        value: form.type === 'STACK' ? 0 : parseFloat(form.value),
         minOrderValue: parseFloat(form.minOrderValue) || 0,
         maxDiscount: form.maxDiscount ? parseFloat(form.maxDiscount) : null,
         totalUsageLimit: form.totalUsageLimit ? parseInt(form.totalUsageLimit) : null,
         perCustomerLimit: parseInt(form.perCustomerLimit) || 1,
         durationDays: form.durationDays ? parseInt(form.durationDays) : null,
+        stackTiers: form.type === 'STACK' ? stackTiers : null,
       });
 
       setShowModal(false);
@@ -147,30 +158,36 @@ export default function VoucherActions() {
                       id="v-type" 
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       value={form.type} 
-                      onChange={e => update('type', e.target.value)}
+                      onChange={e => {
+                        update('type', e.target.value);
+                        if (e.target.value === 'STACK') setStackTiers([...defaultStackTiers]);
+                      }}
                     >
                       <option value="PERCENT">Giảm %</option>
                       <option value="FIXED_AMOUNT">Giảm tiền mặt</option>
                       <option value="FREESHIP">Free ship</option>
+                      <option value="STACK">📊 Stack (theo SP)</option>
                     </select>
                   </div>
                 </div>
 
                 <div className="grid grid-cols-3 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="v-value">
-                      Giá trị {form.type === 'PERCENT' ? '(%)' : '(VNĐ)'} *
-                    </label>
-                    <input 
-                      id="v-value" 
-                      type="number" 
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" 
-                      required
-                      value={form.value} 
-                      onChange={e => update('value', e.target.value)}
-                      placeholder={form.type === 'PERCENT' ? '10' : '50000'} 
-                    />
-                  </div>
+                  {form.type !== 'STACK' && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="v-value">
+                        Giá trị {form.type === 'PERCENT' ? '(%)' : '(VNĐ)'} *
+                      </label>
+                      <input 
+                        id="v-value" 
+                        type="number" 
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" 
+                        required={form.type !== 'STACK'}
+                        value={form.value} 
+                        onChange={e => update('value', e.target.value)}
+                        placeholder={form.type === 'PERCENT' ? '10' : '50000'} 
+                      />
+                    </div>
+                  )}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="v-min">
                       Đơn tối thiểu (VNĐ)
@@ -184,20 +201,96 @@ export default function VoucherActions() {
                       placeholder="399000" 
                     />
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="v-max">
-                      Giảm tối đa (VNĐ)
-                    </label>
-                    <input 
-                      id="v-max" 
-                      type="number" 
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      value={form.maxDiscount} 
-                      onChange={e => update('maxDiscount', e.target.value)}
-                      placeholder="Không giới hạn" 
-                    />
-                  </div>
+                  {form.type !== 'STACK' && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="v-max">
+                        Giảm tối đa (VNĐ)
+                      </label>
+                      <input 
+                        id="v-max" 
+                        type="number" 
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        value={form.maxDiscount} 
+                        onChange={e => update('maxDiscount', e.target.value)}
+                        placeholder="Không giới hạn" 
+                      />
+                    </div>
+                  )}
                 </div>
+
+                {/* Stack Tiers Editor */}
+                {form.type === 'STACK' && (
+                  <div className="border border-blue-200 bg-blue-50/50 rounded-xl p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="text-sm font-bold text-gray-800">📊 Bảng mốc giảm giá theo số SP</h4>
+                      <button
+                        type="button"
+                        className="text-xs font-medium text-blue-600 hover:text-blue-700 px-2 py-1 rounded bg-blue-100 hover:bg-blue-200 transition-colors"
+                        onClick={() => setStackTiers(prev => [...prev, { minProducts: prev.length + 1, discount: 0, type: 'FIXED_AMOUNT' }])}
+                      >
+                        + Thêm mốc
+                      </button>
+                    </div>
+                    <div className="space-y-2">
+                      <div className="grid grid-cols-[60px_1fr_120px_40px] gap-2 text-xs font-semibold text-gray-500 px-1">
+                        <span>Từ SP</span>
+                        <span>Giảm</span>
+                        <span>Loại</span>
+                        <span></span>
+                      </div>
+                      {stackTiers.map((tier, idx) => (
+                        <div key={idx} className="grid grid-cols-[60px_1fr_120px_40px] gap-2 items-center">
+                          <input
+                            type="number"
+                            min={1}
+                            className="px-2 py-1.5 border border-gray-300 rounded-lg text-sm text-center focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            value={tier.minProducts}
+                            onChange={e => {
+                              const updated = [...stackTiers];
+                              updated[idx] = { ...updated[idx], minProducts: parseInt(e.target.value) || 1 };
+                              setStackTiers(updated);
+                            }}
+                          />
+                          <input
+                            type="number"
+                            min={0}
+                            className="px-2 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            value={tier.discount}
+                            onChange={e => {
+                              const updated = [...stackTiers];
+                              updated[idx] = { ...updated[idx], discount: parseFloat(e.target.value) || 0 };
+                              setStackTiers(updated);
+                            }}
+                            placeholder={tier.type === 'PERCENT' ? 'VD: 10' : 'VD: 200000'}
+                          />
+                          <select
+                            className="px-2 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            value={tier.type}
+                            onChange={e => {
+                              const updated = [...stackTiers];
+                              updated[idx] = { ...updated[idx], type: e.target.value };
+                              setStackTiers(updated);
+                            }}
+                          >
+                            <option value="FIXED_AMOUNT">VNĐ</option>
+                            <option value="PERCENT">%</option>
+                          </select>
+                          <button
+                            type="button"
+                            className="text-red-400 hover:text-red-600 transition-colors text-lg leading-none"
+                            onClick={() => setStackTiers(prev => prev.filter((_, i) => i !== idx))}
+                            disabled={stackTiers.length <= 1}
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                    <p className="text-xs text-gray-500 mt-3">
+                      💡 "Từ SP" = số sản phẩm <strong>khác nhau</strong> tối thiểu trong đơn. Không tính số lượng.
+                    </p>
+                  </div>
+                )}
 
                 <div className="grid grid-cols-3 gap-4">
                   <div>

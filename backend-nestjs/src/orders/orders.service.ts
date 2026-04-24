@@ -128,14 +128,41 @@ export class OrdersService {
           userUsedCount < targetVoucher.perCustomerLimit &&
           subtotal >= targetVoucher.minOrderValue
         ) {
-          let voucherDiscount =
-            targetVoucher.type === 'PERCENT'
-              ? subtotal * (targetVoucher.value / 100)
-              : targetVoucher.value;
+          let voucherDiscount = 0;
+
+          if (targetVoucher.type === 'STACK') {
+            // STACK voucher: discount depends on distinct product count
+            const distinctProductCount = new Set(items.map(i => i.productId)).size;
+            const tiers = (targetVoucher as any).stackTiers as Array<{ minProducts: number; discount: number; type?: string }> | null;
+
+            if (tiers && Array.isArray(tiers) && tiers.length > 0) {
+              // Sort tiers descending by minProducts and find the best match
+              const sortedTiers = [...tiers].sort((a, b) => b.minProducts - a.minProducts);
+              const matchedTier = sortedTiers.find(t => distinctProductCount >= t.minProducts);
+
+              if (matchedTier) {
+                if (matchedTier.type === 'PERCENT') {
+                  voucherDiscount = subtotal * (matchedTier.discount / 100);
+                } else {
+                  voucherDiscount = matchedTier.discount;
+                }
+              }
+            }
+          } else if (targetVoucher.type === 'PERCENT') {
+            voucherDiscount = subtotal * (targetVoucher.value / 100);
+          } else {
+            voucherDiscount = targetVoucher.value;
+          }
 
           if (targetVoucher.maxDiscount && voucherDiscount > targetVoucher.maxDiscount) {
             voucherDiscount = targetVoucher.maxDiscount;
           }
+
+          // Never discount more than subtotal
+          if (voucherDiscount > subtotal) {
+            voucherDiscount = subtotal;
+          }
+
           discountAmount += voucherDiscount;
 
           const newlyClaimed = await this.prisma.userVoucher.create({
@@ -772,5 +799,95 @@ export class OrdersService {
     });
 
     return { success: true, order: updated };
+  }
+
+  async trackPublicOrder(code: string, phone: string) {
+    if (!code || !phone) {
+      throw new BadRequestException('Vui lòng nhập cả mã đơn hàng/mã vận đơn và số điện thoại');
+    }
+
+    const cleanCode = code.trim().toUpperCase();
+    const cleanPhone = phone.trim();
+
+    // Find orders that match the orderCode or trackingCode
+    // We fetch all potential matches because metadata JSON filtering can be tricky/inconsistent across SQL dialects
+    const potentialOrders = await this.prisma.order.findMany({
+      where: {
+        OR: [
+          { orderCode: cleanCode },
+          {
+            // JSON path query for trackingCode - using string path for MySQL compatibility
+            metadata: {
+              path: '$.partner.trackingCode',
+              equals: cleanCode,
+            },
+          },
+        ],
+      },
+      include: {
+        items: {
+          include: {
+            product: {
+              select: { name: true, imageUrl: true }
+            }
+          }
+        }
+      }
+    });
+
+    if (potentialOrders.length === 0) {
+      throw new NotFoundException('Không tìm thấy đơn hàng với mã này');
+    }
+
+    // Now filter by phone
+    const matchedOrder = potentialOrders.find((order) => {
+      // Check standard shippingPhone
+      if (order.shippingPhone && order.shippingPhone.includes(cleanPhone)) {
+        return true;
+      }
+      
+      // Check Pancake shippingAddress phone
+      const metadata = order.metadata as any;
+      if (metadata?.shippingAddress?.phoneNumber && metadata.shippingAddress.phoneNumber.includes(cleanPhone)) {
+        return true;
+      }
+      
+      return false;
+    });
+
+    if (!matchedOrder) {
+      throw new BadRequestException('Số điện thoại không đúng với đơn hàng này');
+    }
+
+    // Return safe data only (exclude user details, exact address, etc. if not needed, 
+    // but we can return basic tracking info)
+    const m = matchedOrder.metadata as any || {};
+    return {
+      id: matchedOrder.id,
+      orderCode: matchedOrder.orderCode,
+      status: matchedOrder.status,
+      createdAt: matchedOrder.createdAt,
+      totalAmount: matchedOrder.totalAmount,
+      shippingName: matchedOrder.shippingName || m.shippingAddress?.fullName,
+      paymentMethod: matchedOrder.paymentMethod || (matchedOrder.source === 'PANCAKE' ? 'Thanh toán qua Pancake' : 'Chưa xác định'),
+      paymentStatus: matchedOrder.paymentStatus,
+      isPancake: matchedOrder.source === 'PANCAKE',
+      items: (matchedOrder as any).items.map(item => ({
+        name: item.product?.name || 'Sản phẩm',
+        image: item.product?.imageUrl,
+        quantity: item.quantity,
+        price: item.price,
+        size: item.size,
+        color: item.color,
+        isGift: item.isGift,
+      })),
+      tracking: m.partner ? {
+        trackingCode: m.partner.trackingCode,
+        deliveryName: m.partner.deliveryName,
+        deliveryPhone: m.partner.deliveryPhone,
+        totalFee: m.partner.totalFee,
+        courierUpdates: m.partner.courierUpdates || []
+      } : null
+    };
   }
 }

@@ -97,14 +97,28 @@ export default function ProductActions({ categories = [] }: ProductActionsProps)
       const categoryIds = selectedCategoryId ? [selectedCategoryId] : [];
 
       await apiClientClient.post<any>('/products', {
-        ...form,
+        name: form.name,
+        sku: form.sku || undefined,
+        description: form.description || undefined,
+        imageUrl: form.imageUrl || undefined,
         originalPrice: parseFloat(form.originalPrice),
-        salePrice: form.salePrice ? parseFloat(form.salePrice) : null,
+        salePrice: form.salePrice ? parseFloat(form.salePrice) : undefined,
         stockQuantity: form.variants.length > 0 
           ? form.variants.reduce((acc, v) => acc + (parseInt(v.stock) || 0), 0)
           : (parseInt(form.stockQuantity) || 0),
         weight: parseInt(form.weight) || 500,
+        isComboSet: form.isComboSet,
+        isGiftItem: form.isGiftItem,
+        isActive: form.isActive,
         categoryIds,
+        variants: form.variants.length > 0
+          ? form.variants.map(v => ({
+              sizeId: v.sizeId || undefined,
+              colorId: v.colorId || undefined,
+              price: v.price ? parseFloat(v.price) : undefined,
+              stock: parseInt(v.stock) || 0,
+            }))
+          : undefined,
       });
 
       setShowModal(false);

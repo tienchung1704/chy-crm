@@ -22,11 +22,14 @@ export class VouchersController {
   }
 
   @Get('admin')
-  @Roles('ADMIN', 'STAFF')
+  @Roles('ADMIN', 'STAFF', 'MODERATOR')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get all vouchers for Admin' })
-  async findAllAdmin(@Query('excludeGamification') excludeGamification?: string) {
-    return this.vouchersService.findAllAdmin(excludeGamification === 'true');
+  async findAllAdmin(
+    @GetUser() user: any,
+    @Query('excludeGamification') excludeGamification?: string,
+  ) {
+    return this.vouchersService.findAllAdmin(excludeGamification === 'true', user);
   }
 
   @Get(':id')
@@ -37,27 +40,27 @@ export class VouchersController {
   }
 
   @Post()
-  @Roles('ADMIN', 'STAFF')
+  @Roles('ADMIN', 'STAFF', 'MODERATOR')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Create a new voucher' })
-  async create(@Body() data: any) {
-    return this.vouchersService.create(data);
+  async create(@GetUser() user: any, @Body() data: any) {
+    return this.vouchersService.create(data, user);
   }
 
   @Patch(':id')
-  @Roles('ADMIN', 'STAFF')
+  @Roles('ADMIN', 'STAFF', 'MODERATOR')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Update a voucher' })
-  async update(@Param('id') id: string, @Body() data: any) {
-    return this.vouchersService.update(id, data);
+  async update(@GetUser() user: any, @Param('id') id: string, @Body() data: any) {
+    return this.vouchersService.update(id, data, user);
   }
 
   @Delete(':id')
-  @Roles('ADMIN', 'STAFF')
+  @Roles('ADMIN', 'STAFF', 'MODERATOR')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Delete a voucher' })
-  async remove(@Param('id') id: string) {
-    return this.vouchersService.remove(id);
+  async remove(@GetUser() user: any, @Param('id') id: string) {
+    return this.vouchersService.remove(id, user);
   }
 
   @Post('claim-qr')
@@ -82,7 +85,7 @@ export class VouchersController {
   }
 
   @Post('manual-verify')
-  @Roles('ADMIN', 'STAFF')
+  @Roles('ADMIN', 'STAFF', 'MODERATOR')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Trigger manual voucher verification' })
   async manualVerifyVouchers() {

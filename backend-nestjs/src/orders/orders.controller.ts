@@ -14,6 +14,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { GetUser } from '../auth/decorators/get-user.decorator';
+import { Public } from '../auth/decorators/public.decorator';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
 import { CheckStockDto } from './dto/check-stock.dto';
@@ -143,5 +144,15 @@ export class OrdersController {
     @Body() body: { reason?: string },
   ) {
     return this.ordersService.customerCancelOrder(id, userId, body?.reason);
+  }
+
+  @Get('public/track')
+  @Public()
+  @ApiOperation({ summary: 'Publicly track order by code and phone' })
+  trackPublicOrder(
+    @Query('code') code: string,
+    @Query('phone') phone: string,
+  ) {
+    return this.ordersService.trackPublicOrder(code, phone);
   }
 }

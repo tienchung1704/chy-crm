@@ -10,7 +10,7 @@ export class CategoriesService {
     
     if (user && user.role === 'MODERATOR') {
       const store = await this.prisma.store.findUnique({
-        where: { ownerId: user.userId },
+        where: { ownerId: user.id },
       });
       if (store) {
         storeId = store.id;
@@ -18,10 +18,20 @@ export class CategoriesService {
     }
 
     const slug = data.slug || data.name.toLowerCase().replace(/ /g, '-');
+
+    // Only pick known Category fields, ignore unknown ones like 'level'
+    const { name, description, parentId, sortOrder, isActive, externalId, imageUrl } = data;
+
     return this.prisma.category.create({
       data: {
-        ...data,
+        name,
         slug,
+        ...(description !== undefined && { description }),
+        ...(parentId && { parentId }),
+        ...(sortOrder !== undefined && { sortOrder }),
+        ...(isActive !== undefined && { isActive }),
+        ...(externalId && { externalId }),
+        ...(imageUrl && { imageUrl }),
         ...(storeId && { storeId }),
       },
     });

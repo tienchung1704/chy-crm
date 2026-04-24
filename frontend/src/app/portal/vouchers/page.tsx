@@ -75,7 +75,14 @@ export default async function PortalVouchersPage() {
         </div>
         <div className="text-sm text-gray-600 mb-3">
           Giảm: <span className="font-semibold text-green-600">
-            {uv.voucher.type === 'PERCENT' ? `${uv.voucher.value}%` :
+            {uv.voucher.type === 'STACK' ? (() => {
+              const tiers = uv.voucher.stackTiers;
+              if (tiers && tiers.length > 0) {
+                const maxTier = tiers.reduce((max: any, t: any) => t.discount > max.discount ? t : max, tiers[0]);
+                return `Đến ${maxTier.type === 'PERCENT' ? `${maxTier.discount}%` : fmt(maxTier.discount)}`;
+              }
+              return 'Stack';
+            })() : uv.voucher.type === 'PERCENT' ? `${uv.voucher.value}%` :
               uv.voucher.type === 'FREESHIP' ? 'Phí ship' : fmt(uv.voucher.value)}
           </span>
         </div>
@@ -111,7 +118,14 @@ export default async function PortalVouchersPage() {
         </div>
         <div className="text-sm text-gray-600 mb-3">
           Giảm: <span className="font-semibold text-green-600">
-            {v.type === 'PERCENT' ? `${v.value}%` :
+            {v.type === 'STACK' ? (() => {
+              const tiers = v.stackTiers;
+              if (tiers && tiers.length > 0) {
+                const maxTier = tiers.reduce((max: any, t: any) => t.discount > max.discount ? t : max, tiers[0]);
+                return `Đến ${maxTier.type === 'PERCENT' ? `${maxTier.discount}%` : fmt(maxTier.discount)}`;
+              }
+              return 'Stack';
+            })() : v.type === 'PERCENT' ? `${v.value}%` :
               v.type === 'FREESHIP' ? 'Phí ship' : fmt(v.value)}
           </span>
         </div>

@@ -14,10 +14,11 @@ interface Voucher {
   id: string;
   code: string;
   name: string;
-  type: 'FIXED_AMOUNT' | 'PERCENT';
+  type: 'FIXED_AMOUNT' | 'PERCENT' | 'FREESHIP' | 'STACK';
   value: number;
   maxDiscount?: number;
   minOrderValue: number;
+  stackTiers?: Array<{ minProducts: number; discount: number; type?: string }>;
 }
 
 interface OrderItem {
@@ -126,23 +127,56 @@ export default function CheckoutClient({ user, items, store, cartMode }: Checkou
   };
 
   useEffect(() => {
-    apiClientClient.get<Voucher[]>('/vouchers/user/my-vouchers')
+    apiClientClient.get<any[]>('/vouchers/user/my-vouchers')
       .then(data => {
         if (Array.isArray(data)) {
-          const applicable = data.filter((v: any) => subtotal >= v.minOrderValue);
+          // Map UserVoucher[] with nested voucher to flat Voucher[]
+          const mapped: Voucher[] = data
+            .filter((uv: any) => !uv.isUsed && uv.voucher)
+            .map((uv: any) => ({
+              id: uv.voucher.id,
+              code: uv.voucher.code,
+              name: uv.voucher.name,
+              type: uv.voucher.type,
+              value: uv.voucher.value,
+              maxDiscount: uv.voucher.maxDiscount,
+              minOrderValue: uv.voucher.minOrderValue,
+              stackTiers: uv.voucher.stackTiers,
+            }));
+          const applicable = mapped.filter(v => subtotal >= v.minOrderValue);
           setVouchers(applicable);
         }
       })
       .catch(console.error);
   }, [subtotal]);
 
+  // Distinct product count for STACK voucher
+  const distinctProductCount = new Set(items.map(item => item.product.id)).size;
+
   // Calc Discounts
   let voucherDiscount = 0;
+  let stackTierInfo: { current: number; next?: { minProducts: number; discount: number; type?: string } } | null = null;
   if (selectedVoucherId) {
     const sel = vouchers.find(v => v.id === selectedVoucherId);
     if (sel) {
-      voucherDiscount = sel.type === 'PERCENT' ? subtotal * (sel.value / 100) : sel.value;
-      if (sel.maxDiscount && voucherDiscount > sel.maxDiscount) voucherDiscount = sel.maxDiscount;
+      if (sel.type === 'STACK' && sel.stackTiers && sel.stackTiers.length > 0) {
+        const sortedTiers = [...sel.stackTiers].sort((a, b) => b.minProducts - a.minProducts);
+        const matchedTier = sortedTiers.find(t => distinctProductCount >= t.minProducts);
+        if (matchedTier) {
+          if (matchedTier.type === 'PERCENT') {
+            voucherDiscount = subtotal * (matchedTier.discount / 100);
+          } else {
+            voucherDiscount = matchedTier.discount;
+          }
+        }
+        // Find the next tier for motivation message
+        const ascTiers = [...sel.stackTiers].sort((a, b) => a.minProducts - b.minProducts);
+        const nextTier = ascTiers.find(t => t.minProducts > distinctProductCount);
+        stackTierInfo = { current: voucherDiscount, next: nextTier };
+      } else {
+        voucherDiscount = sel.type === 'PERCENT' ? subtotal * (sel.value / 100) : sel.value;
+        if (sel.maxDiscount && voucherDiscount > sel.maxDiscount) voucherDiscount = sel.maxDiscount;
+      }
     }
   }
 
@@ -336,28 +370,57 @@ export default function CheckoutClient({ user, items, store, cartMode }: Checkou
               {vouchers.length === 0 ? (
                 <div className="text-sm text-gray-500 bg-gray-50 p-3 rounded-xl border border-gray-100 text-center">Không có mã giảm giá phù hợp</div>
               ) : (
-                <div className="flex gap-3 overflow-x-auto pb-2">
-                  {vouchers.map(v => {
-                    const isSelected = selectedVoucherId === v.id;
-                    return (
-                      <div 
-                        key={v.id} 
-                        onClick={() => setSelectedVoucherId(v.id)}
-                        className={`flex-none w-[200px] p-3 rounded-xl border cursor-pointer transition-all ${
-                          isSelected 
-                            ? 'border-indigo-600 bg-indigo-50/30 ring-1 ring-indigo-600 shadow-sm' 
-                            : 'border-gray-200 hover:border-indigo-300 bg-white'
-                        }`}
-                      >
-                        <div className="font-bold text-sm bg-indigo-600 text-white inline-block px-2 py-0.5 rounded text-[10px] mb-1.5 uppercase">{v.code}</div>
-                        <div className="text-sm font-bold text-gray-900 mb-0.5">
-                          Giảm {v.type === 'PERCENT' ? `${v.value}%` : formatPrice(v.value)}
+                <>
+                  <div className="flex gap-3 overflow-x-auto pb-2">
+                    {vouchers.map(v => {
+                      const isSelected = selectedVoucherId === v.id;
+                      return (
+                        <div 
+                          key={v.id} 
+                          onClick={() => setSelectedVoucherId(v.id)}
+                          className={`flex-none w-[200px] p-3 rounded-xl border cursor-pointer transition-all ${
+                            isSelected 
+                              ? 'border-indigo-600 bg-indigo-50/30 ring-1 ring-indigo-600 shadow-sm' 
+                              : 'border-gray-200 hover:border-indigo-300 bg-white'
+                          }`}
+                        >
+                          <div className="font-bold text-sm bg-indigo-600 text-white inline-block px-2 py-0.5 rounded text-[10px] mb-1.5 uppercase">{v.code}</div>
+                          <div className="text-sm font-bold text-gray-900 mb-0.5">
+                            {v.type === 'STACK' ? (
+                              (() => {
+                                if (v.stackTiers && v.stackTiers.length > 0) {
+                                  const maxTier = v.stackTiers.reduce((max, t) => t.discount > max.discount ? t : max, v.stackTiers[0]);
+                                  return `📊 Đến ${maxTier.type === 'PERCENT' ? `${maxTier.discount}%` : formatPrice(maxTier.discount)}`;
+                                }
+                                return '📊 Stack';
+                              })()
+                            ) : (
+                              `Giảm ${v.type === 'PERCENT' ? `${v.value}%` : formatPrice(v.value)}`
+                            )}
+                          </div>
+                          {v.type === 'STACK' && v.stackTiers && (
+                            <div className="text-xs text-gray-500">Theo số SP khác nhau</div>
+                          )}
+                          {v.type !== 'STACK' && v.maxDiscount && <div className="text-xs text-gray-500">Tối đa: {formatPrice(v.maxDiscount)}</div>}
                         </div>
-                        {v.maxDiscount && <div className="text-xs text-gray-500">Tối đa: {formatPrice(v.maxDiscount)}</div>}
+                      );
+                    })}
+                  </div>
+
+                  {/* Stack tier progress info */}
+                  {selectedVoucherId && stackTierInfo && (
+                    <div className="mt-3 p-3 bg-orange-50 border border-orange-200 rounded-xl text-sm">
+                      <div className="font-medium text-orange-800">
+                        📊 Bạn có <strong>{distinctProductCount}</strong> SP khác nhau → Giảm <strong>{formatPrice(stackTierInfo.current)}</strong>
                       </div>
-                    );
-                  })}
-                </div>
+                      {stackTierInfo.next && (
+                        <div className="text-xs text-orange-600 mt-1">
+                          💡 Thêm {stackTierInfo.next.minProducts - distinctProductCount} SP nữa → Giảm {stackTierInfo.next.type === 'PERCENT' ? `${stackTierInfo.next.discount}%` : formatPrice(stackTierInfo.next.discount)}!
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </>
               )}
             </div>
 
