@@ -304,6 +304,19 @@ export default function ProductsClient({ products, categories, initialWishlistId
           0% { background-position: -200% 0; }
           100% { background-position: 200% 0; }
         }
+        @keyframes fadeScaleIn {
+          from {
+            opacity: 0;
+            transform: translateY(20px) scale(0.95);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+          }
+        }
+        .animate-fade-scale {
+          animation: fadeScaleIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+        }
       `}</style>
 
       <div className="max-w-7xl mx-auto px-4">
@@ -461,7 +474,7 @@ export default function ProductsClient({ products, categories, initialWishlistId
             ) : (
               <>
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-5">
-                  {currentProducts.map(product => {
+                  {currentProducts.map((product, index) => {
                   const finalPrices = [product.salePrice || product.originalPrice];
                   const originalPrices = [product.originalPrice];
                   
@@ -498,8 +511,9 @@ export default function ProductsClient({ products, categories, initialWishlistId
 
                   return (
                     <div
-                      key={product.id}
-                      className="group bg-white rounded-2xl shadow-sm overflow-hidden hover:shadow-xl transition-all duration-300 hover:-translate-y-1 relative cursor-pointer"
+                      key={`${product.id}-${currentPage}-${debouncedSearchQuery}-${selectedCategoryId}-${priceRange[0]}-${priceRange[1]}`}
+                      className="group animate-fade-scale bg-white rounded-2xl shadow-sm overflow-hidden hover:shadow-xl transition-all duration-300 hover:-translate-y-1 relative cursor-pointer"
+                      style={{ animationDelay: `${index * 50}ms` }}
                       onClick={() => router.push(`/portal/products/${product.slug}`)}
                     >
                       {/* Product Image */}

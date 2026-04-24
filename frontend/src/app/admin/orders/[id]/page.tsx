@@ -330,77 +330,77 @@ export default async function OrderDetailPage(props: {
                   <h3 className="font-semibold text-gray-700 mb-3">Chi tiết thanh toán</h3>
                   <div className="grid grid-cols-2 gap-1 text-sm">
                     {payment.cod > 0 && (
-                      <div className="flex justify-between py-1.5 border-b border-gray-100 last:border-0 col-span-2">
+                      <div className="flex justify-between py-1.5 col-span-2">
                         <span className="text-gray-600 flex items-center gap-1.5">
-                          <span className="text-lg"></span> Tiền thu hộ (COD):
+                          Tiền thu hộ (COD):
                         </span>
                         <span className="font-semibold text-gray-800">{fmt(payment.cod)}</span>
                       </div>
                     )}
                     {payment.cash > 0 && (
-                      <div className="flex justify-between py-1.5 border-b border-gray-100 last:border-0 col-span-2">
+                      <div className="flex justify-between py-1.5 col-span-2">
                         <span className="text-gray-600 flex items-center gap-1.5">
-                          <span className="text-lg"></span> Tiền mặt:
+                          Tiền mặt:
                         </span>
                         <span className="font-semibold text-gray-800">{fmt(payment.cash)}</span>
                       </div>
                     )}
                     {payment.transferMoney > 0 && (
-                      <div className="flex justify-between py-1.5 border-b border-gray-100 last:border-0 col-span-2">
+                      <div className="flex justify-between py-1.5 col-span-2">
                         <span className="text-gray-600 flex items-center gap-1.5">
-                          <span className="text-lg"></span> Chuyển khoản:
+                          Chuyển khoản:
                         </span>
                         <span className="font-semibold text-gray-800">{fmt(payment.transferMoney)}</span>
                       </div>
                     )}
                     {payment.chargedByMomo > 0 && (
-                      <div className="flex justify-between py-1.5 border-b border-gray-100 last:border-0 col-span-2">
+                      <div className="flex justify-between py-1.5 col-span-2">
                         <span className="text-gray-600 flex items-center gap-1.5">
-                          <span className="text-lg"></span> MoMo:
+                          MoMo:
                         </span>
                         <span className="font-semibold text-gray-800">{fmt(payment.chargedByMomo)}</span>
                       </div>
                     )}
                     {payment.chargedByVnpay > 0 && (
-                      <div className="flex justify-between py-1.5 border-b border-gray-100 last:border-0 col-span-2">
+                      <div className="flex justify-between py-1.5 col-span-2">
                         <span className="text-gray-600 flex items-center gap-1.5">
-                          <span className="text-lg"></span> VNPay:
+                          VNPay:
                         </span>
                         <span className="font-semibold text-gray-800">{fmt(payment.chargedByVnpay)}</span>
                       </div>
                     )}
                     {payment.chargedByCard > 0 && (
-                      <div className="flex justify-between py-1.5 border-b border-gray-100 last:border-0 col-span-2">
+                      <div className="flex justify-between py-1.5 col-span-2">
                         <span className="text-gray-600 flex items-center gap-1.5">
-                          <span className="text-lg"></span> Quẹt thẻ:
+                          Quẹt thẻ:
                         </span>
                         <span className="font-semibold text-gray-800">{fmt(payment.chargedByCard)}</span>
                       </div>
                     )}
                     {payment.chargedByQrpay > 0 && (
-                      <div className="flex justify-between py-1.5 border-b border-gray-100 last:border-0 col-span-2">
+                      <div className="flex justify-between py-1.5 col-span-2">
                         <span className="text-gray-600 flex items-center gap-1.5">
-                          <span className="text-lg"></span> QR Pay:
+                          QR Pay:
                         </span>
                         <span className="font-semibold text-gray-800">{fmt(payment.chargedByQrpay)}</span>
                       </div>
                     )}
                     {payment.chargedByFundiin > 0 && (
-                      <div className="flex justify-between py-1.5 border-b border-gray-100 last:border-0 col-span-2">
+                      <div className="flex justify-between py-1.5 col-span-2">
                         <span className="text-gray-600">Fundiin:</span>
                         <span className="font-semibold text-gray-800">{fmt(payment.chargedByFundiin)}</span>
                       </div>
                     )}
                     {payment.chargedByKredivo > 0 && (
-                      <div className="flex justify-between py-1.5 border-b border-gray-100 last:border-0 col-span-2">
+                      <div className="flex justify-between py-1.5 col-span-2">
                         <span className="text-gray-600">Kredivo:</span>
                         <span className="font-semibold text-gray-800">{fmt(payment.chargedByKredivo)}</span>
                       </div>
                     )}
-                    {payment.prepaidByPoint && (
-                      <div className="flex justify-between py-1.5 border-b border-gray-100 last:border-0 col-span-2">
+                    {payment.prepaidByPoint?.money > 0 && (
+                      <div className="flex justify-between py-1.5 col-span-2">
                         <span className="text-gray-600 flex items-center gap-1.5">
-                          <span className="text-lg"></span> Điểm thưởng ({payment.prepaidByPoint.point} điểm):
+                          Điểm thưởng ({payment.prepaidByPoint.point} điểm):
                         </span>
                         <span className="font-semibold text-gray-800">{fmt(payment.prepaidByPoint.money)}</span>
                       </div>
@@ -493,7 +493,7 @@ export default async function OrderDetailPage(props: {
                 {partner.courierUpdates && partner.courierUpdates.length > 0 && (
                   <div className="mt-4">
                     <h3 className="font-semibold text-gray-700 mb-3">Cập nhật từ ĐVVC</h3>
-                    <div className="space-y-2 max-h-60 overflow-y-auto">
+                    <div className="space-y-2">
                       {partner.courierUpdates.map((update: any, idx: number) => (
                         <div key={idx} className="flex gap-3 p-3 bg-gray-50 rounded-lg text-sm">
                           <div className="w-2 h-2 rounded-full bg-blue-500 mt-1.5 flex-shrink-0" />

@@ -178,7 +178,8 @@ export class AuthController {
     if (['ADMIN', 'STAFF', 'MODERATOR'].includes(result.user.role)) {
       redirect = '/admin';
     } else if (needsOnboarding) {
-      redirect = '/onboarding';
+      // Preserve the original returnTo through onboarding so campaign params survive
+      redirect = `/onboarding?returnTo=${encodeURIComponent(returnTo)}`;
     }
 
     response.redirect(`${frontendUrl}${redirect}`);

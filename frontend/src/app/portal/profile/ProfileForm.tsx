@@ -512,7 +512,7 @@ export default function ProfileForm({ user }: ProfileFormProps) {
           </div>
 
           {/* Delete Account Section - White BG, Red Border, Bottom-Right Button */}
-          <div className="bg-rose-50 border border-red-200 rounded-xl p-8 flex-grow flex flex-col justify-between shadow-sm">
+          <div className="bg-rose-50 border border-red-200 rounded-xl p-6 flex flex-col justify-between shadow-sm">
             <div className="text-left">
               <h3 className="text-base font-bold text-red-600 flex items-center gap-2 mb-2">
                 <Trash2 className="w-5 h-5" />

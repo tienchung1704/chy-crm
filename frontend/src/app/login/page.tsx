@@ -49,7 +49,12 @@ function LoginForm() {
 
   const handleGoogleLogin = () => {
     // Get the return URL from query params (if user came from a product page)
-    const returnTo = searchParams.get('returnTo') || '/portal';
+    let returnTo = searchParams.get('returnTo') || '/portal';
+    // Preserve campaign param if present in current URL
+    const campaign = searchParams.get('campaign');
+    if (campaign && !returnTo.includes('campaign=')) {
+      returnTo += (returnTo.includes('?') ? '&' : '?') + `campaign=${campaign}`;
+    }
     const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
     window.location.href = `${backendUrl}/auth/google?returnTo=${encodeURIComponent(returnTo)}`;
   };
@@ -94,14 +99,26 @@ function LoginForm() {
         clearSavedReferralCode();
       }
 
+      // Determine final redirect: use returnTo from URL if available, else backend's redirect
+      const returnTo = searchParams.get('returnTo');
+      let finalRedirect = data.redirect || '/';
+      
+      // If backend says onboarding, preserve returnTo through onboarding
+      if (finalRedirect === '/onboarding' && returnTo) {
+        finalRedirect = `/onboarding?returnTo=${encodeURIComponent(returnTo)}`;
+      } else if (returnTo && finalRedirect === '/portal') {
+        // If backend says /portal but we have a specific returnTo (e.g. /portal?campaign=qr_claim), use it
+        finalRedirect = returnTo;
+      }
+
       if (isLogin) {
-        console.log('Redirecting to:', data.redirect || '/');
+        console.log('Redirecting to:', finalRedirect);
         // Use window.location for hard navigation to ensure cookies are sent
-        window.location.href = data.redirect || '/';
+        window.location.href = finalRedirect;
       } else {
         setSuccess('Đăng ký thành công! Đang chuyển hướng...');
         setTimeout(() => {
-          window.location.href = data.redirect || '/';
+          window.location.href = finalRedirect;
         }, 1000);
       }
     } catch {

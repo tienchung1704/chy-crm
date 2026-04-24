@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation';
+import { headers } from 'next/headers';
 import { getSession } from '@/lib/auth';
 import PortalNavbar from '@/components/customer/PortalNavbar';
 import FloatingCartButton from '@/components/customer/FloatingCartButton';
@@ -8,7 +9,26 @@ import { apiClient } from '@/lib/apiClient';
 
 export default async function PortalLayout({ children }: { children: React.ReactNode }) {
   const session = await getSession();
-  if (!session) redirect('/login');
+
+  if (!session) {
+    // Preserve the current URL (with query params like campaign=qr_claim) as returnTo
+    const headersList = await headers();
+    const fullUrl = headersList.get('x-invoke-path') || headersList.get('x-url') || '';
+    const queryString = headersList.get('x-invoke-query') || '';
+    let returnTo = '/portal';
+    if (fullUrl) {
+      returnTo = fullUrl;
+    }
+    if (queryString) {
+      try {
+        const params = JSON.parse(queryString);
+        const qs = new URLSearchParams(params).toString();
+        if (qs) returnTo += (returnTo.includes('?') ? '&' : '?') + qs;
+      } catch {}
+    }
+    redirect(`/login?returnTo=${encodeURIComponent(returnTo)}`);
+  }
+
   if (session.role === 'ADMIN' || session.role === 'STAFF') redirect('/admin');
 
   let meta: any = {
