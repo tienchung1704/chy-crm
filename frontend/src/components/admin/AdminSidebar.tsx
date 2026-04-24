@@ -53,7 +53,7 @@ const navItems = [
   {
     label: 'Thông tin',
     items: [
-      { name: 'Cửa hàng', href: '/admin/my-store', roles: ['MODERATOR'] },
+      { name: 'Cửa hàng', href: '/admin/my-store', roles: ['ADMIN', 'MODERATOR'] },
     ],
   },
 ];

@@ -11,6 +11,14 @@ export class IntegrationsService {
       const store = await this.prisma.store.findUnique({ where: { ownerId: user.id } });
       if (!store) return [];
       targetStoreId = store.id;
+    } else if (!storeId) {
+      // For ADMIN fetching without specific storeId, only get global integrations
+      // Global integrations are attached to a store owned by an ADMIN
+      const globalStore = await this.prisma.store.findFirst({
+        where: { owner: { role: 'ADMIN' } },
+        select: { id: true }
+      });
+      targetStoreId = globalStore?.id || 'no-global-store';
     }
 
     return this.prisma.storeIntegration.findMany({
@@ -66,13 +74,13 @@ export class IntegrationsService {
         },
       });
     } else {
-      // Global integration - find or create a default store
+      // Global integration - find or create a default store for Admin
       let defaultStore = await this.prisma.store.findFirst({
-        where: { isActive: true },
+        where: { owner: { role: 'ADMIN' } },
         select: { id: true },
       });
       
-      // If no store exists, create a default one
+      // If no admin store exists, create a default one
       if (!defaultStore) {
         // Get the first admin user
         const adminUser = await this.prisma.user.findFirst({
@@ -86,8 +94,8 @@ export class IntegrationsService {
         
         defaultStore = await this.prisma.store.create({
           data: {
-            name: 'Default Store',
-            slug: 'default-store',
+            name: 'Hệ thống Admin',
+            slug: 'admin-global-store',
             ownerId: adminUser.id,
             isActive: true,
           },

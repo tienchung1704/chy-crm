@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic';
 
 export default async function MyStorePage() {
   const session = await getSession();
-  if (!session || session.role !== 'MODERATOR') {
+  if (!session || !['ADMIN', 'MODERATOR'].includes(session.role)) {
     redirect('/admin');
   }
 

@@ -33,6 +33,7 @@ export default function IntegrationsPage() {
   const [selectedStoreId, setSelectedStoreId] = useState<string>(''); // For ADMIN role, allow selecting store
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [activePlatform, setActivePlatform] = useState('');
+  const [userRole, setUserRole] = useState<string>('MODERATOR');
 
   // Form states
   const [formApiKey, setFormApiKey] = useState('');
@@ -57,10 +58,14 @@ export default function IntegrationsPage() {
 
   const fetchIntegrations = async () => {
     try {
-      const data = await apiClientClient.get<Integration[]>('/integrations', {
-        params: { storeId: selectedStoreId }
-      });
-      setIntegrations(data || []);
+      const [integrationsData, userProfile] = await Promise.all([
+        apiClientClient.get<Integration[]>('/integrations', {
+          params: { storeId: selectedStoreId }
+        }),
+        apiClientClient.get<any>('/auth/me')
+      ]);
+      setIntegrations(integrationsData || []);
+      setUserRole(userProfile?.role || 'MODERATOR');
     } catch (e: any) {
       console.error(e);
     } finally {
@@ -112,8 +117,13 @@ export default function IntegrationsPage() {
 
   if (loading) return <div className="p-8 text-center text-gray-500">Đang tải cấu hình kết nối...</div>;
 
-  const connectedPlatforms = PLATFORMS.filter(p => integrations.some(i => i.platform === p.id));
-  const availablePlatforms = PLATFORMS.filter(p => !integrations.some(i => i.platform === p.id));
+  const allowedPlatforms = PLATFORMS.filter(p => {
+    if (p.id === 'VIETTELPOST' && userRole === 'MODERATOR') return false;
+    return true;
+  });
+
+  const connectedPlatforms = allowedPlatforms.filter(p => integrations.some(i => i.platform === p.id));
+  const availablePlatforms = allowedPlatforms.filter(p => !integrations.some(i => i.platform === p.id));
 
   const renderPlatformCard = (platform: typeof PLATFORMS[0]) => {
     const config = integrations.find(i => i.platform === platform.id);
