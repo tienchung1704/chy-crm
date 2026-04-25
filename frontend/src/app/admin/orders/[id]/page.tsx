@@ -196,7 +196,7 @@ export default async function OrderDetailPage(props: {
                     </p>
                     {item.isGift && (
                       <span className="inline-block mt-1 px-2 py-0.5 bg-amber-100 text-amber-700 text-xs font-semibold rounded">
-                        🎁 Quà tặng
+                        Quà tặng
                       </span>
                     )}
                   </div>
@@ -259,7 +259,7 @@ export default async function OrderDetailPage(props: {
                         <div className="flex gap-1.5 mt-1 flex-wrap">
                           {item.isBonusProduct && (
                             <span className="px-2 py-0.5 bg-amber-100 text-amber-700 text-xs font-semibold rounded">
-                              🎁 Quà tặng
+                              Quà tặng
                             </span>
                           )}
                           {item.discountEachProduct > 0 && (

@@ -460,7 +460,7 @@ export default function ProductsClient({ products, categories, initialWishlistId
             />
 
             {/* Price Filter */}
-            <div className="bg-white rounded-xl shadow-sm p-4 fixed top-[calc(1rem+400px)]">
+            <div className="bg-white rounded-xl shadow-sm p-4">
               <h3 className="text-lg font-bold text-gray-800 mb-4">Khoảng giá</h3>
 
               {/* Price Range Display */}
