@@ -132,7 +132,7 @@ export default function CheckoutClient({ user, items, store, cartMode }: Checkou
         if (Array.isArray(data)) {
           // Map UserVoucher[] with nested voucher to flat Voucher[]
           const mapped: Voucher[] = data
-            .filter((uv: any) => !uv.isUsed && uv.voucher)
+            .filter((uv: any) => !uv.isUsed && uv.voucher && uv.status !== 'PENDING')
             .map((uv: any) => ({
               id: uv.voucher.id,
               code: uv.voucher.code,
@@ -214,8 +214,13 @@ export default function CheckoutClient({ user, items, store, cartMode }: Checkou
         useCommissionPoints,
       });
 
-      alert('Đặt hàng thành công!');
-      router.push('/portal/profile');
+      // alert('Đặt hàng thành công!');
+      if (paymentMethod === 'VIETQR' && data.vietqr) {
+        localStorage.setItem(`vietqr_${data.orderId}`, JSON.stringify(data.vietqr));
+        router.push(`/portal/checkout/vietqr?orderId=${data.orderId}`);
+      } else {
+        router.push(`/portal/checkout/success?orderId=${data.orderId}`);
+      }
     } catch (error: any) {
       alert(error.message || 'Lỗi đặt hàng');
     } finally {

@@ -182,4 +182,17 @@ export class OrdersController {
   ) {
     return this.ordersService.trackPublicOrder(code, phone);
   }
+  @Get(':id/payment-status')
+  @ApiOperation({ summary: 'Poll payment status for VietQR' })
+  async getPaymentStatus(
+    @Param('id') id: string,
+    @GetUser('id') userId: string,
+    @GetUser('role') role: string,
+  ) {
+    const order = await this.ordersService.findOne(id, userId, role);
+    return {
+      status: order.paymentStatus === 'PAID' ? 'SUCCESS' : 'PENDING',
+      is_expired: false,
+    };
+  }
 }

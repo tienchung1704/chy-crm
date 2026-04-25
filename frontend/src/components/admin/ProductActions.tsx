@@ -32,7 +32,7 @@ export default function ProductActions({ categories = [] }: ProductActionsProps)
 
   const [sizes, setSizes] = useState<Size[]>([]);
   const [colors, setColors] = useState<Color[]>([]);
-  
+
   const [newSizeName, setNewSizeName] = useState('');
   const [newColorName, setNewColorName] = useState('');
   const [newColorHex, setNewColorHex] = useState('');
@@ -103,7 +103,7 @@ export default function ProductActions({ categories = [] }: ProductActionsProps)
         imageUrl: form.imageUrl || undefined,
         originalPrice: parseFloat(form.originalPrice),
         salePrice: form.salePrice ? parseFloat(form.salePrice) : undefined,
-        stockQuantity: form.variants.length > 0 
+        stockQuantity: form.variants.length > 0
           ? form.variants.reduce((acc, v) => acc + (parseInt(v.stock) || 0), 0)
           : (parseInt(form.stockQuantity) || 0),
         weight: parseInt(form.weight) || 500,
@@ -113,11 +113,11 @@ export default function ProductActions({ categories = [] }: ProductActionsProps)
         categoryIds,
         variants: form.variants.length > 0
           ? form.variants.map(v => ({
-              sizeId: v.sizeId || undefined,
-              colorId: v.colorId || undefined,
-              price: v.price ? parseFloat(v.price) : undefined,
-              stock: parseInt(v.stock) || 0,
-            }))
+            sizeId: v.sizeId || undefined,
+            colorId: v.colorId || undefined,
+            price: v.price ? parseFloat(v.price) : undefined,
+            stock: parseInt(v.stock) || 0,
+          }))
           : undefined,
       });
 
@@ -161,7 +161,7 @@ export default function ProductActions({ categories = [] }: ProductActionsProps)
           .replace(/[^a-z0-9]+/g, '-')
           .replace(/^-+|-+$/g, '');
       }
-      
+
       if (field === 'categoryLevel1') {
         newForm.categoryLevel2 = '';
         newForm.categoryLevel3 = '';
@@ -172,7 +172,7 @@ export default function ProductActions({ categories = [] }: ProductActionsProps)
       } else if (field === 'categoryLevel3') {
         newForm.categoryLevel4 = '';
       }
-      
+
       return newForm;
     });
   };
@@ -202,23 +202,23 @@ export default function ProductActions({ categories = [] }: ProductActionsProps)
 
   return (
     <>
-      <button 
-        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition-colors" 
+      <button
+        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition-colors"
         onClick={() => setShowModal(true)}
       >
         + Tạo Sản phẩm
       </button>
 
       {showModal && (
-        <div 
-          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" 
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
           onClick={(e) => { if (e.target === e.currentTarget) setShowModal(false); }}
         >
           <div className="bg-white rounded-xl shadow-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between p-6 border-b border-gray-200">
               <h2 className="text-xl font-bold text-gray-800">Tạo Sản phẩm mới</h2>
-              <button 
-                className="text-gray-400 hover:text-gray-600 text-2xl leading-none" 
+              <button
+                className="text-gray-400 hover:text-gray-600 text-2xl leading-none"
                 onClick={() => setShowModal(false)}
               >
                 ✕
@@ -238,25 +238,25 @@ export default function ProductActions({ categories = [] }: ProductActionsProps)
                     <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="prod-name">
                       Tên sản phẩm *
                     </label>
-                    <input 
-                      id="prod-name" 
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" 
+                    <input
+                      id="prod-name"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       required
-                      value={form.name} 
+                      value={form.name}
                       onChange={e => update('name', e.target.value)}
-                      placeholder="VD: Áo thun basic" 
+                      placeholder="VD: Áo thun basic"
                     />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="prod-sku">
                       SKU
                     </label>
-                    <input 
-                      id="prod-sku" 
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono text-sm" 
-                      value={form.sku} 
+                    <input
+                      id="prod-sku"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono text-sm"
+                      value={form.sku}
                       onChange={e => update('sku', e.target.value)}
-                      placeholder="PROD-001" 
+                      placeholder="PROD-001"
                     />
                   </div>
                 </div>
@@ -265,13 +265,13 @@ export default function ProductActions({ categories = [] }: ProductActionsProps)
                   <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="prod-slug">
                     Slug *
                   </label>
-                  <input 
-                    id="prod-slug" 
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono text-sm" 
+                  <input
+                    id="prod-slug"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono text-sm"
                     required
-                    value={form.slug} 
+                    value={form.slug}
                     onChange={e => update('slug', e.target.value)}
-                    placeholder="ao-thun-basic" 
+                    placeholder="ao-thun-basic"
                   />
                 </div>
 
@@ -280,53 +280,53 @@ export default function ProductActions({ categories = [] }: ProductActionsProps)
                     <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="prod-price">
                       Giá gốc (VNĐ) *
                     </label>
-                    <input 
-                      id="prod-price" 
-                      type="number" 
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" 
+                    <input
+                      id="prod-price"
+                      type="number"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       required
-                      value={form.originalPrice} 
+                      value={form.originalPrice}
                       onChange={e => update('originalPrice', e.target.value)}
-                      placeholder="299000" 
+                      placeholder="299000"
                     />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="prod-sale">
                       Giá sale (VNĐ)
                     </label>
-                    <input 
-                      id="prod-sale" 
-                      type="number" 
+                    <input
+                      id="prod-sale"
+                      type="number"
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      value={form.salePrice} 
+                      value={form.salePrice}
                       onChange={e => update('salePrice', e.target.value)}
-                      placeholder="249000" 
+                      placeholder="249000"
                     />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="prod-weight">
                       Trọng lượng (g)
                     </label>
-                    <input 
-                      id="prod-weight" 
-                      type="number" 
+                    <input
+                      id="prod-weight"
+                      type="number"
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      value={form.weight} 
+                      value={form.weight}
                       onChange={e => update('weight', e.target.value)}
-                      placeholder="500" 
+                      placeholder="500"
                     />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="prod-stock">
                       Tồn kho (Mặc định)
                     </label>
-                    <input 
-                      id="prod-stock" 
-                      type="number" 
+                    <input
+                      id="prod-stock"
+                      type="number"
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:text-gray-500"
-                      value={form.variants.length > 0 ? form.variants.reduce((a, v) => a + (parseInt(v.stock) || 0), 0) : form.stockQuantity} 
+                      value={form.variants.length > 0 ? form.variants.reduce((a, v) => a + (parseInt(v.stock) || 0), 0) : form.stockQuantity}
                       onChange={e => update('stockQuantity', e.target.value)}
-                      placeholder="100" 
+                      placeholder="100"
                       disabled={form.variants.length > 0}
                     />
                     {form.variants.length > 0 && <p className="text-xs text-gray-500 mt-1">Tự động tính từ các biến thể</p>}
@@ -348,13 +348,13 @@ export default function ProductActions({ categories = [] }: ProductActionsProps)
                   <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="prod-desc">
                     Mô tả
                   </label>
-                  <textarea 
-                    id="prod-desc" 
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" 
+                  <textarea
+                    id="prod-desc"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     rows={3}
-                    value={form.description} 
+                    value={form.description}
                     onChange={e => update('description', e.target.value)}
-                    placeholder="Mô tả chi tiết sản phẩm..." 
+                    placeholder="Mô tả chi tiết sản phẩm..."
                   />
                 </div>
 
@@ -429,7 +429,7 @@ export default function ProductActions({ categories = [] }: ProductActionsProps)
                     </div>
                   </div>
                 )}
-                
+
                 {/* Variants Tracking */}
                 <div className="pt-4 border-t border-gray-100">
                   <div className="flex justify-between items-center mb-3">
@@ -438,7 +438,7 @@ export default function ProductActions({ categories = [] }: ProductActionsProps)
                       + Thêm biến thể
                     </button>
                   </div>
-                  
+
                   {form.variants.length > 0 && (
                     <div className="overflow-x-auto mb-4 border border-gray-200 rounded-xl">
                       <table className="w-full text-sm">
@@ -503,29 +503,29 @@ export default function ProductActions({ categories = [] }: ProductActionsProps)
 
                 <div className="space-y-2 pt-4 border-t border-gray-100">
                   <label className="flex items-center gap-2 cursor-pointer text-sm">
-                    <input 
-                      type="checkbox" 
+                    <input
+                      type="checkbox"
                       className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                       checked={form.isComboSet}
-                      onChange={e => update('isComboSet', e.target.checked)} 
+                      onChange={e => update('isComboSet', e.target.checked)}
                     />
                     <span className="text-gray-700">Sản phẩm combo</span>
                   </label>
                   <label className="flex items-center gap-2 cursor-pointer text-sm">
-                    <input 
-                      type="checkbox" 
+                    <input
+                      type="checkbox"
                       className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                       checked={form.isGiftItem}
-                      onChange={e => update('isGiftItem', e.target.checked)} 
+                      onChange={e => update('isGiftItem', e.target.checked)}
                     />
                     <span className="text-gray-700">Sản phẩm quà tặng</span>
                   </label>
                   <label className="flex items-center gap-2 cursor-pointer text-sm">
-                    <input 
-                      type="checkbox" 
+                    <input
+                      type="checkbox"
                       className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                       checked={form.isActive}
-                      onChange={e => update('isActive', e.target.checked)} 
+                      onChange={e => update('isActive', e.target.checked)}
                     />
                     <span className="text-gray-700">Kích hoạt sản phẩm</span>
                   </label>
@@ -533,16 +533,16 @@ export default function ProductActions({ categories = [] }: ProductActionsProps)
               </div>
 
               <div className="flex items-center justify-end gap-3 p-6 border-t border-gray-200">
-                <button 
-                  type="button" 
-                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium transition-colors" 
+                <button
+                  type="button"
+                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium transition-colors"
                   onClick={() => setShowModal(false)}
                 >
                   Hủy
                 </button>
-                <button 
-                  type="submit" 
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed" 
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   disabled={loading}
                 >
                   {loading ? 'Đang tạo...' : 'Tạo Sản phẩm'}

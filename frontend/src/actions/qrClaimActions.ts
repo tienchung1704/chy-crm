@@ -10,9 +10,11 @@ interface ClaimResult {
   claimCount?: number;
 }
 
-export async function claimQrRewardAction(orderCode: string): Promise<ClaimResult> {
+export async function claimQrRewardAction(orderCode: string, phone: string): Promise<ClaimResult> {
   try {
     const trimmedOrderCode = orderCode.trim().toUpperCase();
+    const trimmedPhone = phone.trim();
+
     if (!trimmedOrderCode || trimmedOrderCode.length < 5) {
       return {
         success: false,
@@ -20,8 +22,16 @@ export async function claimQrRewardAction(orderCode: string): Promise<ClaimResul
       };
     }
 
+    if (!trimmedPhone || trimmedPhone.length < 9) {
+      return {
+        success: false,
+        message: 'Số điện thoại không hợp lệ',
+      };
+    }
+
     const result = await apiClient.post<any>('/vouchers/claim-qr', {
       orderCode: trimmedOrderCode,
+      phone: trimmedPhone,
     });
 
     if (result.success) {

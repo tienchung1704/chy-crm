@@ -5,6 +5,10 @@ export class ClaimQRVoucherDto {
   @IsNotEmpty()
   orderCode: string;
 
+  @IsString()
+  @IsNotEmpty()
+  phone: string;
+
   @IsUUID()
   @IsOptional()
   voucherId?: string;

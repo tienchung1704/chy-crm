@@ -255,7 +255,34 @@ export class OrdersService {
       });
     }
 
-    return { success: true, orderId: order.id, orderCode: order.orderCode };
+    let vietqrData = null;
+    if (paymentMethod === 'VIETQR') {
+      const bankId = process.env.VIETQR_BANK_ID || '';
+      const accountNo = process.env.VIETQR_ACCOUNT_NO || '';
+      const accountName = process.env.VIETQR_ACCOUNT_NAME || '';
+      const template = process.env.VIETQR_TEMPLATE || 'compact2';
+      const amount = totalAmount;
+      const addInfo = `ORDER:${order.orderCode}`;
+      
+      const qrImageUrl = `https://img.vietqr.io/image/${bankId}-${accountNo}-${template}.png?amount=${amount}&addInfo=${encodeURIComponent(addInfo)}&accountName=${encodeURIComponent(accountName)}`;
+      
+      vietqrData = {
+        qrImageUrl,
+        transactionCode: addInfo,
+        amount,
+        bankId,
+        accountNo,
+        accountName,
+        expiresAt: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
+      };
+    }
+
+    return { 
+      success: true, 
+      orderId: order.id, 
+      orderCode: order.orderCode,
+      ...(vietqrData ? { vietqr: vietqrData } : {})
+    };
   }
 
   async createAdminOrder(params: {

@@ -330,7 +330,7 @@ export default function PortalOrderDetailClient({ order }: { order: any }) {
               {partner.courierUpdates?.length > 0 && (
                 <div className="mt-4 border-t border-gray-200 pt-4">
                   <h3 className="mb-3 text-sm font-semibold text-gray-700">Cập nhật vận chuyển</h3>
-                  <div className="max-h-48 space-y-2 overflow-y-auto">
+                  <div className="space-y-2">
                     {partner.courierUpdates.map((update: any, idx: number) => (
                       <div key={idx} className="flex gap-3 rounded-lg bg-gray-50 p-2.5 text-sm">
                         <div className="mt-1.5 h-2 w-2 flex-shrink-0 rounded-full bg-blue-500" />

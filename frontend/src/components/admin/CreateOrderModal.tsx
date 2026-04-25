@@ -186,9 +186,9 @@ export default function CreateOrderModal({
       current.map((item, itemIndex) =>
         itemIndex === index
           ? {
-              ...item,
-              ...next,
-            }
+            ...item,
+            ...next,
+          }
           : item,
       ),
     );
@@ -256,8 +256,8 @@ export default function CreateOrderModal({
       <div className="w-full max-w-6xl max-h-[92vh] overflow-hidden rounded-2xl bg-white shadow-xl border border-gray-200 flex flex-col">
         <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
           <div>
-            <h2 className="text-xl font-semibold text-gray-900">Tao don hang</h2>
-            <p className="text-sm text-gray-500 mt-1">Nhap khach hang, san pham va thong tin giao hang</p>
+            <h2 className="text-xl font-semibold text-gray-900">Tạo Đơn</h2>
+            <p className="text-sm text-gray-500 mt-1">Nhập Thông Tin</p>
           </div>
           <button
             type="button"
@@ -273,7 +273,7 @@ export default function CreateOrderModal({
             <div className="lg:col-span-2 space-y-6">
               <section className="rounded-2xl border border-gray-200 bg-white">
                 <div className="px-5 py-4 border-b border-gray-100">
-                  <h3 className="text-sm font-semibold text-gray-900">Khach hang</h3>
+                  <h3 className="text-sm font-semibold text-gray-900">Khách Hàng</h3>
                 </div>
                 <div className="p-5 space-y-3">
                   <div className="relative">
@@ -290,10 +290,10 @@ export default function CreateOrderModal({
                     <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 flex items-start justify-between gap-3">
                       <div>
                         <p className="text-sm font-medium text-gray-900">
-                          {selectedCustomer.name || selectedCustomer.phone || 'Khach hang'}
+                          {selectedCustomer.name || selectedCustomer.phone || 'Khách Hàng'}
                         </p>
                         <p className="text-xs text-gray-600 mt-1">
-                          {selectedCustomer.phone || 'Chua co so dien thoai'}
+                          {selectedCustomer.phone || 'Chưa có số điện thoại'}
                           {selectedCustomer.email ? ` • ${selectedCustomer.email}` : ''}
                         </p>
                       </div>
@@ -308,7 +308,7 @@ export default function CreateOrderModal({
                   )}
 
                   {!selectedCustomer && searchingCustomers && (
-                    <div className="text-sm text-gray-500">Dang tim khach hang...</div>
+                    <div className="text-sm text-gray-500">Đang tìm khách hàng...</div>
                   )}
 
                   {!selectedCustomer && customers.length > 0 && (
@@ -321,10 +321,10 @@ export default function CreateOrderModal({
                           className="w-full rounded-xl border border-gray-200 px-4 py-3 text-left hover:border-blue-500 hover:bg-blue-50 transition-colors"
                         >
                           <p className="text-sm font-medium text-gray-900">
-                            {customer.name || customer.phone || 'Khach hang'}
+                            {customer.name || customer.phone || 'Khách Hàng'}
                           </p>
                           <p className="text-xs text-gray-500 mt-1">
-                            {customer.phone || 'Chua co so dien thoai'}
+                            {customer.phone || 'Chưa có số điện thoại'}
                             {customer.email ? ` • ${customer.email}` : ''}
                           </p>
                         </button>
@@ -336,7 +336,7 @@ export default function CreateOrderModal({
 
               <section className="rounded-2xl border border-gray-200 bg-white">
                 <div className="px-5 py-4 border-b border-gray-100">
-                  <h3 className="text-sm font-semibold text-gray-900">San pham</h3>
+                  <h3 className="text-sm font-semibold text-gray-900">Sản Phẩm</h3>
                 </div>
                 <div className="p-5 space-y-3">
                   <div className="relative">
@@ -350,7 +350,7 @@ export default function CreateOrderModal({
                   </div>
 
                   {searchingProducts && (
-                    <div className="text-sm text-gray-500">Dang tim san pham...</div>
+                    <div className="text-sm text-gray-500">Đang tìm sản phẩm...</div>
                   )}
 
                   {products.length > 0 && (
@@ -431,7 +431,7 @@ export default function CreateOrderModal({
                                         }
                                         className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                                       >
-                                        <option value="">Chon size</option>
+                                        <option value="">Chọn size</option>
                                         {sizes.map((size) => (
                                           <option key={size} value={size}>
                                             {size}
@@ -443,7 +443,7 @@ export default function CreateOrderModal({
 
                                   {colors.length > 0 && (
                                     <div>
-                                      <label className="block text-xs font-medium text-gray-600 mb-1">Mau</label>
+                                      <label className="block text-xs font-medium text-gray-600 mb-1">Màu</label>
                                       <select
                                         value={item.color || ''}
                                         onChange={(e) =>
@@ -489,11 +489,11 @@ export default function CreateOrderModal({
             <div className="space-y-6">
               <section className="rounded-2xl border border-gray-200 bg-white">
                 <div className="px-5 py-4 border-b border-gray-100">
-                  <h3 className="text-sm font-semibold text-gray-900">Giao hang</h3>
+                  <h3 className="text-sm font-semibold text-gray-900">Giao Hàng</h3>
                 </div>
                 <div className="p-5 space-y-3">
                   <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">Ten nguoi nhan</label>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Tên Người Nhận</label>
                     <input
                       value={shippingName}
                       onChange={(e) => setShippingName(e.target.value)}
@@ -501,7 +501,7 @@ export default function CreateOrderModal({
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">So dien thoai</label>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Số Điện Thoại</label>
                     <input
                       value={shippingPhone}
                       onChange={(e) => setShippingPhone(e.target.value)}
@@ -509,7 +509,7 @@ export default function CreateOrderModal({
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">Dia chi</label>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Địa Chỉ</label>
                     <input
                       value={shippingStreet}
                       onChange={(e) => setShippingStreet(e.target.value)}
@@ -518,7 +518,7 @@ export default function CreateOrderModal({
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-xs font-medium text-gray-600 mb-1">Phuong xa</label>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">Phường /xã</label>
                       <input
                         value={shippingWard}
                         onChange={(e) => setShippingWard(e.target.value)}
@@ -526,7 +526,7 @@ export default function CreateOrderModal({
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-medium text-gray-600 mb-1">Tinh thanh</label>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">Tỉnh thành</label>
                       <input
                         value={shippingProvince}
                         onChange={(e) => setShippingProvince(e.target.value)}
@@ -535,7 +535,7 @@ export default function CreateOrderModal({
                     </div>
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">Ghi chu khach hang</label>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Ghi chú khách hàng</label>
                     <textarea
                       value={customerNote}
                       onChange={(e) => setCustomerNote(e.target.value)}
@@ -544,7 +544,7 @@ export default function CreateOrderModal({
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">Ghi chu noi bo</label>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Ghi chú nội bộ</label>
                     <textarea
                       value={adminNote}
                       onChange={(e) => setAdminNote(e.target.value)}
@@ -554,7 +554,7 @@ export default function CreateOrderModal({
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-xs font-medium text-gray-600 mb-1">Phi ship</label>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">Phí ship</label>
                       <input
                         type="number"
                         min="0"
@@ -564,7 +564,7 @@ export default function CreateOrderModal({
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-medium text-gray-600 mb-1">Giam gia</label>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">Giảm giá</label>
                       <input
                         type="number"
                         min="0"
@@ -579,23 +579,23 @@ export default function CreateOrderModal({
 
               <section className="rounded-2xl border border-gray-200 bg-white">
                 <div className="px-5 py-4 border-b border-gray-100">
-                  <h3 className="text-sm font-semibold text-gray-900">Tong don hang</h3>
+                  <h3 className="text-sm font-semibold text-gray-900">Tổng đơn hàng</h3>
                 </div>
                 <div className="p-5 space-y-3">
                   <div className="flex items-center justify-between text-sm">
-                    <span className="text-gray-500">Tam tinh</span>
+                    <span className="text-gray-500">Tạm Tính</span>
                     <span className="font-medium text-gray-900">{formatCurrency(subtotal)}</span>
                   </div>
                   <div className="flex items-center justify-between text-sm">
-                    <span className="text-gray-500">Phi ship</span>
+                    <span className="text-gray-500">Phí ship</span>
                     <span className="font-medium text-gray-900">{formatCurrency(shippingFee)}</span>
                   </div>
                   <div className="flex items-center justify-between text-sm">
-                    <span className="text-gray-500">Giam gia</span>
+                    <span className="text-gray-500">Giảm giá</span>
                     <span className="font-medium text-red-600">-{formatCurrency(discountAmount)}</span>
                   </div>
                   <div className="pt-3 border-t border-gray-100 flex items-center justify-between">
-                    <span className="text-sm font-semibold text-gray-900">Tong cong</span>
+                    <span className="text-sm font-semibold text-gray-900">Tổng cộng</span>
                     <span className="text-xl font-semibold text-gray-900">{formatCurrency(total)}</span>
                   </div>
 
@@ -611,7 +611,7 @@ export default function CreateOrderModal({
                     disabled={submitting || !selectedCustomer || orderItems.length === 0}
                     className="w-full rounded-xl bg-blue-600 text-white py-3 text-sm font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {submitting ? 'Dang tao...' : 'Tao don hang'}
+                    {submitting ? 'Đang tạo...' : 'Tạo đơn hàng'}
                   </button>
                 </div>
               </section>

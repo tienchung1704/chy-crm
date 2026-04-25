@@ -97,10 +97,13 @@ export class VouchersService implements OnModuleInit {
     return voucher;
   }
 
-  async claimQRVoucher(userId: string, orderCode: string, voucherId?: string) {
+  async claimQRVoucher(userId: string, orderCode: string, phone: string, voucherId?: string) {
     const QR_VOUCHER_AMOUNTS = [50000, 40000, 30000, 20000, 10000];
     const MAX_QR_CLAIMS = 5;
     const LOCK_DURATION_DAYS = 7;
+
+    // Normalize phone: remove spaces, dashes
+    const normalizedPhone = phone.replace(/[\s\-]/g, '');
 
     // Check if order code already used
     const existingClaim = await this.prisma.userVoucher.findUnique({
@@ -109,6 +112,71 @@ export class VouchersService implements OnModuleInit {
 
     if (existingClaim) {
       throw new BadRequestException('Mã đơn hàng này đã được sử dụng để nhận quà');
+    }
+
+    // --- VERIFY ORDER EXISTS AND STATUS ---
+    // Try to find order by orderCode (internal CRM orders)
+    let order = await this.prisma.order.findFirst({
+      where: {
+        OR: [
+          { orderCode: orderCode },
+          // Also check in metadata for external tracking codes (ViettelPost, Pancake)
+          { metadata: { path: '$.trackingNumber', equals: orderCode } },
+        ],
+      },
+      select: {
+        id: true,
+        status: true,
+        shippingPhone: true,
+        userId: true,
+        user: {
+          select: { phone: true },
+        },
+      },
+    });
+
+    // If no order found by orderCode, try searching in metadata as string contains
+    if (!order) {
+      order = await this.prisma.order.findFirst({
+        where: {
+          metadata: { string_contains: orderCode },
+        },
+        select: {
+          id: true,
+          status: true,
+          shippingPhone: true,
+          userId: true,
+          user: {
+            select: { phone: true },
+          },
+        },
+      });
+    }
+
+    if (!order) {
+      throw new BadRequestException('Không tìm thấy đơn hàng với mã này. Vui lòng kiểm tra lại.');
+    }
+
+    // Verify phone number matches
+    const orderPhone = (order.shippingPhone || order.user?.phone || '').replace(/[\s\-]/g, '');
+    if (!orderPhone || !normalizedPhone.endsWith(orderPhone.slice(-9)) && !orderPhone.endsWith(normalizedPhone.slice(-9))) {
+      throw new BadRequestException('Số điện thoại không khớp với đơn hàng. Vui lòng nhập đúng SĐT đặt hàng.');
+    }
+
+    // Check order status - only allow for delivered/completed orders
+    const ALLOWED_STATUSES = ['DELIVERED', 'PAYMENT_COLLECTED', 'COMPLETED'];
+    if (!ALLOWED_STATUSES.includes(order.status)) {
+      const statusMessages: Record<string, string> = {
+        PENDING: 'Đơn hàng đang chờ xử lý',
+        CONFIRMED: 'Đơn hàng đã xác nhận nhưng chưa giao',
+        PACKAGING: 'Đơn hàng đang đóng gói',
+        WAITING_FOR_SHIPPING: 'Đơn hàng đang chờ vận chuyển',
+        SHIPPED: 'Đơn hàng đang được giao, vui lòng chờ nhận hàng',
+        CANCELLED: 'Đơn hàng đã bị hủy',
+        REFUNDED: 'Đơn hàng đã hoàn trả',
+      };
+      const msg = statusMessages[order.status] || `Trạng thái đơn hàng: ${order.status}`;
+      throw new BadRequestException(`Chưa thể nhận voucher. ${msg}. Bạn cần nhận hàng thành công trước khi nhận quà.`);
     }
 
     // Check user claim count for gamification
@@ -196,7 +264,8 @@ export class VouchersService implements OnModuleInit {
   }
 
   async getUserVouchers(userId: string) {
-    return this.prisma.userVoucher.findMany({
+    const now = new Date();
+    const vouchers = await this.prisma.userVoucher.findMany({
       where: { userId },
       include: {
         voucher: {
@@ -215,6 +284,19 @@ export class VouchersService implements OnModuleInit {
         createdAt: 'desc',
       },
     });
+
+    // Mark PENDING vouchers that have passed their unlock date as ACTIVE
+    for (const uv of vouchers) {
+      if (uv.status === 'PENDING' && uv.unlockAt && new Date(uv.unlockAt) <= now) {
+        await this.prisma.userVoucher.update({
+          where: { id: uv.id },
+          data: { status: 'ACTIVE' },
+        });
+        uv.status = 'ACTIVE';
+      }
+    }
+
+    return vouchers;
   }
 
   async manualTriggerVerification() {

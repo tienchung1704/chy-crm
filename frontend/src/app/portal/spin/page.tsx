@@ -27,7 +27,7 @@ export default async function PortalSpinPage() {
   return (
     <>
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-800 mb-1">Vòng Quay May Mắn 🎰</h1>
+        <h1 className="text-3xl font-bold text-gray-800 mb-1">Vòng Quay May Mắn</h1>
         <p className="text-gray-600 text-sm">Quay để nhận voucher, điểm thưởng và nhiều hơn nữa!</p>
       </div>
 

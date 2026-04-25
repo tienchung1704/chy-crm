@@ -73,6 +73,7 @@ export class VouchersController {
     return this.vouchersService.claimQRVoucher(
       userId,
       dto.orderCode,
+      dto.phone,
       dto.voucherId,
     );
   }

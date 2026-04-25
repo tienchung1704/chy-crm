@@ -9,6 +9,7 @@ export default function QrClaimModal() {
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
   const [orderCode, setOrderCode] = useState('');
+  const [phone, setPhone] = useState('');
   const [isPending, startTransition] = useTransition();
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
@@ -18,9 +19,16 @@ export default function QrClaimModal() {
     if (campaign === 'qr_claim') {
       setIsOpen(true);
       
+      // Auto-fill orderCode if provided in URL (from QR code scan)
+      const urlOrderCode = searchParams.get('orderCode');
+      if (urlOrderCode) {
+        setOrderCode(urlOrderCode.toUpperCase());
+      }
+      
       // Clean URL without reload
       const url = new URL(window.location.href);
       url.searchParams.delete('campaign');
+      url.searchParams.delete('orderCode');
       window.history.replaceState({}, '', url.toString());
     }
   }, [searchParams]);
@@ -34,12 +42,18 @@ export default function QrClaimModal() {
       return;
     }
 
+    if (!phone.trim() || phone.trim().length < 9) {
+      setMessage({ type: 'error', text: 'Vui lòng nhập số điện thoại hợp lệ' });
+      return;
+    }
+
     startTransition(async () => {
-      const result = await claimQrRewardAction(orderCode);
+      const result = await claimQrRewardAction(orderCode, phone);
       
       if (result.success) {
         setMessage({ type: 'success', text: result.message });
         setOrderCode('');
+        setPhone('');
         
         // Auto close after 5 seconds
         setTimeout(() => {
@@ -57,6 +71,7 @@ export default function QrClaimModal() {
     if (!isPending) {
       setIsOpen(false);
       setOrderCode('');
+      setPhone('');
       setMessage(null);
     }
   };
@@ -70,7 +85,7 @@ export default function QrClaimModal() {
         <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between">
           <div>
             <h2 className="text-xl font-bold text-gray-900">Nhận quà từ mã vận đơn</h2>
-            <p className="text-sm text-gray-500 mt-1">Nhập mã vận đơn của bạn để nhận ưu đãi</p>
+            <p className="text-sm text-gray-500 mt-1">Nhập mã vận đơn và SĐT để nhận ưu đãi</p>
           </div>
           <button
             onClick={handleClose}
@@ -100,6 +115,10 @@ export default function QrClaimModal() {
                 <span className="text-gray-400 mt-0.5">•</span>
                 <span>Mỗi mã vận đơn chỉ được sử dụng 1 lần. Voucher kích hoạt sau 7 ngày.</span>
               </li>
+              <li className="flex items-start gap-2">
+                <span className="text-amber-500 mt-0.5">⚠</span>
+                <span className="text-amber-700 font-medium">Đơn hàng phải ở trạng thái đã nhận/hoàn thành mới được nhận quà.</span>
+              </li>
             </ul>
           </div>
 
@@ -118,7 +137,7 @@ export default function QrClaimModal() {
           )}
 
           {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-5">
+          <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label htmlFor="orderCode" className="block text-sm font-medium text-gray-700 mb-2">
                 Mã vận đơn <span className="text-red-500">*</span>
@@ -135,9 +154,25 @@ export default function QrClaimModal() {
               />
             </div>
 
+            <div>
+              <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-2">
+                Số điện thoại đặt hàng <span className="text-red-500">*</span>
+              </label>
+              <input
+                id="phone"
+                type="tel"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value.replace(/[^\d+]/g, ''))}
+                placeholder="VD: 0912345678"
+                disabled={isPending}
+                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-500 transition-shadow"
+                maxLength={15}
+              />
+            </div>
+
             <button
               type="submit"
-              disabled={isPending || !orderCode.trim()}
+              disabled={isPending || !orderCode.trim() || !phone.trim()}
               className="w-full px-6 py-3 bg-gray-900 text-white font-medium rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               {isPending ? (

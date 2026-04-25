@@ -3,6 +3,10 @@ import { BullModule } from '@nestjs/bullmq';
 import { WebhooksController } from './webhooks.controller';
 import { WebhooksService } from './webhooks.service';
 import { PrismaModule } from '../prisma/prisma.module';
+import { CassoController } from './casso.controller';
+import { CassoService } from './casso.service';
+import { OrdersModule } from '../orders/orders.module';
+import { CommissionsModule } from '../commissions/commissions.module';
 
 const logger = new Logger('WebhooksModule');
 
@@ -27,10 +31,12 @@ function getQueueImports(): any[] {
 @Module({
   imports: [
     PrismaModule,
+    OrdersModule,
+    CommissionsModule,
     ...getQueueImports(), // Conditionally load queue modules
   ],
-  controllers: [WebhooksController],
-  providers: [WebhooksService],
+  controllers: [WebhooksController, CassoController],
+  providers: [WebhooksService, CassoService],
   exports: [WebhooksService],
 })
 export class WebhooksModule {}
