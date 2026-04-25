@@ -29,7 +29,11 @@ interface OrderReviewFormProps {
   onCancel: () => void;
 }
 
-export default function OrderReviewForm({ order, onSuccess, onCancel }: OrderReviewFormProps) {
+export default function OrderReviewForm({
+  order,
+  onSuccess,
+  onCancel,
+}: OrderReviewFormProps) {
   const [rating, setRating] = useState(5);
   const [hoverRating, setHoverRating] = useState(0);
   const [comment, setComment] = useState('');
@@ -37,8 +41,7 @@ export default function OrderReviewForm({ order, onSuccess, onCancel }: OrderRev
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
-  // Get non-gift products
-  const reviewableProducts = order.items.filter(item => !item.isGift && item.product);
+  const reviewableProducts = order.items.filter((item) => !item.isGift && item.product);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -57,36 +60,34 @@ export default function OrderReviewForm({ order, onSuccess, onCancel }: OrderRev
     setSubmitting(true);
 
     try {
-      // Create reviews for all products in the order
-      const reviewPromises = reviewableProducts.map(item =>
-        fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api'}/reviews`, {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api'}/reviews/order`,
+        {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
           body: JSON.stringify({
-            productId: item.product!.id,
             orderId: order.id,
             rating,
             comment: comment.trim() || null,
             images: images.length > 0 ? images : null,
-            size: item.size,
-            color: item.color,
           }),
-        })
+        },
       );
 
-      const results = await Promise.all(reviewPromises);
-      
-      // Check if all succeeded
-      const allSucceeded = results.every(res => res.ok);
-      
-      if (allSucceeded) {
-        onSuccess();
-      } else {
-        // Check for specific errors
-        const firstError = await results.find(res => !res.ok)?.json();
-        setError(firstError?.error || 'Có lỗi xảy ra khi đánh giá');
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data.message || data.error || 'Có lỗi xảy ra khi đánh giá');
+        return;
       }
-    } catch (err) {
+
+      if (data.rewardGranted && data.reward?.message) {
+        alert(data.reward.message);
+      }
+
+      onSuccess();
+    } catch {
       setError('Không thể kết nối đến server');
     } finally {
       setSubmitting(false);
@@ -104,13 +105,12 @@ export default function OrderReviewForm({ order, onSuccess, onCancel }: OrderRev
         <p className="text-sm text-gray-600">Mã đơn: {order.orderCode}</p>
       </div>
 
-      {/* Products List */}
       <div className="bg-gray-50 rounded-lg p-4">
         <h4 className="text-sm font-semibold text-gray-900 mb-3">
           Sản phẩm trong đơn hàng ({reviewableProducts.length})
         </h4>
         <div className="space-y-2">
-          {reviewableProducts.map(item => (
+          {reviewableProducts.map((item) => (
             <div key={item.id} className="flex items-center gap-3 bg-white p-2 rounded-lg">
               <div className="w-12 h-12 rounded bg-gray-100 flex items-center justify-center overflow-hidden">
                 {item.product?.imageUrl ? (
@@ -135,11 +135,10 @@ export default function OrderReviewForm({ order, onSuccess, onCancel }: OrderRev
           ))}
         </div>
         <p className="text-xs text-gray-500 mt-3">
-          💡 Đánh giá này sẽ được áp dụng cho tất cả sản phẩm trong đơn hàng
+          Đánh giá này sẽ được áp dụng cho tất cả sản phẩm trong đơn hàng.
         </p>
       </div>
 
-      {/* Rating */}
       <div>
         <label className="block text-sm font-semibold text-gray-900 mb-2">
           Đánh giá của bạn <span className="text-red-500">*</span>
@@ -166,25 +165,26 @@ export default function OrderReviewForm({ order, onSuccess, onCancel }: OrderRev
         </div>
       </div>
 
-      {/* Comment */}
       <div>
         <label className="block text-sm font-semibold text-gray-900 mb-2">
-          Nhận xét của bạn (tùy chọn)
+          Nhận xét của bạn
         </label>
         <textarea
           value={comment}
           onChange={(e) => setComment(e.target.value)}
           maxLength={1000}
           rows={4}
-          placeholder="Chia sẻ trải nghiệm của bạn về sản phẩm..."
+          placeholder="Viết mô tả trải nghiệm để nhận thêm 1 lượt quay thưởng..."
           className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent resize-none"
         />
-        <div className="text-xs text-gray-500 mt-1 text-right">
-          {comment.length}/1000 ký tự
+        <div className="mt-1 flex items-center justify-between text-xs">
+          <span className="text-amber-600 font-medium">
+            Có mô tả hợp lệ sẽ nhận 1 lượt quay thưởng.
+          </span>
+          <span className="text-gray-500">{comment.length}/1000 ký tự</span>
         </div>
       </div>
 
-      {/* Images Upload */}
       <div>
         <label className="block text-sm font-semibold text-gray-900 mb-2">
           Hình ảnh (tùy chọn, tối đa 5 ảnh, 4MB/ảnh)
@@ -220,8 +220,8 @@ export default function OrderReviewForm({ order, onSuccess, onCancel }: OrderRev
                 setImages([...images, ...newImages].slice(0, 5));
               }
             }}
-            onUploadError={(error: Error) => {
-              setError(`Lỗi upload: ${error.message}`);
+            onUploadError={(uploadError: Error) => {
+              setError(`Lỗi upload: ${uploadError.message}`);
             }}
             appearance={{
               button:
@@ -232,14 +232,12 @@ export default function OrderReviewForm({ order, onSuccess, onCancel }: OrderRev
         )}
       </div>
 
-      {/* Error Message */}
       {error && (
         <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm">
           {error}
         </div>
       )}
 
-      {/* Actions */}
       <div className="flex gap-3">
         <button
           type="submit"

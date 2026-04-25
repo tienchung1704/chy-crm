@@ -598,9 +598,28 @@ export class OrdersService {
       throw new NotFoundException('Order not found');
     }
 
+    const reviewCount = await this.prisma.review.count({
+      where: {
+        orderId: order.id,
+        userId,
+      },
+    });
+
+    const metadata =
+      order.metadata && typeof order.metadata === 'object' && !Array.isArray(order.metadata)
+        ? (order.metadata as Record<string, any>)
+        : {};
+
+    const enrichedOrder = {
+      ...order,
+      hasReview: reviewCount > 0,
+      reviewCount,
+      reviewRewardGranted: Boolean(metadata.reviewRewardGranted),
+    };
+
     // Permission check
     if (role === 'ADMIN' || role === 'STAFF') {
-      return order;
+      return enrichedOrder;
     }
 
     if (role === 'MODERATOR') {
@@ -608,12 +627,12 @@ export class OrdersService {
         where: { ownerId: userId },
       });
       if (order.storeId === store?.id) {
-        return order;
+        return enrichedOrder;
       }
     }
 
     if (order.userId === userId) {
-      return order;
+      return enrichedOrder;
     }
 
     throw new NotFoundException('Order not found');
@@ -646,6 +665,10 @@ export class OrdersService {
     });
 
     if (!currentOrder) {
+      throw new NotFoundException('Order not found');
+    }
+
+    if (role === 'CUSTOMER' && currentOrder.userId !== userId) {
       throw new NotFoundException('Order not found');
     }
 
@@ -739,6 +762,33 @@ export class OrdersService {
     }
 
     return updatedOrder;
+  }
+
+  async customerConfirmReceived(orderId: string, userId: string) {
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      select: {
+        id: true,
+        userId: true,
+        status: true,
+      },
+    });
+
+    if (!order || order.userId !== userId) {
+      throw new NotFoundException('Không tìm thấy đơn hàng');
+    }
+
+    const confirmableStatuses = ['SHIPPED', 'DELIVERED', 'PAYMENT_COLLECTED'];
+    if (!confirmableStatuses.includes(order.status)) {
+      throw new BadRequestException('Đơn hàng chưa ở trạng thái có thể xác nhận đã nhận');
+    }
+
+    return this.updateStatus(
+      orderId,
+      { status: 'COMPLETED' } as UpdateOrderStatusDto,
+      userId,
+      'CUSTOMER',
+    );
   }
 
   async markAsRead(id: string, userId?: string, role?: string) {

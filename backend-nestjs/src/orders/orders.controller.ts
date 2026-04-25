@@ -163,6 +163,16 @@ export class OrdersController {
     return this.ordersService.customerCancelOrder(id, userId, body?.reason);
   }
 
+  @Patch(':id/confirm-received')
+  @ApiOperation({ summary: 'Customer confirms order received' })
+  @ApiResponse({ status: 200, description: 'Order marked as completed by customer' })
+  confirmReceived(
+    @Param('id') id: string,
+    @GetUser('id') userId: string,
+  ) {
+    return this.ordersService.customerConfirmReceived(id, userId);
+  }
+
   @Get('public/track')
   @Public()
   @ApiOperation({ summary: 'Publicly track order by code and phone' })

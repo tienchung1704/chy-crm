@@ -45,4 +45,12 @@ export class ReviewsController {
   async createReview(@GetUser('id') userId: string, @Body() data: any) {
     return this.reviewsService.createReview(userId, data);
   }
+
+  @Post('order')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Create reviews for all reviewable products in an order' })
+  async createOrderReviews(@GetUser('id') userId: string, @Body() data: any) {
+    return this.reviewsService.createOrderReviews(userId, data);
+  }
 }

@@ -183,4 +183,136 @@ export class ReviewsService {
 
     return review;
   }
+
+  async createOrderReviews(userId: string, data: any) {
+    const { orderId, rating, comment, images } = data;
+
+    if (!orderId || !rating) {
+      throw new BadRequestException('Order ID and rating are required');
+    }
+
+    if (rating < 1 || rating > 5) {
+      throw new BadRequestException('Rating must be between 1 and 5');
+    }
+
+    if (images && Array.isArray(images) && images.length > 5) {
+      throw new BadRequestException('Tối đa 5 ảnh');
+    }
+
+    const order = await this.prisma.order.findFirst({
+      where: {
+        id: orderId,
+        userId,
+        status: 'COMPLETED',
+      },
+      include: {
+        items: {
+          include: {
+            product: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!order) {
+      throw new ForbiddenException('Bạn chỉ có thể đánh giá sau khi đơn hàng hoàn thành');
+    }
+
+    const reviewableItems = order.items.filter((item) => !item.isGift && item.productId);
+    if (reviewableItems.length === 0) {
+      throw new BadRequestException('Không có sản phẩm để đánh giá');
+    }
+
+    const existingReviews = await this.prisma.review.findMany({
+      where: {
+        userId,
+        orderId,
+      },
+      select: {
+        productId: true,
+      },
+    });
+
+    const reviewedProductIds = new Set(existingReviews.map((review) => review.productId));
+    const pendingItems = reviewableItems.filter((item) => !reviewedProductIds.has(item.productId));
+
+    if (pendingItems.length === 0) {
+      throw new ConflictException('Bạn đã đánh giá đơn hàng này rồi');
+    }
+
+    const trimmedComment = typeof comment === 'string' ? comment.trim() : '';
+
+    return this.prisma.$transaction(async (tx) => {
+      const createdReviews = await Promise.all(
+        pendingItems.map((item) =>
+          tx.review.create({
+            data: {
+              userId,
+              productId: item.productId,
+              orderId,
+              rating,
+              comment: trimmedComment || null,
+              images: images || null,
+              size: item.size || null,
+              color: item.color || null,
+              isVerifiedPurchase: true,
+            },
+            include: {
+              user: {
+                select: {
+                  name: true,
+                  avatarUrl: true,
+                },
+              },
+            },
+          }),
+        ),
+      );
+
+      const currentMetadata =
+        order.metadata && typeof order.metadata === 'object' && !Array.isArray(order.metadata)
+          ? (order.metadata as Record<string, any>)
+          : {};
+
+      let rewardGranted = false;
+      if (trimmedComment && !currentMetadata.reviewRewardGranted) {
+        await tx.user.update({
+          where: { id: userId },
+          data: {
+            spinTurns: { increment: 1 },
+          },
+        });
+
+        await tx.order.update({
+          where: { id: orderId },
+          data: {
+            metadata: {
+              ...currentMetadata,
+              reviewRewardGranted: true,
+              reviewRewardGrantedAt: new Date().toISOString(),
+            },
+          },
+        });
+
+        rewardGranted = true;
+      }
+
+      return {
+        success: true,
+        reviews: createdReviews,
+        rewardGranted,
+        reward: rewardGranted
+          ? {
+              spinTurnsAdded: 1,
+              message: 'Bạn nhận được 1 lượt quay thưởng vì đã đánh giá kèm mô tả.',
+            }
+          : null,
+      };
+    });
+  }
 }

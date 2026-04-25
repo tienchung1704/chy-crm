@@ -1206,6 +1206,10 @@ export class PancakeService {
     const orderCreatedAt = pancakeCreatedAt ? new Date(pancakeCreatedAt) : new Date();
 
     let order;
+    const shouldAttachUserToExistingOrder =
+      !!existing &&
+      !!user &&
+      (!existing.userId || existing.userId === user.id);
 
     if (existing) {
       // Delete old items so we can recreate them
@@ -1216,6 +1220,7 @@ export class PancakeService {
       order = await this.prisma.order.update({
         where: { id: existing.id },
         data: {
+          ...(shouldAttachUserToExistingOrder ? { userId: user!.id } : {}),
           shippingName: shippingAddr?.full_name || pOrder.bill_full_name || null,
           shippingPhone: shippingAddr?.phone_number || pOrder.bill_phone_number || null,
           shippingStreet: shippingAddr?.address || null,
@@ -1237,6 +1242,12 @@ export class PancakeService {
         }
       });
       this.logger.log(`[Pancake] Updated order: ${orderCode}, amount: ${totalAmount}, paid: ${totalPaid}`);
+
+      if (existing.userId && user && existing.userId !== user.id) {
+        this.logger.warn(
+          `[Pancake] Order ${orderCode} already belongs to another user (${existing.userId}), skip re-attaching to ${user.id}`,
+        );
+      }
     } else {
       order = await this.prisma.order.create({
         data: {
@@ -1267,7 +1278,16 @@ export class PancakeService {
       this.logger.log(`[Pancake] Synced order: ${orderCode}, amount: ${totalAmount}, paid: ${totalPaid}`);
     }
 
-    if (status === OrderStatus.COMPLETED && user && (!existing || existing.status !== 'COMPLETED')) {
+    const shouldCreditCompletedOrder =
+      status === OrderStatus.COMPLETED &&
+      user &&
+      (
+        !existing ||
+        existing.status !== 'COMPLETED' ||
+        (!existing.userId && order.userId === user.id)
+      );
+
+    if (shouldCreditCompletedOrder) {
       await this.updateUserRankAndSpent(user.id, totalAmount);
     }
 
