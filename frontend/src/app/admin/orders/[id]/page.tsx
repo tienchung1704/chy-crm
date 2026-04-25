@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import OrderStatusManager from '@/components/admin/OrderStatusManager';
 import OrderReadStatusManager from '@/components/admin/OrderReadStatusManager';
+import DeleteOrderButton from '@/components/admin/DeleteOrderButton';
 import { apiClient } from '@/lib/apiClient';
 
 function fmt(amount: number) {
@@ -141,13 +142,14 @@ export default async function OrderDetailPage(props: {
               )}
             </div>
           </div>
-          <div className="flex gap-2 flex-wrap">
+          <div className="flex gap-2 flex-wrap items-center">
             <span className={`px-4 py-2 rounded-lg text-sm font-semibold ${st.cls}`}>
               {st.label}
             </span>
             <span className={`px-4 py-2 rounded-lg text-sm font-semibold ${pst.cls}`}>
               {pst.label}
             </span>
+            <DeleteOrderButton orderId={order.id} orderCode={order.orderCode} />
           </div>
         </div>
       </div>

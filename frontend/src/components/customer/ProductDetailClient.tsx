@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback, useEffect } from 'react';
-import { Heart, ShoppingBag, Truck, ShieldCheck, Undo2, Sparkles, Share2 } from 'lucide-react';
+import { Heart, ShoppingBag, Truck, ShieldCheck, Undo2, Sparkles, Share2, X } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { persistReferralCode } from '@/lib/referral-client';
 import ProductReviews from './ProductReviews';
@@ -88,6 +88,7 @@ export default function ProductDetailClient({ product, relatedProducts = [], ini
   const [loadingCart, setLoadingCart] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [copied, setCopied] = useState(false);
+  const [isImageModalOpen, setIsImageModalOpen] = useState(false);
 
   // Save referral code from URL for signup flows.
   useEffect(() => {
@@ -318,7 +319,8 @@ export default function ProductDetailClient({ product, relatedProducts = [], ini
                 <img
                   src={product.imageUrl}
                   alt={product.name}
-                  className="w-full max-w-[280px] aspect-[3/4] object-cover rounded-2xl shadow-xl"
+                  onClick={() => setIsImageModalOpen(true)}
+                  className="w-full max-w-[280px] aspect-[3/4] object-cover rounded-2xl shadow-xl cursor-pointer hover:opacity-90 transition-opacity"
                 />
               ) : (
                 <div className="w-full max-w-[280px] aspect-[3/4] bg-gray-200 rounded-2xl flex items-center justify-center shadow-xl">
@@ -579,7 +581,7 @@ export default function ProductDetailClient({ product, relatedProducts = [], ini
             <h3 className="text-2xl font-bold text-gray-900 mb-8">
               Sản phẩm liên quan
             </h3>
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-5">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3 sm:gap-5">
               {relatedProducts.filter(rp => rp.stockQuantity > 0).map(rp => {
                 const finalPrice = rp.salePrice || rp.originalPrice;
                 const hasDiscount = rp.salePrice && rp.salePrice < rp.originalPrice;
@@ -730,6 +732,27 @@ export default function ProductDetailClient({ product, relatedProducts = [], ini
           </div>
         )}
       </div>
+
+      {/* Image Modal */}
+      {isImageModalOpen && product.imageUrl && (
+        <div 
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 p-4"
+          onClick={() => setIsImageModalOpen(false)}
+        >
+          <button 
+            className="absolute top-4 right-4 text-white p-2 hover:bg-white/20 rounded-full transition-colors z-10"
+            onClick={() => setIsImageModalOpen(false)}
+          >
+            <X className="w-8 h-8" />
+          </button>
+          <img 
+            src={product.imageUrl} 
+            alt={product.name} 
+            className="max-w-full max-h-full object-contain select-none"
+            onClick={(e) => e.stopPropagation()} 
+          />
+        </div>
+      )}
     </div>
   );
 }

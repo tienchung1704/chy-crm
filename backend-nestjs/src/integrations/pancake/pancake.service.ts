@@ -1278,17 +1278,30 @@ export class PancakeService {
       this.logger.log(`[Pancake] Synced order: ${orderCode}, amount: ${totalAmount}, paid: ${totalPaid}`);
     }
 
-    const shouldCreditCompletedOrder =
-      status === OrderStatus.COMPLETED &&
+    const isCreditableStatus = status === 'COMPLETED' || status === 'DELIVERED';
+    const wasCreditableStatus = existing && (existing.status === 'COMPLETED' || existing.status === 'DELIVERED');
+
+    const shouldCreditOrder =
+      isCreditableStatus &&
       user &&
       (
         !existing ||
-        existing.status !== 'COMPLETED' ||
+        !wasCreditableStatus ||
         (!existing.userId && order.userId === user.id)
       );
 
-    if (shouldCreditCompletedOrder) {
+    if (shouldCreditOrder) {
       await this.updateUserRankAndSpent(user.id, totalAmount);
+    }
+
+    const shouldDeductOrder =
+      !isCreditableStatus &&
+      wasCreditableStatus &&
+      user &&
+      existing.userId === user.id;
+
+    if (shouldDeductOrder) {
+      await this.updateUserRankAndSpent(user.id, -totalAmount);
     }
 
     return { synced: true, amount: totalAmount, orderId: order.id, isUpdate: !!existing };

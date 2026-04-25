@@ -166,6 +166,7 @@ export default function ProductsClient({ products, categories, userRole }: Props
             </span>
           )}
         </div>
+
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead className="bg-gray-50">
@@ -277,11 +278,11 @@ export default function ProductsClient({ products, categories, userRole }: Props
 
         {/* Pagination */}
         {totalPages > 1 && (
-          <div className="px-6 py-4 border-t border-gray-100 flex items-center justify-between">
-            <div className="text-sm text-gray-600">
+          <div className="px-4 py-4 border-t border-gray-100 flex flex-col md:flex-row items-center justify-between gap-4">
+            <div className="text-sm text-gray-600 text-center w-full md:w-auto">
               Hiển thị {startIndex + 1} - {Math.min(endIndex, filteredProducts.length)} trong tổng số {filteredProducts.length} sản phẩm
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center justify-center gap-1.5 md:gap-2 flex-wrap max-w-full w-full md:w-auto">
               <button
                 onClick={() => goToPage(currentPage - 1)}
                 disabled={currentPage === 1}

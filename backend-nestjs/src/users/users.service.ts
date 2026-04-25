@@ -280,7 +280,7 @@ export class UsersService {
       this.prisma.order.aggregate({
         where: {
           userId,
-          status: 'COMPLETED',
+          status: { in: ['COMPLETED', 'DELIVERED'] },
           createdAt: { gte: thirtyDaysAgo },
         },
         _sum: { totalAmount: true },
@@ -326,7 +326,7 @@ export class UsersService {
       this.prisma.order.aggregate({
         where: {
           userId,
-          status: 'COMPLETED',
+          status: { in: ['COMPLETED', 'DELIVERED'] },
           createdAt: { gte: thirtyDaysAgo },
         },
         _sum: { totalAmount: true },

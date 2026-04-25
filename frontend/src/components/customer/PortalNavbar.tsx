@@ -66,7 +66,7 @@ export default function PortalNavbar({ user }: Props) {
 
   return (
     <nav className="bg-white border-b border-gray-200 sticky top-0 z-50 shadow-sm">
-      <div className="w-[80%] mx-auto px-4">
+      <div className="w-full px-4 md:w-[80%] md:px-0 mx-auto">
         <div className="flex justify-between items-center h-16">
           {/* Brand */}
           <Link href="/portal" style={{ display: 'flex', alignItems: 'baseline', textDecoration: 'none' }}>
@@ -199,30 +199,39 @@ export default function PortalNavbar({ user }: Props) {
 
         {/* Mobile menu */}
         {mobileMenuOpen && (
-          <div className="md:hidden border-t border-gray-200 py-2">
-            {navItems.map(item => (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors ${isActive(item.href)
-                  ? 'bg-blue-50 text-blue-600'
-                  : 'text-gray-700 hover:bg-gray-50'
-                  }`}
-              >
-                <span>{item.name}</span>
+          <>
+            {/* Backdrop overlay */}
+            <div 
+              className="md:hidden fixed inset-0 top-16 bg-black/20 backdrop-blur-sm z-40"
+              onClick={() => setMobileMenuOpen(false)}
+            />
+            
+            {/* Dropdown panel */}
+            <div className="md:hidden absolute top-16 left-0 w-full bg-white border-t border-gray-200 py-2 shadow-xl z-50">
+              {navItems.map(item => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={`flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors ${isActive(item.href)
+                    ? 'bg-blue-50 text-blue-600'
+                    : 'text-gray-700 hover:bg-gray-50'
+                    }`}
+                >
+                  <span>{item.name}</span>
+                </Link>
+              ))}
+              <div className="border-t border-gray-200 my-2" />
+              <Link href="/portal/profile" className="flex items-center gap-3 px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50">
+                👤 Hồ sơ cá nhân
               </Link>
-            ))}
-            <div className="border-t border-gray-200 my-2" />
-            <Link href="/portal/profile" className="flex items-center gap-3 px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50">
-              👤 Hồ sơ cá nhân
-            </Link>
-            <button
-              className="w-full flex items-center gap-3 px-4 py-3 text-sm font-medium text-red-600 hover:bg-red-50"
-              onClick={handleLogout}
-            >
-              🚪 Đăng xuất
-            </button>
-          </div>
+              <button
+                className="w-full flex items-center gap-3 px-4 py-3 text-sm font-medium text-red-600 hover:bg-red-50"
+                onClick={handleLogout}
+              >
+                🚪 Đăng xuất
+              </button>
+            </div>
+          </>
         )}
       </div>
     </nav>

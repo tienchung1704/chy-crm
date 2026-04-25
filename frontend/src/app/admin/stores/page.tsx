@@ -188,41 +188,43 @@ export default async function StoresPage() {
             <p className="text-sm text-red-700">Các cửa hàng dưới đây đã bị vô hiệu hóa do vi phạm chính sách.</p>
           </div>
           <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-            <table className="w-full">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Cửa hàng</th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Lý do</th>
-                  <th className="px-6 py-3 text-center text-xs font-semibold text-gray-600 uppercase">Thao tác</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {stores.filter(s => s.isBanned).map(store => (
-                  <tr key={store.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-red-400 to-red-600 flex items-center justify-center text-white font-bold">
-                          {store.name.charAt(0).toUpperCase()}
-                        </div>
-                        <div>
-                          <div className="font-semibold text-gray-800">{store.name}</div>
-                          <div className="text-xs text-gray-500">/{store.slug}</div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 text-sm text-red-700">{store.bannedReason || '—'}</td>
-                    <td className="px-6 py-4 text-center">
-                      <Link
-                        href={`/admin/stores/${store.id}`}
-                        className="inline-flex items-center gap-1.5 px-4 py-2 bg-gray-100 text-gray-700 hover:bg-gray-200 rounded-lg text-sm font-semibold transition-colors"
-                      >
-                        📋 Chi tiết
-                      </Link>
-                    </td>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Cửa hàng</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Lý do</th>
+                    <th className="px-6 py-3 text-center text-xs font-semibold text-gray-600 uppercase">Thao tác</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {stores.filter(s => s.isBanned).map(store => (
+                    <tr key={store.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-red-400 to-red-600 flex items-center justify-center text-white font-bold">
+                            {store.name.charAt(0).toUpperCase()}
+                          </div>
+                          <div>
+                            <div className="font-semibold text-gray-800">{store.name}</div>
+                            <div className="text-xs text-gray-500">/{store.slug}</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-sm text-red-700">{store.bannedReason || '—'}</td>
+                      <td className="px-6 py-4 text-center">
+                        <Link
+                          href={`/admin/stores/${store.id}`}
+                          className="inline-flex items-center gap-1.5 px-4 py-2 bg-gray-100 text-gray-700 hover:bg-gray-200 rounded-lg text-sm font-semibold transition-colors"
+                        >
+                          📋 Chi tiết
+                        </Link>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       )}

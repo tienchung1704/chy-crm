@@ -1,12 +1,13 @@
 'use client';
 
 import { useState, useEffect, useTransition } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
+import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { claimQrRewardAction } from '@/actions/qrClaimActions';
 
 export default function QrClaimModal() {
   const searchParams = useSearchParams();
   const router = useRouter();
+  const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
   const [orderCode, setOrderCode] = useState('');
   const [phone, setPhone] = useState('');
@@ -25,13 +26,14 @@ export default function QrClaimModal() {
         setOrderCode(urlOrderCode.toUpperCase());
       }
       
-      // Clean URL without reload
-      const url = new URL(window.location.href);
-      url.searchParams.delete('campaign');
-      url.searchParams.delete('orderCode');
-      window.history.replaceState({}, '', url.toString());
+      // Clean URL without reload using Next.js router
+      const params = new URLSearchParams(searchParams.toString());
+      params.delete('campaign');
+      params.delete('orderCode');
+      const newUrl = pathname + (params.toString() ? `?${params.toString()}` : '');
+      router.replace(newUrl, { scroll: false });
     }
-  }, [searchParams]);
+  }, [searchParams, router, pathname]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();

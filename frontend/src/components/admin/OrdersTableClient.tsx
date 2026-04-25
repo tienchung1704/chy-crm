@@ -68,7 +68,79 @@ export default function OrdersTableClient({ orders }: OrdersTableClientProps) {
 
       {/* Table */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-        <div className="overflow-x-auto">
+        {/* Mobile View */}
+        <div className="md:hidden flex flex-col divide-y divide-gray-50">
+          {orders.length === 0 ? (
+            <div className="text-center py-10 bg-white">
+              <div className="text-lg font-bold text-gray-900">Không tìm thấy đơn hàng</div>
+            </div>
+          ) : orders.map((order: any) => {
+            const st = statusMap[order.status] || { cls: 'badge-gray', label: order.status };
+            const isUnread = !order.isRead;
+            const isChecked = selectedIds.has(order.id);
+
+            let firstItemDisplay = 'Chưa có sản phẩm';
+            const isPancake = order.source === 'PANCAKE';
+            const metadata = order.metadata as any;
+            if (isPancake && metadata?.items && Array.isArray(metadata.items) && metadata.items.length > 0) {
+              const item = metadata.items[0];
+              firstItemDisplay = `${item.name} x ${item.quantity || 1}`;
+            } else if (order.items && order.items.length > 0) {
+              const item = order.items[0];
+              firstItemDisplay = `${item.product?.name || 'Sản phẩm'} x ${item.quantity}`;
+            }
+
+            return (
+              <div key={`mob-${order.id}`} className={`p-4 flex flex-col gap-3 transition-all duration-200 ${isUnread ? 'bg-gray-100/60' : 'bg-white'} ${isChecked ? '!bg-indigo-50/60' : ''}`}>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={isChecked}
+                      onChange={() => toggleOne(order.id)}
+                      className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                    />
+                    {isUnread && <span className="w-2 h-2 rounded-full bg-blue-600 animate-pulse flex-shrink-0" />}
+                    <span className={`font-mono text-sm font-bold ${isUnread ? 'text-blue-700' : 'text-gray-900'}`}>
+                      #{order.orderCode}
+                    </span>
+                  </div>
+                  <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold shadow-sm ${st.cls === 'badge-warning' ? 'bg-orange-100 text-orange-700' : st.cls === 'badge-purple' ? 'bg-purple-100 text-purple-700' : st.cls === 'badge-info' ? 'bg-cyan-100 text-cyan-700' : st.cls === 'badge-success' ? 'bg-green-100 text-green-700' : st.cls === 'badge-blue' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-700'}`}>
+                    {st.label}
+                  </span>
+                </div>
+
+                <div className="flex flex-col gap-1">
+                  <div className={`text-sm ${isUnread ? 'font-bold text-gray-900' : 'font-bold text-gray-700'}`}>
+                    {order.shippingName || order.user?.name || order.user?.phone || 'Khách lạ'}
+                  </div>
+                  <div className="text-[11px] text-gray-500 font-medium">
+                    {order.shippingPhone || order.user?.phone || ''}
+                  </div>
+                </div>
+
+                <div className="text-[13px] font-medium text-gray-600 bg-gray-50 p-2 rounded-lg truncate">
+                  {firstItemDisplay}
+                </div>
+
+                <div className="flex justify-between items-center mt-1">
+                  <span className="text-[11px] font-medium text-gray-400">
+                    {fmtDate(order.createdAt)}
+                  </span>
+                  <Link
+                    href={`/admin/orders/${order.id}`}
+                    className="inline-flex items-center px-4 py-1.5 text-xs text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg font-bold transition-all"
+                  >
+                    Chi tiết
+                  </Link>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Desktop View */}
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="border-b border-gray-50 bg-gray-50/50">

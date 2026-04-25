@@ -202,6 +202,7 @@ export class ProductsService {
               id: true,
               name: true,
               slug: true,
+              addressProvince: true,
             },
           },
         },
@@ -440,13 +441,24 @@ export class ProductsService {
       }
     }
 
-    // Soft delete by setting isActive to false
-    await this.prisma.product.update({
-      where: { id },
-      data: { isActive: false },
+    // Hard delete: remove related records then the product
+    await this.prisma.$transaction(async (tx) => {
+      // Delete variants
+      await tx.productVariant.deleteMany({ where: { productId: id } });
+      // Delete reviews
+      await tx.review.deleteMany({ where: { productId: id } });
+      // Delete wishlists
+      await tx.wishlist.deleteMany({ where: { productId: id } });
+      // Delete cart items referencing this product
+      await tx.cartItem.deleteMany({ where: { productId: id } });
+      // Delete order items referencing this product
+      await tx.orderItem.deleteMany({ where: { productId: id } });
+      // Disconnect categories (implicit many-to-many, handled by Prisma on delete)
+      // Delete the product (Prisma auto-cleans the implicit join table)
+      await tx.product.delete({ where: { id } });
     });
 
-    return { success: true, message: 'Product deleted successfully' };
+    return { success: true, message: 'Sản phẩm đã được xóa vĩnh viễn' };
   }
 
   async search(query: string) {

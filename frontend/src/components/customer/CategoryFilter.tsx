@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { ChevronDown, ChevronRight } from 'lucide-react';
+import { ChevronDown, ChevronRight, Check } from 'lucide-react';
 
 interface Category {
   id: string;
@@ -11,13 +11,13 @@ interface Category {
 
 interface CategoryFilterProps {
   categories: Category[];
-  selectedCategoryId: string | null;
-  onFilterChange: (categoryId: string | null) => void;
+  selectedCategoryIds: string[];
+  onFilterChange: (categoryIds: string[]) => void;
 }
 
 export default function CategoryFilter({
   categories,
-  selectedCategoryId,
+  selectedCategoryIds,
   onFilterChange,
 }: CategoryFilterProps) {
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(
@@ -43,7 +43,11 @@ export default function CategoryFilter({
   };
 
   const handleCategoryClick = (category: Category) => {
-    onFilterChange(category.id);
+    if (selectedCategoryIds.includes(category.id)) {
+      onFilterChange(selectedCategoryIds.filter(id => id !== category.id));
+    } else {
+      onFilterChange([...selectedCategoryIds, category.id]);
+    }
     if (hasChildren(category.id)) {
       toggleExpand(category.id);
     }
@@ -51,7 +55,7 @@ export default function CategoryFilter({
 
   const renderCategory = (category: Category, level = 0) => {
     const isExpanded = expandedCategories.has(category.id);
-    const isSelected = selectedCategoryId === category.id;
+    const isSelected = selectedCategoryIds.includes(category.id);
     const children = getCategoriesByParent(category.id);
     const hasChild = children.length > 0;
 
@@ -62,15 +66,20 @@ export default function CategoryFilter({
           onClick={() => handleCategoryClick(category)}
           className={`group flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-left text-sm transition-colors ${
             isSelected
-              ? 'bg-gray-900 text-white'
+              ? 'bg-indigo-50 text-indigo-700 font-medium'
               : 'text-gray-700 hover:bg-gray-100'
           }`}
           style={{ paddingLeft: `${12 + level * 14}px` }}
         >
-          <span className="truncate">{category.name}</span>
+          <div className="flex items-center gap-2 truncate">
+            <div className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 ${isSelected ? 'bg-indigo-600 border-indigo-600' : 'border-gray-300'}`}>
+              {isSelected && <Check className="w-3 h-3 text-white" />}
+            </div>
+            <span className="truncate">{category.name}</span>
+          </div>
           {hasChild && (
             <span
-              className="ml-2 shrink-0"
+              className="ml-2 shrink-0 p-1 rounded-full hover:bg-gray-200"
               onClick={(event) => {
                 event.stopPropagation();
                 toggleExpand(category.id);
@@ -108,10 +117,10 @@ export default function CategoryFilter({
       <div className="max-h-[320px] space-y-1 overflow-y-auto pr-1">
         <button
           type="button"
-          onClick={() => onFilterChange(null)}
+          onClick={() => onFilterChange([])}
           className={`w-full rounded-xl px-3 py-2.5 text-left text-sm transition-colors ${
-            !selectedCategoryId
-              ? 'bg-gray-900 text-white'
+            selectedCategoryIds.length === 0
+              ? 'bg-gray-900 text-white font-medium'
               : 'text-gray-700 hover:bg-gray-100'
           }`}
         >

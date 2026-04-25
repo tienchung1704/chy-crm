@@ -86,31 +86,33 @@ export default async function CustomerDetailPage(props: {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between gap-4">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <Link href="/admin/customers" className="text-sm font-medium text-blue-600 hover:text-blue-700">
             Quay lại danh sách
           </Link>
-          <h1 className="mt-2 text-3xl font-semibold text-gray-900">{customerName}</h1>
-          <p className="mt-1 text-sm text-gray-500">
+          <h1 className="mt-2 text-3xl font-bold text-gray-900">{customerName}</h1>
+          
+          <div className="flex flex-wrap items-center gap-3 mt-3">
+            <span className={`px-3 py-1.5 rounded-full text-xs font-semibold ${rankMap[customer.rank] || rankMap.MEMBER}`}>
+              {customer.rank}
+            </span>
+            {!customer.isActive && (
+              <span className="px-3 py-1.5 rounded-full text-xs font-semibold bg-red-100 text-red-700 border border-red-200">
+                BANNED
+              </span>
+            )}
+            <CustomerActions
+              customerId={customer.id}
+              customerName={customerName}
+              customerPhone={customer.phone}
+              isActive={customer.isActive}
+            />
+          </div>
+
+          <p className="mt-2 text-sm text-gray-500">
             Tạo lúc {formatDate(customer.createdAt)}
           </p>
-        </div>
-        <div className="flex items-center gap-4">
-          <span className={`px-3 py-1.5 rounded-full text-xs font-semibold ${rankMap[customer.rank] || rankMap.MEMBER}`}>
-            {customer.rank}
-          </span>
-          {!customer.isActive && (
-            <span className="px-3 py-1.5 rounded-full text-xs font-semibold bg-red-100 text-red-700 border border-red-200">
-              BANNED
-            </span>
-          )}
-          <CustomerActions
-            customerId={customer.id}
-            customerName={customerName}
-            customerPhone={customer.phone}
-            isActive={customer.isActive}
-          />
         </div>
       </div>
 

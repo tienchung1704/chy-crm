@@ -5,6 +5,7 @@ import {
   Body,
   Param,
   Patch,
+  Delete,
   UseGuards,
   Query,
 } from '@nestjs/common';
@@ -194,5 +195,18 @@ export class OrdersController {
       status: order.paymentStatus === 'PAID' ? 'SUCCESS' : 'PENDING',
       is_expired: false,
     };
+  }
+
+  @Delete(':id')
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN')
+  @ApiOperation({ summary: 'Hard delete order (Admin only)' })
+  @ApiResponse({ status: 200, description: 'Order deleted permanently' })
+  hardDelete(
+    @Param('id') id: string,
+    @GetUser('id') userId: string,
+    @GetUser('role') role: string,
+  ) {
+    return this.ordersService.hardDelete(id, userId, role);
   }
 }

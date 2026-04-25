@@ -91,10 +91,9 @@ export default function SpinWheelClient({ prizes, spinTurns: initialSpinTurns }:
           }}
         />
 
-        {/* Wheel */}
         <div 
           ref={wheelRef} 
-          className="w-[340px] h-[340px] rounded-full relative"
+          className="w-[340px] h-[340px] rounded-full relative overflow-hidden"
           style={{
             background: `conic-gradient(${conicGradient})`,
             transition: spinning ? 'transform 4s cubic-bezier(0.17, 0.67, 0.12, 0.99)' : 'none',
@@ -102,13 +101,27 @@ export default function SpinWheelClient({ prizes, spinTurns: initialSpinTurns }:
             boxShadow: '0 0 0 6px #e5e7eb, 0 0 40px rgba(99,102,241,0.2), inset 0 0 30px rgba(0,0,0,0.3)',
           }}
         >
+          {/* Segment borders */}
+          {prizes.map((p, i) => {
+            const angle = i * segmentAngle;
+            return (
+              <div
+                key={`border-${p.id}`}
+                className="absolute top-0 left-1/2 w-[2px] h-[170px] bg-white/40 origin-bottom z-[2]"
+                style={{
+                  transform: `translateX(-50%) rotate(${angle}deg)`,
+                }}
+              />
+            );
+          })}
+
           {/* Prize labels */}
           {prizes.map((p, i) => {
             const angle = i * segmentAngle + segmentAngle / 2;
             return (
               <div 
                 key={p.id} 
-                className="absolute top-1/2 left-1/2 text-xs font-bold text-white whitespace-nowrap w-0 text-center"
+                className="absolute top-1/2 left-1/2 text-xs font-bold text-white whitespace-nowrap w-0 text-center z-[3]"
                 style={{
                   transform: `rotate(${angle}deg) translateY(-120px)`,
                   transformOrigin: '0 0',

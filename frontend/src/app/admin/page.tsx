@@ -119,7 +119,39 @@ export default async function AdminDashboard() {
               Xem tất cả →
             </Link>
           </div>
-          <div className="overflow-x-auto">
+          {/* Mobile View */}
+          <div className="md:hidden flex flex-col divide-y divide-gray-100">
+            {!stats.recentOrders || stats.recentOrders.length === 0 ? (
+              <div className="p-6 text-center text-gray-500">Chưa có đơn hàng nào</div>
+            ) : (
+              stats.recentOrders.map((order: any) => {
+                const statusInfo = getStatusBadge(order.status);
+                const displayName = order.shippingName || order.user?.name || order.user?.phone || 'Khách lạ';
+                return (
+                  <div key={`mob-order-${order.id}`} className="p-4 flex flex-col gap-2">
+                    <div className="flex justify-between items-center">
+                      <span className="font-mono text-sm font-bold text-gray-800">{order.orderCode}</span>
+                      <span className={`px-2 py-1 rounded-full text-[10px] font-bold ${
+                        statusInfo.class === 'badge-success' ? 'bg-green-100 text-green-700' :
+                        statusInfo.class === 'badge-warning' ? 'bg-yellow-100 text-yellow-700' :
+                        statusInfo.class === 'badge-info' ? 'bg-blue-100 text-blue-700' :
+                        'bg-red-100 text-red-700'
+                      }`}>
+                        {statusInfo.label}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center text-xs mt-1">
+                      <span className="text-gray-600">{displayName}</span>
+                      <span className="font-bold text-rose-600">{formatCurrency(order.totalAmount)}</span>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+
+          {/* Desktop View */}
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full">
               <thead className="bg-gray-50">
                 <tr>
@@ -184,7 +216,54 @@ export default async function AdminDashboard() {
               Xem tất cả →
             </Link>
           </div>
-          <div className="overflow-x-auto">
+          {/* Mobile View */}
+          <div className="md:hidden flex flex-col divide-y divide-gray-100">
+            {!stats.topCustomers || stats.topCustomers.length === 0 ? (
+              <div className="p-6 text-center text-gray-500">Chưa có khách hàng nào</div>
+            ) : (
+              stats.topCustomers.map((customer: any) => {
+                const displayName = customer.name || customer.phone || 'Khách lạ';
+                const displayChar = displayName !== 'Khách lạ' ? displayName.charAt(0).toUpperCase() : '?';
+                return (
+                  <div key={`mob-cust-${customer.id}`} className="p-4 flex flex-col gap-3">
+                    <div className="flex items-center gap-3 mb-1">
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold flex-shrink-0">
+                        {displayChar}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex justify-between items-start">
+                          <span className="font-semibold text-sm text-gray-900 truncate pr-2">{displayName}</span>
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold whitespace-nowrap ${
+                            customer.rank === 'PLATINUM' ? 'bg-purple-100 text-purple-700' :
+                            customer.rank === 'DIAMOND' ? 'bg-blue-100 text-blue-700' :
+                            customer.rank === 'GOLD' ? 'bg-yellow-100 text-yellow-700' :
+                            customer.rank === 'SILVER' ? 'bg-gray-200 text-gray-700' :
+                            'bg-gray-100 text-gray-600'
+                          }`}>
+                            {customer.rank}
+                          </span>
+                        </div>
+                        <div className="text-xs text-gray-500 mt-0.5">{customer.email || customer.phone}</div>
+                      </div>
+                    </div>
+                    <div className="flex justify-between items-center text-xs bg-gray-50 p-2 rounded-lg">
+                      <div className="flex flex-col">
+                        <span className="text-gray-500 mb-0.5">Đã chi</span>
+                        <span className="font-bold text-gray-900">{formatCurrency(customer.totalSpent)}</span>
+                      </div>
+                      <div className="flex flex-col items-end">
+                        <span className="text-gray-500 mb-0.5">Số đơn</span>
+                        <span className="font-bold text-indigo-600">{customer._count?.orders || 0} đơn</span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+
+          {/* Desktop View */}
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full">
               <thead className="bg-gray-50">
                 <tr>

@@ -263,7 +263,7 @@ export default function CartClient({ initialItems }: CartClientProps) {
                         </div>
 
                         {/* Total */}
-                        <div className="text-right flex-shrink-0">
+                        <div className="text-right flex-shrink-0 hidden sm:block">
                           <div className="font-bold text-gray-800">{formatCurrency(itemTotal)}</div>
                         </div>
                       </div>

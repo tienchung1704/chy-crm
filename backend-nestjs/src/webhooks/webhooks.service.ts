@@ -56,12 +56,16 @@ export class WebhooksService {
   }
 
   async processViettelPostWebhook(payload: ViettelPostWebhookDto) {
-    const { ORDER_NUMBER, ORDER_STATUS, STATUS_NAME } = payload.DATA;
+    const { ORDER_NUMBER, ORDER_STATUS, STATUS_NAME, ORDER_STATUSDATE, NOTE, LOCALION_CURRENTLY, LOCATION_CURRENTLY, MONEY_COLLECTION } = payload.DATA;
 
     this.logger.log(
       `🔍 Processing order ${ORDER_NUMBER} with status ${ORDER_STATUS} (${STATUS_NAME})`,
     );
 
+    // ── 1. Update the Order record ──
+    await this.updateOrderFromWebhook(payload);
+
+    // ── 2. Handle voucher logic (existing behavior) ──
     // Find UserVoucher associated with this order
     const userVoucher = await this.prisma.userVoucher.findUnique({
       where: { sourceOrderCode: ORDER_NUMBER },
@@ -85,11 +89,12 @@ export class WebhooksService {
     });
 
     if (!userVoucher) {
-      this.logger.warn(
-        `⚠️ No voucher found for order ${ORDER_NUMBER}. Skipping...`,
+      this.logger.log(
+        `ℹ️ No voucher found for order ${ORDER_NUMBER}. Skipping voucher logic.`,
       );
       return {
-        action: 'skipped',
+        action: 'order_updated',
+        voucherAction: 'skipped',
         reason: 'No voucher associated with this order',
       };
     }
@@ -109,12 +114,136 @@ export class WebhooksService {
 
       default:
         this.logger.log(
-          `ℹ️ Status ${ORDER_STATUS} does not require action. Keeping current state.`,
+          `ℹ️ Status ${ORDER_STATUS} does not require voucher action. Keeping current state.`,
         );
         return {
-          action: 'no_action',
+          action: 'order_updated',
+          voucherAction: 'no_action',
           status: ORDER_STATUS,
         };
+    }
+  }
+
+  /**
+   * Find the Order by tracking code and update its status + metadata
+   */
+  private async updateOrderFromWebhook(payload: ViettelPostWebhookDto) {
+    const { ORDER_NUMBER, ORDER_STATUS, STATUS_NAME, ORDER_STATUSDATE, NOTE, LOCALION_CURRENTLY, LOCATION_CURRENTLY, MONEY_COLLECTION } = payload.DATA;
+
+    // Find order by tracking code in metadata OR by orderCode
+    const orders = await this.prisma.order.findMany({
+      where: {
+        OR: [
+          { orderCode: ORDER_NUMBER },
+          {
+            metadata: {
+              path: '$.partner.trackingCode',
+              equals: ORDER_NUMBER,
+            },
+          },
+        ],
+      },
+    });
+
+    if (orders.length === 0) {
+      this.logger.warn(`⚠️ No order found for tracking code ${ORDER_NUMBER}. Skipping order update.`);
+      return;
+    }
+
+    for (const order of orders) {
+      // Map ViettelPost status code to our OrderStatus enum
+      const newOrderStatus = this.mapVtpStatusToOrderStatus(ORDER_STATUS);
+      const location = LOCATION_CURRENTLY || LOCALION_CURRENTLY || '';
+
+      // Build courier update entry
+      const courierUpdate = {
+        status: STATUS_NAME || `VTP-${ORDER_STATUS}`,
+        key: `VTP_${ORDER_STATUS}`,
+        note: [NOTE, location].filter(Boolean).join(' - ') || null,
+        update_at: ORDER_STATUSDATE || new Date().toISOString(),
+      };
+
+      // Get existing metadata
+      const existingMeta = (order.metadata as any) || {};
+      const existingPartner = existingMeta.partner || {};
+      const existingUpdates: any[] = existingPartner.courierUpdates || [];
+
+      // Avoid duplicate updates (same status + same timestamp)
+      const isDuplicate = existingUpdates.some(
+        (u: any) => u.key === courierUpdate.key && u.update_at === courierUpdate.update_at,
+      );
+
+      if (isDuplicate) {
+        this.logger.log(`ℹ️ Duplicate webhook for order ${order.orderCode}, skipping metadata update.`);
+        continue;
+      }
+
+      // Build update data
+      const updateData: any = {
+        metadata: {
+          ...existingMeta,
+          partner: {
+            ...existingPartner,
+            trackingCode: existingPartner.trackingCode || ORDER_NUMBER,
+            courierUpdates: [...existingUpdates, courierUpdate],
+            ...(MONEY_COLLECTION !== undefined ? { cod: MONEY_COLLECTION } : {}),
+          },
+        },
+      };
+
+      // Update order status if we have a valid mapping
+      if (newOrderStatus) {
+        updateData.status = newOrderStatus;
+      }
+
+      await this.prisma.order.update({
+        where: { id: order.id },
+        data: updateData,
+      });
+
+      this.logger.log(
+        `✅ Order ${order.orderCode} updated: status → ${newOrderStatus || '(unchanged)'}, courier update added`,
+      );
+    }
+  }
+
+  /**
+   * Map ViettelPost status codes to our OrderStatus enum
+   */
+  private mapVtpStatusToOrderStatus(vtpStatus: number): string | null {
+    // ViettelPost status codes reference
+    switch (vtpStatus) {
+      // Picking up
+      case 100: // Đơn hàng mới tạo
+      case 101: // Chờ lấy hàng
+        return null; // Keep current status
+
+      case 102: // Đã lấy hàng
+      case 200: // Đang vận chuyển
+      case 201: // Đang vận chuyển
+      case 300: // Đang giao hàng
+      case 301: // Đang giao hàng
+        return 'SHIPPED';
+
+      case 501: // Đã giao hàng thành công
+      case 515: // Đã ký nhận
+        return 'DELIVERED';
+
+      case 500: // Đã thu tiền (COD)
+      case 505: // Đã đối soát
+        return 'PAYMENT_COLLECTED';
+
+      case 502: // Đang hoàn hàng
+      case 510: // Đang hoàn hàng
+        return 'RETURNING';
+
+      case 503: // Đã hoàn hàng
+      case 504: // Hủy đơn
+      case 107: // Hủy đơn hàng
+        return 'CANCELLED';
+
+      default:
+        return null; // Unknown status, don't change
     }
   }
 

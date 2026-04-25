@@ -54,19 +54,19 @@ export default function CategoryTree({ categories }: CategoryTreeProps) {
       <React.Fragment key={category.id}>
         <tr className="hover:bg-gray-50">
           <td className="px-6 py-4">
-            <div className="flex items-center gap-2" style={{ paddingLeft: `${indent}px` }}>
-              <span className={level === 0 ? 'text-lg' : 'text-sm'}>
+            <div className="flex items-start gap-2" style={{ paddingLeft: `${indent}px` }}>
+              <span className={`mt-0.5 ${level === 0 ? 'text-lg' : 'text-sm'}`}>
                 {level === 0 ? '📁' : '📄'}
               </span>
-              <span className={`${level === 0 ? 'font-semibold text-gray-800' : 'font-medium text-gray-700'}`}>
-                {category.name}
-              </span>
+              <div className="flex flex-col gap-0.5">
+                <span className={`${level === 0 ? 'font-semibold text-gray-800' : 'font-medium text-gray-700'}`}>
+                  {category.name}
+                </span>
+                <span className="font-mono text-xs text-gray-500">
+                  {category.slug}
+                </span>
+              </div>
             </div>
-          </td>
-          <td className="px-6 py-4">
-            <span className="font-mono text-xs text-gray-600 bg-gray-100 px-2 py-1 rounded">
-              {category.slug}
-            </span>
           </td>
           <td className="px-6 py-4">
             {category.parent ? (
@@ -128,7 +128,7 @@ export default function CategoryTree({ categories }: CategoryTreeProps) {
     <>
       {categories.length === 0 ? (
         <tr>
-          <td colSpan={7}>
+          <td colSpan={6}>
             <div className="text-center py-12">
               <div className="text-6xl mb-3">📁</div>
               <div className="text-xl font-semibold text-gray-800 mb-2">Chưa có danh mục nào</div>

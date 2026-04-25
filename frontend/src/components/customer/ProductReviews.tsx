@@ -259,10 +259,10 @@ export default function ProductReviews({ productId, productName, userCompletedOr
           <p className="text-gray-500">Chưa có đánh giá nào</p>
         </div>
       ) : (
-        <div className="space-y-6">
+        <div className="space-y-4 md:space-y-6">
           {reviews.map((review) => (
-            <div key={review.id} className="bg-white rounded-2xl p-6 border border-gray-200">
-              <div className="flex items-start gap-4">
+            <div key={review.id} className="bg-white rounded-2xl p-4 sm:p-6 border border-gray-200">
+              <div className="flex items-start gap-3 sm:gap-4">
                 {/* Avatar */}
                 <div className="flex-shrink-0">
                   {review.user.avatarUrl ? (

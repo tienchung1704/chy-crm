@@ -1,6 +1,7 @@
 export const dynamic = 'force-dynamic';
 import Link from 'next/link';
 import CustomerActions from '@/components/admin/CustomerActions';
+import CustomerSearch from '@/components/admin/CustomerSearch';
 import { apiClient } from '@/lib/apiClient';
 
 interface SearchParams {
@@ -64,35 +65,7 @@ export default async function CustomersPage(props: {
       </div>
 
       {/* Filters */}
-      <div className="bg-white p-4 rounded-xl shadow-sm mb-6">
-        <form className="flex items-center gap-4" action="/admin/customers" method="GET">
-          <div className="relative flex-1">
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">🔍</span>
-            <input
-              type="text"
-              name="search"
-              placeholder="Tìm tên, email, SĐT..."
-              defaultValue={searchParams.search}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-          </div>
-          <select
-            name="rank"
-            className="w-40 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            defaultValue={searchParams.rank}
-          >
-            <option value="">Tất cả hạng</option>
-            <option value="MEMBER">Member</option>
-            <option value="SILVER">Silver</option>
-            <option value="GOLD">Gold</option>
-            <option value="DIAMOND">Diamond</option>
-            <option value="PLATINUM">Platinum</option>
-          </select>
-          <button type="submit" className="px-6 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors font-medium">
-            Lọc
-          </button>
-        </form>
-      </div>
+      <CustomerSearch />
 
       {/* Customer Table */}
       <div className="bg-white rounded-xl shadow-sm overflow-hidden">
@@ -101,7 +74,6 @@ export default async function CustomersPage(props: {
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Khách hàng</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Email</th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Hạng</th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Tổng chi tiêu</th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Số đơn</th>
@@ -114,7 +86,7 @@ export default async function CustomersPage(props: {
             <tbody className="divide-y divide-gray-100">
               {customers.length === 0 ? (
                 <tr>
-                  <td colSpan={9}>
+                  <td colSpan={8}>
                     <div className="text-center py-12">
                       <div className="text-6xl mb-3">👥</div>
                       <div className="text-xl font-semibold text-gray-800 mb-2">Không tìm thấy khách hàng</div>
@@ -130,22 +102,14 @@ export default async function CustomersPage(props: {
                 customers.map((customer) => (
                   <tr key={customer.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-semibold">
-                          {(customer.phone || customer.name || '?').charAt(0).toUpperCase()}
+                      <div>
+                        <div className="font-semibold text-gray-800">
+                          {customer.phone || customer.name}
                         </div>
-                        <div>
-                          <div className="font-semibold text-gray-800">
-                            {customer.phone || customer.name}
-                          </div>
-                          <div className="text-xs text-gray-600">
-                            {customer.name !== customer.phone ? customer.name : (customer.email || 'Chưa cập nhật')}
-                          </div>
+                        <div className="text-xs text-gray-600">
+                          {customer.name !== customer.phone ? customer.name : (customer.email || 'Chưa cập nhật')}
                         </div>
                       </div>
-                    </td>
-                    <td className="px-6 py-4 font-mono text-xs text-gray-700">
-                      {customer.email || '—'}
                     </td>
                     <td className="px-6 py-4">
                       <span className={`px-3 py-1 rounded-full text-xs font-semibold ${customer.rank === 'PLATINUM' ? 'bg-purple-100 text-purple-700' :

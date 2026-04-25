@@ -138,7 +138,116 @@ export default function OrderList({ orders }: { orders: Order[] }) {
       )}
 
       <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
+        {/* Mobile View */}
+        <div className="md:hidden flex flex-col divide-y divide-gray-100">
+          {orders.map(order => {
+            const isPancake = order.source === 'PANCAKE';
+            const displayItems = isPancake && order.metadata?.items
+              ? (order.metadata.items as any[]).map((it, idx) => ({
+                id: `pck-${order.id}-${idx}`,
+                product: { name: it.name, imageUrl: it.image },
+                quantity: it.quantity,
+                price: it.price,
+                isGift: false,
+                size: null,
+                color: null
+              }))
+              : (order.items || []);
+
+            return (
+              <div key={`mob-${order.id}`} className="p-4 flex flex-col gap-3">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm font-mono font-bold text-gray-800">{order.orderCode}</span>
+                  {getStatusBadge(order.status)}
+                </div>
+                
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-gray-500">
+                    {new Intl.DateTimeFormat('vi-VN', {
+                      year: 'numeric', month: '2-digit', day: '2-digit',
+                      hour: '2-digit', minute: '2-digit',
+                    }).format(new Date(order.createdAt))}
+                  </span>
+                  <span className="font-bold text-rose-600 text-sm">{fmt(order.totalAmount)}</span>
+                </div>
+
+                <div className="flex gap-2 mt-2">
+                  <Link
+                    href={`/portal/orders/${order.id}`}
+                    className="flex-1 py-2 text-center text-xs font-semibold text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100"
+                  >
+                    Chi tiết
+                  </Link>
+                  <button
+                    onClick={() => handleReorder(order)}
+                    disabled={reordering === order.id || isPancake}
+                    className="flex-1 py-2 text-center text-xs font-semibold text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 disabled:opacity-50"
+                  >
+                    {reordering === order.id ? 'Đang xử lý' : 'Mua lại'}
+                  </button>
+                  {(order.status === 'COMPLETED' || order.status === 'DELIVERED') && (
+                    <button
+                      onClick={() => setReviewingOrder(order)}
+                      className="flex-1 py-2 text-center text-xs font-semibold text-yellow-700 bg-yellow-50 border border-yellow-200 rounded-lg hover:bg-yellow-100"
+                    >
+                      Đánh giá
+                    </button>
+                  )}
+                </div>
+                
+                <button 
+                  onClick={() => toggleRow(order.id)}
+                  className="mt-1 w-full flex items-center justify-center gap-1 py-1.5 text-xs text-gray-500 hover:text-gray-700"
+                >
+                  {expandedRow === order.id ? (
+                    <>Thu gọn <ChevronUp className="w-3 h-3" /></>
+                  ) : (
+                    <>Xem {displayItems.length} sản phẩm <ChevronDown className="w-3 h-3" /></>
+                  )}
+                </button>
+
+                {expandedRow === order.id && (
+                  <div className="mt-2 pt-3 border-t border-gray-100 flex flex-col gap-2">
+                    {displayItems.length === 0 && (
+                      <div className="text-xs text-gray-500 italic">Không có chi tiết sản phẩm</div>
+                    )}
+                    {displayItems.map(item => {
+                      const productName = item.product?.name || '[Sản phẩm đã bị xóa]';
+                      const productImage = item.product?.imageUrl;
+                      const hasValidImage = productImage && typeof productImage === 'string' && productImage.length > 0;
+
+                      return (
+                        <div key={`mob-item-${item.id}`} className="flex items-center gap-3 bg-gray-50 p-2 rounded-lg">
+                          <div className="w-12 h-12 rounded overflow-hidden flex-shrink-0 bg-white border border-gray-100">
+                            {hasValidImage ? (
+                              <img src={productImage} alt={productName} className="w-full h-full object-cover" />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-xs">📦</div>
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="text-xs font-semibold text-gray-800 truncate">{productName}</div>
+                            <div className="text-[10px] text-gray-500 mt-1">
+                              SL: {item.quantity}
+                              {item.size && ` • Size: ${item.size}`}
+                              {item.color && ` • Màu: ${item.color}`}
+                            </div>
+                          </div>
+                          <div className="text-xs font-bold text-gray-800 text-right whitespace-nowrap pl-2">
+                            {item.isGift ? <span className="text-green-600 bg-green-50 px-1.5 py-0.5 rounded">Quà tặng</span> : fmt(item.price * item.quantity)}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Desktop View */}
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full">
             <thead className="bg-gray-50">
               <tr>

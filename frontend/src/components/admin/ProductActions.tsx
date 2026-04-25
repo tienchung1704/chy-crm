@@ -211,10 +211,10 @@ export default function ProductActions({ categories = [] }: ProductActionsProps)
 
       {showModal && (
         <div
-          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-0 md:p-4"
           onClick={(e) => { if (e.target === e.currentTarget) setShowModal(false); }}
         >
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+          <div className="bg-white md:rounded-xl shadow-xl w-full max-w-4xl h-full md:h-auto max-h-[100vh] md:max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between p-6 border-b border-gray-200">
               <h2 className="text-xl font-bold text-gray-800">Tạo Sản phẩm mới</h2>
               <button
@@ -233,7 +233,7 @@ export default function ProductActions({ categories = [] }: ProductActionsProps)
                   </div>
                 )}
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="prod-name">
                       Tên sản phẩm *
@@ -275,7 +275,7 @@ export default function ProductActions({ categories = [] }: ProductActionsProps)
                   />
                 </div>
 
-                <div className="grid grid-cols-4 gap-4">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="prod-price">
                       Giá gốc (VNĐ) *
@@ -363,7 +363,7 @@ export default function ProductActions({ categories = [] }: ProductActionsProps)
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Danh mục sản phẩm
                     </label>
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       {/* Level 1 */}
                       <div>
                         <label className="block text-xs text-gray-600 mb-1">Cấp 1 (Root)</label>
@@ -482,7 +482,7 @@ export default function ProductActions({ categories = [] }: ProductActionsProps)
                     </div>
                   )}
 
-                  <div className="flex gap-4 p-4 bg-gray-50 rounded-xl border border-gray-200">
+                  <div className="flex flex-col md:flex-row gap-4 p-4 bg-gray-50 rounded-xl border border-gray-200">
                     <div className="flex-1">
                       <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Quản lý Kích thước</p>
                       <div className="flex gap-2">

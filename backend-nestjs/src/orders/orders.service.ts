@@ -724,8 +724,11 @@ export class OrdersService {
       data: updateData,
     });
 
-    // Handle COMPLETED status
-    if (status === 'COMPLETED' && currentOrder.status !== 'COMPLETED') {
+    // Handle creditable status (COMPLETED, DELIVERED)
+    const isCreditable = status === 'COMPLETED' || status === 'DELIVERED';
+    const wasCreditable = currentOrder.status === 'COMPLETED' || currentOrder.status === 'DELIVERED';
+
+    if (isCreditable && !wasCreditable) {
       // Update soldCount
       for (const item of currentOrder.items) {
         if (!item.isGift) {
@@ -760,11 +763,9 @@ export class OrdersService {
       }
     }
 
-    // Handle CANCELLED or REFUNDED from COMPLETED
-    if (
-      (status === 'CANCELLED' || status === 'REFUNDED') &&
-      currentOrder.status === 'COMPLETED'
-    ) {
+    // Handle CANCELLED, REFUNDED, or RETURNED from creditable status
+    const isCancelled = status === 'CANCELLED' || status === 'REFUNDED' || status === 'RETURNED';
+    if (isCancelled && wasCreditable) {
       // Decrease soldCount
       for (const item of currentOrder.items) {
         if (!item.isGift) {
@@ -1138,5 +1139,26 @@ export class OrdersService {
         courierUpdates: m.partner.courierUpdates || []
       } : null
     };
+  }
+
+  async hardDelete(id: string, userId: string, role: string) {
+    if (role !== 'ADMIN') {
+      throw new BadRequestException('Chỉ Admin mới có quyền xóa đơn hàng');
+    }
+
+    const order = await this.prisma.order.findUnique({ where: { id } });
+    if (!order) {
+      throw new NotFoundException('Không tìm thấy đơn hàng');
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      // Delete commission ledger entries
+      await tx.commissionLedger.deleteMany({ where: { orderId: id } });
+      // OrderItem and OrderVoucher cascade automatically via schema
+      // Delete the order
+      await tx.order.delete({ where: { id } });
+    });
+
+    return { success: true, message: 'Đơn hàng đã được xóa vĩnh viễn' };
   }
 }

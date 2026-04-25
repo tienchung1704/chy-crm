@@ -46,7 +46,18 @@ export default async function PortalLayout({ children }: { children: React.React
 
   // Redirect to onboarding if not completed (only for first-time users)
   if (!meta.onboardingComplete) {
-    redirect('/onboarding');
+    const headersList = await headers();
+    const fullUrl = headersList.get('x-invoke-path') || headersList.get('x-url') || '/portal';
+    const queryString = headersList.get('x-invoke-query') || '';
+    let returnTo = fullUrl;
+    if (queryString) {
+      try {
+        const params = JSON.parse(queryString);
+        const qs = new URLSearchParams(params).toString();
+        if (qs) returnTo += (returnTo.includes('?') ? '&' : '?') + qs;
+      } catch {}
+    }
+    redirect(`/onboarding?returnTo=${encodeURIComponent(returnTo)}`);
   }
 
   const rankProgress: Record<string, { next: string | 'MAX', target: number }> = {
@@ -76,8 +87,8 @@ export default async function PortalLayout({ children }: { children: React.React
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
       <PortalNavbar user={enrichedSession} />
-      <main className="flex-1 py-8">
-        <div className="w-[80%] mx-auto">
+      <main className="flex-1 py-4 md:py-8">
+        <div className="w-full px-4 md:w-[80%] md:px-0 mx-auto">
           {children}
         </div>
       </main>

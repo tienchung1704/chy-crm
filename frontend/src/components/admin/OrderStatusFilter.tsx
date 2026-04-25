@@ -54,7 +54,7 @@ export default function OrderStatusFilter({ counts = {} }: { counts?: Record<str
   };
 
   return (
-    <div className="bg-white rounded-xl shadow-sm mb-6 flex flex-wrap items-center p-2 gap-2">
+    <div className="bg-white rounded-xl shadow-sm mb-6 flex items-center p-2 gap-2 overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
       <Link
         href={buildUrl(null)}
         className={`px-3 py-2 rounded-lg text-[13px] font-bold whitespace-nowrap transition-all ${

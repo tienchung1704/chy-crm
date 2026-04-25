@@ -53,15 +53,16 @@ export default async function PortalDashboard() {
 
   return (
     <>
-      <div className="mb-8 flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-800 mb-1">
-            Xin chào, {session.name}! 👋
-          </h1>
-          <p className="text-gray-600 text-sm">
-            Chào mừng bạn quay lại
-          </p>
-        </div>
+      <div className="mb-6">
+        <h1 className="text-3xl font-bold text-gray-800 mb-1">
+          Xin chào, {session.name}! 👋
+        </h1>
+        <p className="text-gray-600 text-sm">
+          Chào mừng bạn quay lại
+        </p>
+      </div>
+
+      <div className="mb-6">
         <TrackingButton />
       </div>
 
@@ -150,7 +151,30 @@ export default async function PortalDashboard() {
             <span className="text-lg font-bold text-gray-800">Đơn hàng gần đây</span>
             <Link href="/portal/orders" className="text-sm text-blue-500 hover:text-blue-600 font-medium">Xem tất cả →</Link>
           </div>
-          <div className="overflow-x-auto">
+          {/* Mobile View */}
+          <div className="md:hidden flex flex-col divide-y divide-gray-100">
+            {recentOrders.map((o: any) => (
+              <div key={o.id} className="p-4 flex flex-col gap-2">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm font-bold text-gray-800">{o.orderCode}</span>
+                  <span className={`px-2 py-1 rounded-full text-[10px] font-bold ${
+                    o.status === 'COMPLETED' ? 'bg-green-100 text-green-700' :
+                    o.status === 'PENDING' ? 'bg-yellow-100 text-yellow-700' :
+                    'bg-blue-100 text-blue-700'
+                  }`}>
+                    {o.status}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-gray-500">{new Intl.DateTimeFormat('vi-VN').format(new Date(o.createdAt))}</span>
+                  <span className="font-semibold text-rose-600">{fmt(o.totalAmount)}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Desktop View */}
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full">
               <thead className="bg-gray-50">
                 <tr>
@@ -164,7 +188,7 @@ export default async function PortalDashboard() {
                 {recentOrders.map((o: any) => (
                   <tr key={o.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 text-xs font-mono text-gray-800">{o.orderCode}</td>
-                    <td className="px-6 py-4 font-semibold text-gray-800">{fmt(o.totalAmount)}</td>
+                    <td className="px-6 py-4 font-semibold text-rose-600">{fmt(o.totalAmount)}</td>
                     <td className="px-6 py-4">
                       <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
                         o.status === 'COMPLETED' ? 'bg-green-100 text-green-700' :
