@@ -97,7 +97,7 @@ export default function CustomerActions({
         ) : (
           <span className="px-4 py-2 bg-gray-100 text-gray-500 text-sm font-medium rounded-lg flex items-center gap-2 cursor-not-allowed">
             <Ban className="w-4 h-4" />
-            Da bi ban
+            Đã bị ban
           </span>
         )}
         <button
@@ -108,7 +108,7 @@ export default function CustomerActions({
           className="px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 transition-colors flex items-center gap-2"
         >
           <Trash2 className="w-4 h-4" />
-          Xoa vinh vien
+          Xóa vĩnh viễn
         </button>
       </div>
 
@@ -121,7 +121,7 @@ export default function CustomerActions({
                 <div className="w-10 h-10 bg-orange-100 rounded-full flex items-center justify-center">
                   <Ban className="w-5 h-5 text-orange-600" />
                 </div>
-                <h2 className="text-xl font-bold text-gray-800">Ban khach hang</h2>
+                <h2 className="text-xl font-bold text-gray-800">Ban khách hàng</h2>
               </div>
               <button
                 onClick={() => setShowSoftDeleteModal(false)}
@@ -133,26 +133,26 @@ export default function CustomerActions({
 
             <div className="p-6">
               <p className="text-gray-700 mb-4">
-                Ban co chac chan muon ban khach hang nay?
+                Bạn có chắc chắn muốn ban khách hàng này?
               </p>
               <p className="text-sm text-orange-600 bg-orange-50 border border-orange-200 rounded-lg p-3 mb-6">
-                ⚠️ Khach hang se khong the dang nhap lai nhung du lieu van duoc luu tru.
+                ⚠️ Khách hàng sẽ không thể đăng nhập lại nhưng dữ liệu vẫn được lưu trữ.
               </p>
 
               <div className="space-y-3">
                 <label className="block text-sm font-medium text-gray-600">
-                  Nhap <span className="font-bold text-gray-900">"{customerName}"</span>{' '}
+                  Nhập <span className="font-bold text-gray-900">"{customerName}"</span>{' '}
                   {customerPhone && (
                     <>
-                      hoac <span className="font-bold text-gray-900">"{customerPhone}"</span>
+                      hoặc <span className="font-bold text-gray-900">"{customerPhone}"</span>
                     </>
                   )}{' '}
-                  de xac nhan:
+                  để xác nhận:
                 </label>
                 <input
                   type="text"
                   className={inputClass}
-                  placeholder="Nhap ten hoac so dien thoai..."
+                  placeholder="Nhập tên hoặc số điện thoại..."
                   value={confirmInput}
                   onChange={(e) => setConfirmInput(e.target.value)}
                   autoFocus
@@ -166,7 +166,7 @@ export default function CustomerActions({
                 className="flex-1 px-4 py-3 border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
                 disabled={loading}
               >
-                Huy
+                Hủy
               </button>
               <button
                 onClick={handleSoftDelete}
@@ -180,12 +180,12 @@ export default function CustomerActions({
                 {loading ? (
                   <>
                     <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    Dang xu ly...
+                    Đang xử lý...
                   </>
                 ) : (
                   <>
                     <Ban className="w-4 h-4" />
-                    Xac nhan ban
+                    Xác nhận ban
                   </>
                 )}
               </button>
@@ -203,7 +203,7 @@ export default function CustomerActions({
                 <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
                   <Trash2 className="w-5 h-5 text-red-600" />
                 </div>
-                <h2 className="text-xl font-bold text-gray-800">Xoa vinh vien</h2>
+                <h2 className="text-xl font-bold text-gray-800">Xóa vĩnh viễn</h2>
               </div>
               <button
                 onClick={() => setShowHardDeleteModal(false)}
@@ -215,26 +215,26 @@ export default function CustomerActions({
 
             <div className="p-6">
               <p className="text-gray-700 mb-4">
-                Ban co chac chan muon xoa vinh vien khach hang nay?
+                Bạn có chắc chắn muốn xóa vĩnh viễn khách hàng này?
               </p>
               <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg p-3 mb-6">
-                ⚠️ Hanh dong nay KHONG THE HOAN TAC. Tat ca du lieu lien quan se bi xoa vinh vien.
+                ⚠️ Hành động này KHÔNG THỂ HOÀN TÁC. Tất cả dữ liệu liên quan sẽ bị xóa vĩnh viễn.
               </p>
 
               <div className="space-y-3">
                 <label className="block text-sm font-medium text-gray-600">
-                  Nhap <span className="font-bold text-gray-900">"{customerName}"</span>{' '}
+                  Nhập <span className="font-bold text-gray-900">"{customerName}"</span>{' '}
                   {customerPhone && (
                     <>
-                      hoac <span className="font-bold text-gray-900">"{customerPhone}"</span>
+                      hoặc <span className="font-bold text-gray-900">"{customerPhone}"</span>
                     </>
                   )}{' '}
-                  de xac nhan:
+                  để xác nhận:
                 </label>
                 <input
                   type="text"
                   className={inputClass}
-                  placeholder="Nhap ten hoac so dien thoai..."
+                  placeholder="Nhập tên hoặc số điện thoại..."
                   value={confirmInput}
                   onChange={(e) => setConfirmInput(e.target.value)}
                   autoFocus
@@ -248,7 +248,7 @@ export default function CustomerActions({
                 className="flex-1 px-4 py-3 border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
                 disabled={loading}
               >
-                Huy
+                Hủy
               </button>
               <button
                 onClick={handleHardDelete}
@@ -262,12 +262,12 @@ export default function CustomerActions({
                 {loading ? (
                   <>
                     <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    Dang xu ly...
+                    Đang xử lý...
                   </>
                 ) : (
                   <>
                     <Trash2 className="w-4 h-4" />
-                    Xac nhan xoa
+                    Xác nhận xóa
                   </>
                 )}
               </button>

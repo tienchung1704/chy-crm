@@ -5,18 +5,18 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { apiClientClient } from '@/lib/apiClientClient';
 
 const INTEREST_OPTIONS = [
-  { id: 'fashion', label: 'Thoi trang' },
-  { id: 'beauty', label: 'Lam dep' },
-  { id: 'health', label: 'Suc khoe' },
-  { id: 'home', label: 'Noi that' },
-  { id: 'books', label: 'Sach' },
-  { id: 'music', label: 'Am nhac' },
+  { id: 'fashion', label: 'Thời trang' },
+  { id: 'beauty', label: 'Làm đẹp' },
+  { id: 'health', label: 'Sức khỏe' },
+  { id: 'home', label: 'Nội thất' },
+  { id: 'books', label: 'Sách' },
+  { id: 'music', label: 'Âm nhạc' },
 ];
 
 const GENDER_OPTIONS = [
   { value: 'MALE', label: 'Nam' },
-  { value: 'FEMALE', label: 'Nu' },
-  { value: 'OTHER', label: 'Khac' },
+  { value: 'FEMALE', label: 'Nữ' },
+  { value: 'OTHER', label: 'Khác' },
 ];
 
 function OnboardingContent() {
@@ -111,7 +111,7 @@ function OnboardingContent() {
       await apiClientClient.post('/users/onboarding', payload);
       router.push(returnTo);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Co loi xay ra');
+      setError(err instanceof Error ? err.message : 'Có lỗi xảy ra');
     } finally {
       setLoading(false);
     }
@@ -140,9 +140,9 @@ function OnboardingContent() {
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-xl max-w-2xl w-full p-8">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-800 mb-2">Chao mung ban</h1>
+          <h1 className="text-3xl font-bold text-gray-800 mb-2">Chào mừng bạn</h1>
           <p className="text-gray-600">
-            Hoan tat thong tin co ban de bat dau va dong bo lich su don hang neu can.
+            Hoàn tất thông tin cơ bản để bắt đầu và đồng bộ lịch sử đơn hàng nếu cần.
           </p>
         </div>
 
@@ -150,7 +150,7 @@ function OnboardingContent() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div ref={genderRef} className="relative">
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Gioi tinh
+                Giới tính
               </label>
               <button
                 type="button"
@@ -158,7 +158,7 @@ function OnboardingContent() {
                 className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg text-left flex items-center justify-between hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <span className={formData.gender ? 'text-gray-900' : 'text-gray-400'}>
-                  {selectedGender?.label || 'Chon gioi tinh'}
+                  {selectedGender?.label || 'Chọn giới tính'}
                 </span>
                 <svg
                   className={`w-5 h-5 text-gray-400 transition-transform ${genderOpen ? 'rotate-180' : ''}`}
@@ -195,7 +195,7 @@ function OnboardingContent() {
 
             <div>
               <label htmlFor="dob" className="block text-sm font-medium text-gray-700 mb-2">
-                Ngay sinh
+                Ngày sinh
               </label>
               <input
                 type="date"
@@ -210,7 +210,7 @@ function OnboardingContent() {
 
           <div>
             <label className="block text-base font-medium text-gray-700 mb-4">
-              So thich
+              Sở thích
             </label>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
               {INTEREST_OPTIONS.map((interest) => (
@@ -235,7 +235,7 @@ function OnboardingContent() {
               {!showPhoneInput ? (
                 <div className="flex flex-col gap-3">
                   <p className="text-sm text-gray-700">
-                    Neu ban da tung mua hang truoc day, hay nhap so dien thoai de dong bo don Pancake.
+                    Nếu bạn đã từng mua hàng trước đây, hãy nhập số điện thoại để đồng bộ đơn Pancake.
                   </p>
                   <div>
                     <button
@@ -243,14 +243,14 @@ function OnboardingContent() {
                       onClick={() => setShowPhoneInput(true)}
                       className="px-4 py-2 rounded-lg border border-blue-200 bg-white text-blue-700 hover:bg-blue-50 text-sm font-medium"
                     >
-                      Nhap so dien thoai de dong bo
+                      Nhập số điện thoại để đồng bộ
                     </button>
                   </div>
                 </div>
               ) : (
                 <div>
                   <label htmlFor="phoneSync" className="block text-sm font-medium text-gray-700 mb-2">
-                    So dien thoai dong bo
+                    Số điện thoại đồng bộ
                   </label>
                   <input
                     type="tel"
@@ -261,7 +261,7 @@ function OnboardingContent() {
                     placeholder="0912 345 678"
                   />
                   <p className="text-xs text-gray-500 mt-2">
-                    He thong se thu sync don ngay ca khi ban bam Hoan thanh hoac Bo qua.
+                    Hệ thống sẽ thử sync đơn ngay cả khi bạn bấm Hoàn thành hoặc Bỏ qua.
                   </p>
                 </div>
               )}
@@ -280,7 +280,7 @@ function OnboardingContent() {
               disabled={loading || (showPhoneInput && formData.phone.trim().length > 0 && formData.phone.trim().length < 9)}
               className="px-8 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed text-sm font-medium"
             >
-              {loading ? 'Dang luu...' : 'Hoan thanh'}
+              {loading ? 'Đang lưu...' : 'Hoàn thành'}
             </button>
             <button
               type="button"
@@ -288,7 +288,7 @@ function OnboardingContent() {
               className="px-8 py-2.5 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm font-medium"
               disabled={loading}
             >
-              Bo qua
+              Bỏ qua
             </button>
           </div>
         </form>

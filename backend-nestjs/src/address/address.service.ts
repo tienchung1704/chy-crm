@@ -11,7 +11,7 @@ let wardsCache: Record<string, { name: string; name_with_type: string; code: str
 export class AddressService {
   private loadProvinces() {
     if (!provincesCache) {
-      const filePath = path.join(process.cwd(), '../frontend/src/data/tinh_tp.json');
+      const filePath = path.join(process.cwd(), 'src/address/data/tinh_tp.json');
       provincesCache = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
     }
     return provincesCache!;
@@ -19,7 +19,7 @@ export class AddressService {
 
   private loadDistricts() {
     if (!districtsCache) {
-      const filePath = path.join(process.cwd(), '../frontend/src/data/quan_huyen.json');
+      const filePath = path.join(process.cwd(), 'src/address/data/quan_huyen.json');
       districtsCache = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
     }
     return districtsCache!;
@@ -27,7 +27,7 @@ export class AddressService {
 
   private loadWards() {
     if (!wardsCache) {
-      const filePath = path.join(process.cwd(), '../frontend/src/data/xa_phuong.json');
+      const filePath = path.join(process.cwd(), 'src/address/data/xa_phuong.json');
       wardsCache = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
     }
     return wardsCache!;

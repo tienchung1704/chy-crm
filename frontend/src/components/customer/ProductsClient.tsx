@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useCallback, useEffect } from 'react';
 import { Heart, ShoppingCart, Eye, Star, Search, Share2, ChevronLeft, ChevronRight } from 'lucide-react';
@@ -323,37 +323,46 @@ export default function ProductsClient({ products, categories, initialWishlistId
 
       <div className="max-w-7xl mx-auto px-4">
         {/* Page Header */}
-        <div className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="flex items-center gap-3">  
+        <div className="mb-8 flex flex-col justify-between gap-4 md:flex-row md:items-center">
+          <div className="flex items-center gap-3">
             <div>
               <h1 className="text-2xl font-bold text-gray-900">Sản phẩm</h1>
               <p className="text-sm text-gray-500">Khám phá bộ sưu tập của chúng tôi</p>
             </div>
           </div>
 
-          <div className="flex flex-col sm:flex-row items-center gap-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-              <input 
+          <div className="flex w-full flex-col gap-3 lg:w-auto lg:min-w-[540px]">
+            <div className="flex flex-col gap-3 rounded-2xl border border-gray-200 bg-white p-3 shadow-sm sm:flex-row sm:items-center">
+              <div className="relative flex-1">
+                <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                <input
                 type="text"
                 placeholder="Tìm sản phẩm..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 pr-4 py-2.5 bg-white border border-gray-200 text-sm text-gray-800 rounded-full focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all w-full sm:w-64 md:w-80 shadow-sm"
-              />
-            </div>
-            
-            <div className="flex items-center gap-4 border-l border-gray-200 pl-4 h-10">
-              <div className="text-sm text-gray-500 whitespace-nowrap">
-                Tìm thấy <span className="font-bold text-indigo-600">{filteredProducts.length}</span> sản phẩm
+                className="h-11 w-full rounded-xl border border-gray-200 bg-white pl-11 pr-4 text-sm text-gray-800 outline-none transition focus:border-gray-900"
+                />
               </div>
+
+              <div className="inline-flex h-11 min-w-[150px] items-center justify-between gap-3 rounded-xl border border-gray-200 bg-gradient-to-r from-gray-50 to-white px-4">
+                <span className="text-sm font-medium text-gray-500">Kết quả</span>
+                <div className="flex items-baseline gap-1 whitespace-nowrap">
+                  <span className="text-base font-semibold text-gray-900">{filteredProducts.length}</span>
+                  <span className="text-sm text-gray-500">sản phẩm</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center justify-end gap-2">
               {totalPages > 1 && (
-                <div className="text-sm text-gray-500 whitespace-nowrap">
-                  Trang <span className="font-bold text-indigo-600">{currentPage}</span> / {totalPages}
+                <div className="inline-flex h-9 items-center rounded-full border border-gray-200 bg-white px-3 text-sm text-gray-500 shadow-sm">
+                  Trang <span className="ml-1 font-semibold text-gray-900">{currentPage}</span>
+                  <span className="mx-1 text-gray-300">/</span>
+                  <span>{totalPages}</span>
                 </div>
               )}
-              <div className="flex items-center gap-1.5 text-sm font-medium bg-rose-50 text-rose-600 px-3 py-1.5 rounded-full whitespace-nowrap">
-                <Heart className="w-4 h-4 fill-rose-500" />
+              <div className="inline-flex h-9 items-center gap-1.5 rounded-full bg-rose-50 px-3 text-sm font-medium text-rose-600">
+                <Heart className="h-4 w-4 fill-rose-500" />
                 {wishlistIds.size}
               </div>
             </div>
@@ -366,6 +375,7 @@ export default function ProductsClient({ products, categories, initialWishlistId
             {/* Category Filter */}
             <CategoryFilter
               categories={categories}
+              selectedCategoryId={selectedCategoryId}
               onFilterChange={setSelectedCategoryId}
             />
 

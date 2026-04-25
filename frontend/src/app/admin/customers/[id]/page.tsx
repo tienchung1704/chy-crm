@@ -33,14 +33,14 @@ function formatDateTime(value: string | Date) {
 }
 
 const statusMap: Record<string, { label: string; className: string }> = {
-  PENDING: { label: 'Cho duyet', className: 'bg-orange-50 text-orange-700 border-orange-200' },
-  CONFIRMED: { label: 'Da xac nhan', className: 'bg-cyan-50 text-cyan-700 border-cyan-200' },
-  PACKAGING: { label: 'Dang dong hang', className: 'bg-violet-50 text-violet-700 border-violet-200' },
-  SHIPPED: { label: 'Da gui hang', className: 'bg-blue-50 text-blue-700 border-blue-200' },
-  DELIVERED: { label: 'Da nhan hang', className: 'bg-teal-50 text-teal-700 border-teal-200' },
-  COMPLETED: { label: 'Hoan thanh', className: 'bg-green-50 text-green-700 border-green-200' },
-  CANCELLED: { label: 'Da huy', className: 'bg-red-50 text-red-700 border-red-200' },
-  REFUNDED: { label: 'Hoan tra', className: 'bg-red-50 text-red-700 border-red-200' },
+  PENDING: { label: 'Chờ duyệt', className: 'bg-orange-50 text-orange-700 border-orange-200' },
+  CONFIRMED: { label: 'Đã xác nhận', className: 'bg-cyan-50 text-cyan-700 border-cyan-200' },
+  PACKAGING: { label: 'Đang đóng hàng', className: 'bg-violet-50 text-violet-700 border-violet-200' },
+  SHIPPED: { label: 'Đã gửi hàng', className: 'bg-blue-50 text-blue-700 border-blue-200' },
+  DELIVERED: { label: 'Đã nhận hàng', className: 'bg-teal-50 text-teal-700 border-teal-200' },
+  COMPLETED: { label: 'Hoàn thành', className: 'bg-green-50 text-green-700 border-green-200' },
+  CANCELLED: { label: 'Đã hủy', className: 'bg-red-50 text-red-700 border-red-200' },
+  REFUNDED: { label: 'Hoàn trả', className: 'bg-red-50 text-red-700 border-red-200' },
 };
 
 const rankMap: Record<string, string> = {
@@ -66,9 +66,9 @@ export default async function CustomerDetailPage(props: {
   if (!customer) {
     return (
       <div className="py-16 text-center">
-        <h1 className="text-2xl font-semibold text-gray-900">Khong tim thay khach hang</h1>
+        <h1 className="text-2xl font-semibold text-gray-900">Không tìm thấy khách hàng</h1>
         <Link href="/admin/customers" className="inline-block mt-4 text-sm font-medium text-blue-600 hover:text-blue-700">
-          Quay lai danh sach
+          Quay lại danh sách
         </Link>
       </div>
     );
@@ -82,18 +82,18 @@ export default async function CustomerDetailPage(props: {
     .filter(Boolean)
     .join(', ');
 
-  const customerName = customer.name || customer.phone || 'Khach hang';
+  const customerName = customer.name || customer.phone || 'Khách hàng';
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-4">
         <div>
           <Link href="/admin/customers" className="text-sm font-medium text-blue-600 hover:text-blue-700">
-            Quay lai danh sach
+            Quay lại danh sách
           </Link>
           <h1 className="mt-2 text-3xl font-semibold text-gray-900">{customerName}</h1>
           <p className="mt-1 text-sm text-gray-500">
-            Tao luc {formatDate(customer.createdAt)}
+            Tạo lúc {formatDate(customer.createdAt)}
           </p>
         </div>
         <div className="flex items-center gap-4">
@@ -124,7 +124,7 @@ export default async function CustomerDetailPage(props: {
               <div>
                 <div className="text-lg font-semibold text-gray-900">{customerName}</div>
                 <div className="text-sm text-gray-500 mt-1">
-                  {customer.phone || 'Chua co so dien thoai'}
+                  {customer.phone || 'Chưa có số điện thoại'}
                   {customer.email ? ` • ${customer.email}` : ''}
                 </div>
               </div>
@@ -132,53 +132,53 @@ export default async function CustomerDetailPage(props: {
 
             <dl className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
               <div>
-                <dt className="text-gray-500">Gioi tinh</dt>
+                <dt className="text-gray-500">Giới tính</dt>
                 <dd className="mt-1 font-medium text-gray-900">{customer.gender || '—'}</dd>
               </div>
               <div>
-                <dt className="text-gray-500">Ngay sinh</dt>
+                <dt className="text-gray-500">Ngày sinh</dt>
                 <dd className="mt-1 font-medium text-gray-900">{customer.dob ? formatDate(customer.dob) : '—'}</dd>
               </div>
               <div>
-                <dt className="text-gray-500">Ma gioi thieu</dt>
+                <dt className="text-gray-500">Mã giới thiệu</dt>
                 <dd className="mt-1 font-medium text-gray-900 font-mono">{customer.referralCode}</dd>
               </div>
               <div>
-                <dt className="text-gray-500">Cap nhat lan cuoi</dt>
+                <dt className="text-gray-500">Cập nhật lần cuối</dt>
                 <dd className="mt-1 font-medium text-gray-900">{formatDateTime(customer.updatedAt)}</dd>
               </div>
             </dl>
 
             <div>
-              <p className="text-sm text-gray-500">Dia chi</p>
-              <p className="mt-1 text-sm font-medium text-gray-900">{address || 'Chua cap nhat'}</p>
+              <p className="text-sm text-gray-500">Địa chỉ</p>
+              <p className="mt-1 text-sm font-medium text-gray-900">{address || 'Chưa cập nhật'}</p>
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div className="rounded-xl border border-gray-200 p-4">
-              <p className="text-xs font-medium text-gray-500">Tong chi tieu</p>
+              <p className="text-xs font-medium text-gray-500">Tổng chi tiêu</p>
               <p className="mt-2 text-xl font-semibold text-gray-900">{formatMoney(customer.totalSpent)}</p>
               <p className="mt-1 text-xs text-gray-500">
-                Hoan thanh {customer.stats?.completedOrders || 0} don
+                Hoàn thành {customer.stats?.completedOrders || 0} đơn
               </p>
             </div>
             <div className="rounded-xl border border-gray-200 p-4">
-              <p className="text-xs font-medium text-gray-500">Hoa hong hien tai</p>
+              <p className="text-xs font-medium text-gray-500">Hoa hồng hiện tại</p>
               <p className="mt-2 text-xl font-semibold text-gray-900">{formatMoney(customer.commissionBalance)}</p>
               <p className="mt-1 text-xs text-gray-500">
-                Tong da tra {formatMoney(customer.stats?.totalCommission || 0)}
+                Tổng đã trả {formatMoney(customer.stats?.totalCommission || 0)}
               </p>
             </div>
             <div className="rounded-xl border border-gray-200 p-4">
-              <p className="text-xs font-medium text-gray-500">Don hang</p>
+              <p className="text-xs font-medium text-gray-500">Đơn hàng</p>
               <p className="mt-2 text-xl font-semibold text-gray-900">{customer._count?.orders || 0}</p>
               <p className="mt-1 text-xs text-gray-500">
-                Doanh thu hoan thanh {formatMoney(customer.stats?.completedRevenue || 0)}
+                Doanh thu hoàn thành {formatMoney(customer.stats?.completedRevenue || 0)}
               </p>
             </div>
             <div className="rounded-xl border border-gray-200 p-4">
-              <p className="text-xs font-medium text-gray-500">Nguoi duoc gioi thieu</p>
+              <p className="text-xs font-medium text-gray-500">Người được giới thiệu</p>
               <p className="mt-2 text-xl font-semibold text-gray-900">{customer._count?.referees || 0}</p>
               <p className="mt-1 text-xs text-gray-500">
                 Voucher {customer._count?.userVouchers || 0}
@@ -192,7 +192,7 @@ export default async function CustomerDetailPage(props: {
         <div className="space-y-6">
           <section className="rounded-2xl border border-gray-200 bg-white">
             <div className="px-6 py-4 border-b border-gray-100">
-              <h2 className="text-sm font-semibold text-gray-900">Don hang gan day</h2>
+              <h2 className="text-sm font-semibold text-gray-900">Đơn hàng gần đây</h2>
             </div>
             <div className="p-4">
               {customer.orders?.length ? (
@@ -227,7 +227,7 @@ export default async function CustomerDetailPage(props: {
                   })}
                 </div>
               ) : (
-                <div className="px-2 py-8 text-sm text-gray-500 text-center">Chua co don hang</div>
+                <div className="px-2 py-8 text-sm text-gray-500 text-center">Chưa có đơn hàng</div>
               )}
             </div>
           </section>
@@ -235,17 +235,17 @@ export default async function CustomerDetailPage(props: {
           {customer.commissionsEarned?.length > 0 && (
             <section className="rounded-2xl border border-gray-200 bg-white">
               <div className="px-6 py-4 border-b border-gray-100">
-                <h2 className="text-sm font-semibold text-gray-900">Lich su hoa hong</h2>
+                <h2 className="text-sm font-semibold text-gray-900">Lịch sử hoa hồng</h2>
               </div>
               <div className="p-4 space-y-2">
                 {customer.commissionsEarned.map((commission: any) => (
                   <div key={commission.id} className="rounded-xl border border-gray-200 px-4 py-3 flex items-center justify-between">
                     <div>
                       <p className="text-sm font-medium text-gray-900">
-                        Don #{commission.order?.orderCode || '—'}
+                        Đơn #{commission.order?.orderCode || '—'}
                       </p>
                       <p className="mt-1 text-xs text-gray-500">
-                        Cap {commission.level} • {commission.percentage}% • {formatDate(commission.createdAt)}
+                        Cấp {commission.level} • {commission.percentage}% • {formatDate(commission.createdAt)}
                       </p>
                     </div>
                     <div className="text-right">
@@ -263,7 +263,7 @@ export default async function CustomerDetailPage(props: {
           {customer.referrer && (
             <section className="rounded-2xl border border-gray-200 bg-white">
               <div className="px-6 py-4 border-b border-gray-100">
-                <h2 className="text-sm font-semibold text-gray-900">Nguoi gioi thieu</h2>
+                <h2 className="text-sm font-semibold text-gray-900">Người giới thiệu</h2>
               </div>
               <div className="p-4">
                 <Link
@@ -272,7 +272,7 @@ export default async function CustomerDetailPage(props: {
                 >
                   <p className="text-sm font-medium text-gray-900">{customer.referrer.name || customer.referrer.phone}</p>
                   <p className="mt-1 text-xs text-gray-500">
-                    {customer.referrer.phone || 'Chua co so dien thoai'} • {customer.referrer.referralCode}
+                    {customer.referrer.phone || 'Chưa có số điện thoại'} • {customer.referrer.referralCode}
                   </p>
                 </Link>
               </div>
@@ -282,7 +282,7 @@ export default async function CustomerDetailPage(props: {
           {customer.referees?.length > 0 && (
             <section className="rounded-2xl border border-gray-200 bg-white">
               <div className="px-6 py-4 border-b border-gray-100">
-                <h2 className="text-sm font-semibold text-gray-900">Khach hang duoc gioi thieu</h2>
+                <h2 className="text-sm font-semibold text-gray-900">Khách hàng được giới thiệu</h2>
               </div>
               <div className="p-4 space-y-2 max-h-80 overflow-y-auto">
                 {customer.referees.map((referee: any) => (
@@ -316,13 +316,13 @@ export default async function CustomerDetailPage(props: {
                       <p className="text-sm font-medium text-gray-900 font-mono">{item.voucher?.code}</p>
                       <p className="mt-1 text-xs text-gray-500">
                         {item.voucher?.type === 'PERCENTAGE'
-                          ? `Giam ${item.voucher.value}%`
-                          : `Giam ${formatMoney(item.voucher?.value || 0)}`}
+                           ? `Giảm ${item.voucher.value}%`
+                           : `Giảm ${formatMoney(item.voucher?.value || 0)}`}
                         {item.voucher?.validTo ? ` • HSD ${formatDate(item.voucher.validTo)}` : ''}
                       </p>
                     </div>
                     <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${item.isUsed ? 'bg-gray-100 text-gray-600' : 'bg-green-50 text-green-700'}`}>
-                      {item.isUsed ? 'Da dung' : 'Chua dung'}
+                      {item.isUsed ? 'Đã dùng' : 'Chưa dùng'}
                     </span>
                   </div>
                 ))}

@@ -11,50 +11,45 @@ interface Category {
 
 interface CategoryFilterProps {
   categories: Category[];
+  selectedCategoryId: string | null;
   onFilterChange: (categoryId: string | null) => void;
 }
 
-export default function CategoryFilter({ categories, onFilterChange }: CategoryFilterProps) {
-  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
-  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
+export default function CategoryFilter({
+  categories,
+  selectedCategoryId,
+  onFilterChange,
+}: CategoryFilterProps) {
+  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(
+    new Set(),
+  );
 
-  // Get categories by parent
   const getCategoriesByParent = (parentId: string | null) => {
-    return categories.filter(c => c.parentId === parentId);
+    return categories.filter((category) => category.parentId === parentId);
   };
 
   const hasChildren = (categoryId: string) => {
-    return categories.some(c => c.parentId === categoryId);
+    return categories.some((category) => category.parentId === categoryId);
   };
 
   const toggleExpand = (categoryId: string) => {
-    const newExpanded = new Set(expandedCategories);
-    if (newExpanded.has(categoryId)) {
-      newExpanded.delete(categoryId);
+    const next = new Set(expandedCategories);
+    if (next.has(categoryId)) {
+      next.delete(categoryId);
     } else {
-      newExpanded.add(categoryId);
+      next.add(categoryId);
     }
-    setExpandedCategories(newExpanded);
+    setExpandedCategories(next);
   };
 
   const handleCategoryClick = (category: Category) => {
-    // Select this category for filtering
-    setSelectedCategoryId(category.id);
     onFilterChange(category.id);
-
-    // If has children, also toggle expand
     if (hasChildren(category.id)) {
       toggleExpand(category.id);
     }
   };
 
-  const handleReset = () => {
-    setSelectedCategoryId(null);
-    onFilterChange(null);
-  };
-
-  // Recursive render for nested categories
-  const renderCategory = (category: Category, level: number = 0) => {
+  const renderCategory = (category: Category, level = 0) => {
     const isExpanded = expandedCategories.has(category.id);
     const isSelected = selectedCategoryId === category.id;
     const children = getCategoriesByParent(category.id);
@@ -63,57 +58,67 @@ export default function CategoryFilter({ categories, onFilterChange }: CategoryF
     return (
       <div key={category.id}>
         <button
+          type="button"
           onClick={() => handleCategoryClick(category)}
-          className={`w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition-colors flex items-center justify-between group ${
+          className={`group flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-left text-sm transition-colors ${
             isSelected
-              ? 'bg-blue-600 text-white'
+              ? 'bg-gray-900 text-white'
               : 'text-gray-700 hover:bg-gray-100'
           }`}
-          style={{ paddingLeft: `${12 + level * 16}px` }}
+          style={{ paddingLeft: `${12 + level * 14}px` }}
         >
-          <span>{category.name}</span>
+          <span className="truncate">{category.name}</span>
           {hasChild && (
-            <span onClick={(e) => {
-              e.stopPropagation();
-              toggleExpand(category.id);
-            }}>
+            <span
+              className="ml-2 shrink-0"
+              onClick={(event) => {
+                event.stopPropagation();
+                toggleExpand(category.id);
+              }}
+            >
               {isExpanded ? (
-                <ChevronDown className="w-4 h-4" />
+                <ChevronDown className="h-4 w-4" />
               ) : (
-                <ChevronRight className="w-4 h-4" />
+                <ChevronRight className="h-4 w-4" />
               )}
             </span>
           )}
         </button>
 
-        {/* Render children if expanded */}
         {isExpanded && hasChild && (
-          <div className="mt-1">
-            {children.map(child => renderCategory(child, level + 1))}
+          <div className="mt-1 space-y-1">
+            {children.map((child) => renderCategory(child, level + 1))}
           </div>
         )}
       </div>
     );
   };
 
-  const level1Categories = getCategoriesByParent(null);
+  const rootCategories = getCategoriesByParent(null);
 
   return (
-    <div className="bg-white rounded-xl shadow-sm p-4 sticky top-4">
-      <h3 className="text-lg font-bold text-gray-800 mb-4">Danh mục</h3>
-      <div className="space-y-1">
+    <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+      <div className="mb-4">
+        <h3 className="text-base font-semibold text-gray-900">Danh mục</h3>
+        <p className="mt-1 text-sm text-gray-500">
+          Chọn nhóm sản phẩm bạn muốn xem.
+        </p>
+      </div>
+
+      <div className="max-h-[320px] space-y-1 overflow-y-auto pr-1">
         <button
-          onClick={handleReset}
-          className={`w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+          type="button"
+          onClick={() => onFilterChange(null)}
+          className={`w-full rounded-xl px-3 py-2.5 text-left text-sm transition-colors ${
             !selectedCategoryId
-              ? 'bg-blue-600 text-white'
+              ? 'bg-gray-900 text-white'
               : 'text-gray-700 hover:bg-gray-100'
           }`}
         >
           Tất cả sản phẩm
         </button>
-        
-        {level1Categories.map(cat => renderCategory(cat, 0))}
+
+        {rootCategories.map((category) => renderCategory(category))}
       </div>
     </div>
   );
