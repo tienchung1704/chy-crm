@@ -49,6 +49,7 @@ const navItems = [
     items: [
       { name: 'Kết nối', href: '/admin/integrations', roles: ALL_ROLES },
       { name: 'Hoa hồng', href: '/admin/commissions', roles: ADMIN_ONLY },
+      { name: 'Cấu hình QR', href: '/admin/qr-config', roles: ADMIN_ONLY },
     ],
   },
   {

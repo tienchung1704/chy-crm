@@ -100,7 +100,13 @@ export class VouchersService implements OnModuleInit {
   async claimQRVoucher(userId: string, orderCode: string, phone: string, voucherId?: string) {
     const QR_VOUCHER_AMOUNTS = [50000, 40000, 30000, 20000, 10000];
     const MAX_QR_CLAIMS = 5;
-    const LOCK_DURATION_DAYS = 7;
+    
+    // Get lock duration from system config, fallback to 7 days
+    const sysConfig = await this.prisma.systemConfig.findUnique({
+      where: { key: 'qr_voucher_default' },
+    });
+    const sysConfigData = sysConfig?.value as any;
+    const LOCK_DURATION_DAYS = sysConfigData?.lockDurationDays || 7;
 
     // Normalize phone: remove spaces, dashes
     const normalizedPhone = phone.replace(/[\s\-]/g, '');
@@ -193,31 +199,74 @@ export class VouchersService implements OnModuleInit {
 
     let finalVoucherId = voucherId;
 
-    // If no voucherId, it's a gamification claim - calculate amount and find/create voucher
+    // If no voucherId provided, determine which voucher to use
     if (!finalVoucherId) {
-      const voucherAmount = QR_VOUCHER_AMOUNTS[userClaimCount] || QR_VOUCHER_AMOUNTS[QR_VOUCHER_AMOUNTS.length - 1];
-      const voucherCode = `QR${voucherAmount / 1000}K`;
-
-      let voucher = await this.prisma.voucher.findUnique({
-        where: { code: voucherCode },
+      // Priority 1: Check for order-specific voucher created by admin
+      const orderVoucher = await this.prisma.voucher.findUnique({
+        where: { code: `QR-ORDER-${orderCode}` },
       });
 
-      if (!voucher) {
-        voucher = await this.prisma.voucher.create({
-          data: {
-            code: voucherCode,
-            name: `Voucher QR ${voucherAmount.toLocaleString('vi-VN')}đ`,
-            description: `Giảm ${voucherAmount.toLocaleString('vi-VN')}đ cho đơn hàng từ ${(voucherAmount * 2).toLocaleString('vi-VN')}đ`,
-            campaignCategory: 'GAMIFICATION',
-            type: 'FIXED_AMOUNT',
-            value: voucherAmount,
-            minOrderValue: voucherAmount * 2,
-            perCustomerLimit: 1,
-            isActive: true,
-          },
+      if (orderVoucher && orderVoucher.isActive) {
+        finalVoucherId = orderVoucher.id;
+      } else {
+        // Priority 2: Check system config for default QR voucher
+        const config = await this.prisma.systemConfig.findUnique({
+          where: { key: 'qr_voucher_default' },
         });
+        const configData = config?.value as any;
+
+        if (configData && configData.value) {
+          const configValue = configData.value;
+          const configMinOrder = configData.minOrderValue || 0;
+          const voucherCode = `QR-DEFAULT-${configValue}`;
+
+          let defaultVoucher = await this.prisma.voucher.findUnique({
+            where: { code: voucherCode },
+          });
+
+          if (!defaultVoucher) {
+            defaultVoucher = await this.prisma.voucher.create({
+              data: {
+                code: voucherCode,
+                name: `Voucher QR ${configValue.toLocaleString('vi-VN')}đ`,
+                description: `Giảm ${configValue.toLocaleString('vi-VN')}đ cho đơn hàng từ ${configMinOrder.toLocaleString('vi-VN')}đ`,
+                campaignCategory: 'GAMIFICATION',
+                type: 'FIXED_AMOUNT',
+                value: configValue,
+                minOrderValue: configMinOrder,
+                perCustomerLimit: 1,
+                isActive: true,
+              },
+            });
+          }
+          finalVoucherId = defaultVoucher.id;
+        } else {
+          // Priority 3: Fallback to gamification tiered amounts
+          const voucherAmount = QR_VOUCHER_AMOUNTS[userClaimCount] || QR_VOUCHER_AMOUNTS[QR_VOUCHER_AMOUNTS.length - 1];
+          const voucherCode = `QR${voucherAmount / 1000}K`;
+
+          let voucher = await this.prisma.voucher.findUnique({
+            where: { code: voucherCode },
+          });
+
+          if (!voucher) {
+            voucher = await this.prisma.voucher.create({
+              data: {
+                code: voucherCode,
+                name: `Voucher QR ${voucherAmount.toLocaleString('vi-VN')}đ`,
+                description: `Giảm ${voucherAmount.toLocaleString('vi-VN')}đ cho đơn hàng từ ${(voucherAmount * 2).toLocaleString('vi-VN')}đ`,
+                campaignCategory: 'GAMIFICATION',
+                type: 'FIXED_AMOUNT',
+                value: voucherAmount,
+                minOrderValue: voucherAmount * 2,
+                perCustomerLimit: 1,
+                isActive: true,
+              },
+            });
+          }
+          finalVoucherId = voucher.id;
+        }
       }
-      finalVoucherId = voucher.id;
     }
 
     // Check if voucher exists and is active
@@ -261,6 +310,81 @@ export class VouchersService implements OnModuleInit {
       message: `Chúc mừng! Bạn đã nhận được voucher ${voucher.value.toLocaleString('vi-VN')}đ. Voucher sẽ khả dụng sau ${LOCK_DURATION_DAYS} ngày.`,
       userVoucher,
     };
+  }
+
+  /**
+   * Create a dedicated voucher for a specific order (Admin only)
+   */
+  async createOrderVoucher(orderId: string, value?: number, minOrderValue?: number) {
+    // Find the order
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      select: { id: true, orderCode: true, totalAmount: true, storeId: true },
+    });
+
+    if (!order) {
+      throw new NotFoundException('Không tìm thấy đơn hàng');
+    }
+
+    // Check if this order already has a dedicated voucher
+    const existingVoucher = await this.prisma.voucher.findUnique({
+      where: { code: `QR-ORDER-${order.orderCode}` },
+    });
+
+    if (existingVoucher) {
+      throw new BadRequestException('Đơn hàng này đã có voucher riêng rồi');
+    }
+
+    // Get default config if value not provided
+    let voucherValue = value;
+    let voucherMinOrder = minOrderValue;
+
+    if (!voucherValue) {
+      const config = await this.prisma.systemConfig.findUnique({
+        where: { key: 'qr_voucher_default' },
+      });
+      const configData = config?.value as any;
+      voucherValue = configData?.value || 50000;
+      voucherMinOrder = voucherMinOrder ?? configData?.minOrderValue ?? 0;
+    }
+
+    // Create the voucher (GAMIFICATION category so it won't show in user-facing lists)
+    const voucher = await this.prisma.voucher.create({
+      data: {
+        code: `QR-ORDER-${order.orderCode}`,
+        name: `Voucher QR đơn #${order.orderCode}`,
+        description: `Voucher riêng dành cho đơn hàng #${order.orderCode}`,
+        campaignCategory: 'GAMIFICATION',
+        type: 'FIXED_AMOUNT',
+        value: voucherValue,
+        minOrderValue: voucherMinOrder || 0,
+        perCustomerLimit: 1,
+        totalUsageLimit: 1,
+        isActive: true,
+        storeId: order.storeId || null,
+      },
+    });
+
+    this.logger.log(
+      `🎟️ Created order-specific voucher ${voucher.code} (${voucherValue}đ) for order #${order.orderCode}`,
+    );
+
+    return {
+      success: true,
+      message: `Đã tạo voucher ${voucherValue.toLocaleString('vi-VN')}đ cho đơn hàng #${order.orderCode}`,
+      voucher,
+    };
+  }
+
+  /**
+   * Get voucher info for a specific order
+   */
+  async getOrderVoucher(orderCode: string) {
+    const voucher = await this.prisma.voucher.findUnique({
+      where: { code: `QR-ORDER-${orderCode}` },
+    });
+
+    return { exists: !!voucher, voucher: voucher || null };
   }
 
   async getUserVouchers(userId: string) {

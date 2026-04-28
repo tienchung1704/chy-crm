@@ -169,7 +169,7 @@ export default async function StoresPage() {
                         href={`/admin/stores/${store.id}`}
                         className="inline-flex items-center gap-1.5 px-4 py-2 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded-lg text-sm font-semibold transition-colors"
                       >
-                        📋 Chi tiết
+                        Chi tiết
                       </Link>
                     </td>
                   </tr>
@@ -184,7 +184,7 @@ export default async function StoresPage() {
       {bannedCount > 0 && (
         <div className="mt-6">
           <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-4">
-            <h3 className="font-bold text-red-800 mb-1">🚫 Cửa hàng bị cấm ({bannedCount})</h3>
+            <h3 className="font-bold text-red-800 mb-1">Cửa hàng bị cấm ({bannedCount})</h3>
             <p className="text-sm text-red-700">Các cửa hàng dưới đây đã bị vô hiệu hóa do vi phạm chính sách.</p>
           </div>
           <div className="bg-white rounded-xl shadow-sm overflow-hidden">
@@ -217,7 +217,7 @@ export default async function StoresPage() {
                           href={`/admin/stores/${store.id}`}
                           className="inline-flex items-center gap-1.5 px-4 py-2 bg-gray-100 text-gray-700 hover:bg-gray-200 rounded-lg text-sm font-semibold transition-colors"
                         >
-                          📋 Chi tiết
+                          Chi tiết
                         </Link>
                       </td>
                     </tr>

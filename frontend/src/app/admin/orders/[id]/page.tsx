@@ -2,6 +2,7 @@ import Link from 'next/link';
 import OrderStatusManager from '@/components/admin/OrderStatusManager';
 import OrderReadStatusManager from '@/components/admin/OrderReadStatusManager';
 import DeleteOrderButton from '@/components/admin/DeleteOrderButton';
+import CreateOrderVoucherButton from '@/components/admin/CreateOrderVoucherButton';
 import { apiClient } from '@/lib/apiClient';
 
 function fmt(amount: number) {
@@ -548,6 +549,9 @@ export default async function OrderDetailPage(props: {
               </div>
             </div>
           )}
+
+          {/* Order QR Voucher */}
+          <CreateOrderVoucherButton orderId={order.id} orderCode={order.orderCode} />
         </div>
 
         {/* Right Column */}

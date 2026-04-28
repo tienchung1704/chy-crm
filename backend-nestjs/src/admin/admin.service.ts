@@ -460,4 +460,19 @@ export class AdminService {
 
     return { success: true, message: 'Customer has been permanently deleted' };
   }
+
+  async getSystemConfig(key: string) {
+    const config = await this.prisma.systemConfig.findUnique({
+      where: { key },
+    });
+    return config || { key, value: null };
+  }
+
+  async upsertSystemConfig(key: string, value: any) {
+    return this.prisma.systemConfig.upsert({
+      where: { key },
+      create: { key, value },
+      update: { value },
+    });
+  }
 }

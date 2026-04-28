@@ -1,18 +1,36 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { QrCode, Loader2 } from 'lucide-react';
 import QRCode from 'qrcode';
 import { Document, Packer, Paragraph, TextRun, ImageRun, AlignmentType, PageBreak } from 'docx';
 import { saveAs } from 'file-saver';
+import { apiClientClient } from '@/lib/apiClientClient';
 
 interface SelectedOrder {
   id: string;
   orderCode: string;
+  totalAmount: number;
+}
+
+function fmtVND(amount: number) {
+  return new Intl.NumberFormat('vi-VN').format(amount || 0) + ' đ';
 }
 
 export default function ExportQRButton({ selectedOrders }: { selectedOrders: SelectedOrder[] }) {
   const [exporting, setExporting] = useState(false);
+  const [displayText, setDisplayText] = useState('Quét mã QR để nhận ngay voucher trị giá 500K');
+
+  useEffect(() => {
+    // Load display text from system config
+    apiClientClient.get<any>('/admin/system-config/qr_voucher_default')
+      .then((config: any) => {
+        if (config?.value?.displayText) {
+          setDisplayText(config.value.displayText);
+        }
+      })
+      .catch(() => {}); // silently fallback to default
+  }, []);
 
   const handleExport = async () => {
     if (selectedOrders.length === 0) return;
@@ -42,35 +60,34 @@ export default function ExportQRButton({ selectedOrders }: { selectedOrders: Sel
           // Spacer
           new Paragraph({ spacing: { before: 600 }, children: [] }),
 
-          // Title
+          // 1. Order Code + Total Amount
           new Paragraph({
             alignment: AlignmentType.CENTER,
-            spacing: { after: 300 },
+            spacing: { after: 100 },
             children: [
               new TextRun({
-                text: 'QUÉT MÃ QR ĐỂ NHẬN VOUCHER',
+                text: `Mã đơn: #${order.orderCode}`,
                 bold: true,
-                size: 36,
+                size: 32,
                 font: 'Arial',
               }),
             ],
           }),
-
-          // Subtitle
           new Paragraph({
             alignment: AlignmentType.CENTER,
             spacing: { after: 400 },
             children: [
               new TextRun({
-                text: 'Quét mã bên dưới bằng ứng dụng camera hoặc Zalo',
-                size: 22,
+                text: `Tổng tiền: ${fmtVND(order.totalAmount)}`,
+                bold: true,
+                size: 28,
                 font: 'Arial',
-                color: '666666',
+                color: '2563EB',
               }),
             ],
           }),
 
-          // QR Code Image
+          // 2. QR Code Image
           new Paragraph({
             alignment: AlignmentType.CENTER,
             spacing: { after: 300 },
@@ -83,21 +100,7 @@ export default function ExportQRButton({ selectedOrders }: { selectedOrders: Sel
             ],
           }),
 
-          // Order Code
-          new Paragraph({
-            alignment: AlignmentType.CENTER,
-            spacing: { after: 200 },
-            children: [
-              new TextRun({
-                text: `Mã đơn: #${order.orderCode}`,
-                bold: true,
-                size: 28,
-                font: 'Arial',
-              }),
-            ],
-          }),
-
-          // URL fallback
+          // 3. URL fallback
           new Paragraph({
             alignment: AlignmentType.CENTER,
             spacing: { after: 100 },
@@ -112,12 +115,41 @@ export default function ExportQRButton({ selectedOrders }: { selectedOrders: Sel
           }),
           new Paragraph({
             alignment: AlignmentType.CENTER,
+            spacing: { after: 400 },
             children: [
               new TextRun({
                 text: url,
                 size: 16,
                 font: 'Consolas',
                 color: '4A90D9',
+              }),
+            ],
+          }),
+
+          // 4. Voucher Display Text
+          new Paragraph({
+            alignment: AlignmentType.CENTER,
+            spacing: { after: 100 },
+            border: {
+              top: { style: 'single' as any, size: 1, color: 'CCCCCC', space: 10 },
+            },
+            children: [],
+          }),
+          new Paragraph({
+            alignment: AlignmentType.CENTER,
+            spacing: { after: 100 },
+            children: [
+              new TextRun({
+                text: '🎁 ',
+                size: 36,
+                font: 'Arial',
+              }),
+              new TextRun({
+                text: displayText,
+                bold: true,
+                size: 30,
+                font: 'Arial',
+                color: 'D97706',
               }),
             ],
           }),

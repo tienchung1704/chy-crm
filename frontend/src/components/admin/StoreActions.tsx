@@ -81,17 +81,16 @@ export default function StoreActions() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    ID User Chủ sở hữu *
+                    ID User Chủ sở hữu (Tùy chọn)
                   </label>
                   <input
                     type="text"
-                    required
                     value={formData.ownerId}
                     onChange={(e) => setFormData({ ...formData, ownerId: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                    placeholder="Nhập UUID của người dùng"
+                    placeholder="Để trống sẽ tự động lấy tài khoản của bạn"
                   />
-                  <p className="text-xs text-gray-500 mt-1">Hệ thống sẽ tự động cấp quyền MODERATOR cho user này.</p>
+                  <p className="text-xs text-gray-500 mt-1">Hệ thống sẽ tự động cấp quyền MODERATOR cho user này (nếu chưa phải ADMIN).</p>
                 </div>
               </div>
               

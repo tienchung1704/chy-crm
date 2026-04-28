@@ -92,4 +92,20 @@ export class VouchersController {
   async manualVerifyVouchers() {
     return this.vouchersService.manualTriggerVerification();
   }
+
+  @Post('create-order-voucher')
+  @Roles('ADMIN', 'STAFF', 'MODERATOR')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Create a dedicated voucher for a specific order' })
+  async createOrderVoucher(@Body() data: { orderId: string; value?: number; minOrderValue?: number }) {
+    return this.vouchersService.createOrderVoucher(data.orderId, data.value, data.minOrderValue);
+  }
+
+  @Get('order-voucher/:orderCode')
+  @Roles('ADMIN', 'STAFF', 'MODERATOR')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get voucher info for a specific order' })
+  async getOrderVoucher(@Param('orderCode') orderCode: string) {
+    return this.vouchersService.getOrderVoucher(orderCode);
+  }
 }

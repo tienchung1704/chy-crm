@@ -1,4 +1,4 @@
-import { Controller, Get, UseGuards, Query, Param, Post, Body, Delete } from '@nestjs/common';
+import { Controller, Get, UseGuards, Query, Param, Post, Put, Body, Delete } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -71,4 +71,19 @@ export class AdminController {
   async hardDeleteCustomer(@Param('id') id: string) {
     return this.adminService.hardDeleteCustomer(id);
   }
+
+  @Get('system-config/:key')
+  @Roles('ADMIN')
+  @ApiOperation({ summary: 'Get system config by key' })
+  async getSystemConfig(@Param('key') key: string) {
+    return this.adminService.getSystemConfig(key);
+  }
+
+  @Put('system-config/:key')
+  @Roles('ADMIN')
+  @ApiOperation({ summary: 'Upsert system config by key' })
+  async upsertSystemConfig(@Param('key') key: string, @Body() data: { value: any }) {
+    return this.adminService.upsertSystemConfig(key, data.value);
+  }
 }
+

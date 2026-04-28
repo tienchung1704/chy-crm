@@ -40,8 +40,8 @@ export class StoresController {
   @Roles('ADMIN')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Create store as Admin' })
-  async createStoreAdmin(@Body() data: any) {
-    return this.storesService.createStoreAdmin(data);
+  async createStoreAdmin(@GetUser('id') adminId: string, @Body() data: any) {
+    return this.storesService.createStoreAdmin(adminId, data);
   }
 
   @Post('admin/:id/approve')

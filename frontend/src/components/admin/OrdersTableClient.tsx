@@ -56,7 +56,7 @@ export default function OrdersTableClient({ orders }: OrdersTableClientProps) {
 
   const selectedOrders = orders
     .filter((o: any) => selectedIds.has(o.id))
-    .map((o: any) => ({ id: o.id, orderCode: o.orderCode }));
+    .map((o: any) => ({ id: o.id, orderCode: o.orderCode, totalAmount: o.totalAmount || 0 }));
 
   return (
     <>

@@ -219,27 +219,39 @@ export class StoresService {
   /**
    * Create store as Admin (manually assign owner)
    */
-  async createStoreAdmin(data: any) {
+  async createStoreAdmin(adminId: string, data: any) {
     const { name, slug, ownerId } = data;
+    
+    const finalOwnerId = ownerId || adminId;
 
     // Check if owner already has a store
     const existingStore = await this.prisma.store.findUnique({
-      where: { ownerId },
+      where: { ownerId: finalOwnerId },
     });
 
     if (existingStore) {
       throw new ForbiddenException('Người dùng này đã có cửa hàng rồi');
     }
 
-    // Upgrade owner to MODERATOR
-    await this.prisma.user.update({
-      where: { id: ownerId },
-      data: { role: 'MODERATOR' },
+    const user = await this.prisma.user.findUnique({
+      where: { id: finalOwnerId },
     });
+    
+    if (!user) {
+      throw new NotFoundException('Không tìm thấy người dùng chủ sở hữu');
+    }
+
+    // Upgrade owner to MODERATOR if not already ADMIN or MODERATOR
+    if (user.role !== 'ADMIN' && user.role !== 'MODERATOR') {
+      await this.prisma.user.update({
+        where: { id: finalOwnerId },
+        data: { role: 'MODERATOR' },
+      });
+    }
 
     return this.prisma.store.create({
       data: {
-        ownerId,
+        ownerId: finalOwnerId,
         name,
         slug: slug || (name.toLowerCase().replace(/\s+/g, '-') + '-' + Date.now()),
         isActive: true,
