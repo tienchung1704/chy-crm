@@ -257,32 +257,47 @@ export default function TrackingModal({ isOpen, onClose }: TrackingModalProps) {
                     )}
                   </div>
 
-                  {/* Courier Updates */}
+                  {/* Courier Updates Timeline */}
                   {trackingData.tracking.courierUpdates?.length > 0 && (
                     <div className="mt-4 pt-4 border-t border-gray-200">
-                      <h5 className="font-medium text-gray-700 text-xs mb-3 uppercase tracking-wider">Lịch sử giao hàng</h5>
-                      <div className="space-y-3 max-h-48 overflow-y-auto pr-2">
-                        {trackingData.tracking.courierUpdates.map((update: any, idx: number) => (
-                          <div key={idx} className="flex gap-3 text-sm relative">
-                            <div className="flex flex-col items-center">
-                              <div className={`w-2.5 h-2.5 rounded-full ${idx === 0 ? 'bg-blue-500 ring-4 ring-blue-50' : 'bg-gray-300'} z-10`} />
-                              {idx !== trackingData.tracking.courierUpdates.length - 1 && (
-                                <div className="w-0.5 h-full bg-gray-200 absolute top-2.5 bottom-[-10px]" />
-                              )}
-                            </div>
-                            <div className="flex-1 pb-2">
-                              <div className="flex justify-between items-start">
-                                <span className={`font-medium ${idx === 0 ? 'text-gray-900' : 'text-gray-600'}`}>
-                                  {update.status || update.key}
-                                </span>
+                      <h5 className="font-semibold text-gray-700 text-xs mb-4 uppercase tracking-wider">Lịch sử vận chuyển</h5>
+                      <div className="relative pl-6 max-h-64 overflow-y-auto pr-2">
+                        {/* Vertical line */}
+                        <div className="absolute left-[9px] top-2 bottom-2 w-0.5 bg-gray-200" />
+                        <div className="space-y-4">
+                          {trackingData.tracking.courierUpdates.map((update: any, idx: number) => (
+                            <div key={idx} className="relative">
+                              {/* Dot */}
+                              <div className={`absolute -left-6 top-1 w-[18px] h-[18px] rounded-full border-2 flex items-center justify-center z-10 ${
+                                idx === 0 
+                                  ? 'bg-blue-500 border-blue-500' 
+                                  : 'bg-white border-gray-300'
+                              }`}>
+                                {idx === 0 && (
+                                  <div className="w-1.5 h-1.5 bg-white rounded-full" />
+                                )}
                               </div>
-                              {update.update_at && (
-                                <p className="text-xs text-gray-400 mt-0.5">{fmtDate(update.update_at)}</p>
-                              )}
-                              {update.note && <p className="text-xs text-gray-500 mt-1 bg-white p-2 rounded border border-gray-100">{update.note}</p>}
+                              {/* Content */}
+                              <div className="ml-2 pb-1">
+                                <p className={`font-semibold text-sm ${idx === 0 ? 'text-blue-700' : 'text-gray-700'}`}>
+                                  {update.status || update.key || 'Cập nhật'}
+                                </p>
+                                {update.note && (
+                                  <p className="text-xs text-gray-500 mt-0.5">{update.note}</p>
+                                )}
+                                {update.address && (
+                                  <p className="text-xs text-gray-400 mt-0.5">{update.address}</p>
+                                )}
+                                {update.location && (
+                                  <p className="text-xs text-gray-400 mt-0.5">{update.location}</p>
+                                )}
+                                {update.update_at && (
+                                  <p className="text-xs text-gray-400 mt-1">{fmtDate(update.update_at)}</p>
+                                )}
+                              </div>
                             </div>
-                          </div>
-                        ))}
+                          ))}
+                        </div>
                       </div>
                     </div>
                   )}

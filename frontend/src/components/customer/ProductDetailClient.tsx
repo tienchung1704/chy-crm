@@ -100,10 +100,11 @@ export default function ProductDetailClient({ product, relatedProducts = [], ini
 
   // Derived states
   const sizeOrder = ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL'];
+  const variants = product.variants || [];
   
   const availableSizes = Array.from(
     new Map(
-      product.variants.filter(v => v.sizeId && v.size).map(v => [v.size!.id, v.size!])
+      variants.filter(v => v.sizeId && v.size).map(v => [v.size!.id, v.size!])
     ).values()
   ).sort((a, b) => {
     const indexA = sizeOrder.indexOf(a.name.toUpperCase());
@@ -124,7 +125,7 @@ export default function ProductDetailClient({ product, relatedProducts = [], ini
 
   const availableColors = Array.from(
     new Map(
-      product.variants
+      variants
         .filter(v => v.colorId && v.color && (!selectedSizeId || v.sizeId === selectedSizeId))
         .map(v => [v.color!.id, v.color!])
     ).values()
@@ -133,12 +134,12 @@ export default function ProductDetailClient({ product, relatedProducts = [], ini
   // Calculate current price and stock
   let currentPrice = product.salePrice || product.originalPrice;
   
-  const matchingVariants = product.variants.filter(v => 
+  const matchingVariants = variants.filter(v => 
     (!selectedSizeId || v.sizeId === selectedSizeId) &&
     (!selectedColorId || v.colorId === selectedColorId)
   );
   
-  let currentStock = product.variants.length > 0
+  let currentStock = variants.length > 0
     ? matchingVariants.reduce((sum, v) => sum + v.stock, 0)
     : product.stockQuantity;
 
@@ -146,13 +147,13 @@ export default function ProductDetailClient({ product, relatedProducts = [], ini
   let currentVariant = null;
   if (selectedSizeId && selectedColorId) {
     // Both selected: find exact match
-    currentVariant = product.variants.find(v => v.sizeId === selectedSizeId && v.colorId === selectedColorId);
+    currentVariant = variants.find(v => v.sizeId === selectedSizeId && v.colorId === selectedColorId);
   } else if (selectedSizeId) {
     // Only size selected: find first variant for this size
-    currentVariant = product.variants.find(v => v.sizeId === selectedSizeId);
+    currentVariant = variants.find(v => v.sizeId === selectedSizeId);
   } else if (selectedColorId) {
     // Only color selected: find first variant for this color
-    currentVariant = product.variants.find(v => v.colorId === selectedColorId);
+    currentVariant = variants.find(v => v.colorId === selectedColorId);
   }
   
   if (currentVariant && currentVariant.price) {
@@ -162,7 +163,7 @@ export default function ProductDetailClient({ product, relatedProducts = [], ini
   // Effect to clear invalid color when size changes
   useEffect(() => {
     if (selectedSizeId && selectedColorId) {
-      const isValid = product.variants.some(v => v.sizeId === selectedSizeId && v.colorId === selectedColorId && v.stock > 0);
+      const isValid = variants.some(v => v.sizeId === selectedSizeId && v.colorId === selectedColorId && v.stock > 0);
       if (!isValid) {
         setSelectedColorId(null);
       }
@@ -311,10 +312,10 @@ export default function ProductDetailClient({ product, relatedProducts = [], ini
           <span className="text-indigo-900 font-medium truncate max-w-xs">{product.name}</span>
         </div>
 
-        <div className="overflow-hidden mb-12">
+        <div className="mb-12">
           <div className="flex flex-col md:flex-row items-start gap-6 md:gap-14">
             {/* Left: Image Box */}
-            <div className="flex-shrink-0 relative w-full flex justify-center md:justify-start pt-2 md:pt-8 md:pl-10">
+            <div className="flex-shrink-0 relative w-full md:w-auto flex justify-center md:justify-start pt-2 md:pt-8 md:pl-10">
               {product.imageUrl ? (
                 <img
                   src={product.imageUrl}
@@ -429,7 +430,7 @@ export default function ProductDetailClient({ product, relatedProducts = [], ini
                   </div>
                   <div className="flex flex-wrap gap-2">
                     {availableSizes.map(size => {
-                      const variantsForSize = product.variants.filter(v => v.sizeId === size.id);
+                      const variantsForSize = variants.filter(v => v.sizeId === size.id);
                       const stockForSize = variantsForSize.reduce((acc, v) => acc + v.stock, 0);
                       const isDisabled = stockForSize === 0;
                       
@@ -466,7 +467,7 @@ export default function ProductDetailClient({ product, relatedProducts = [], ini
                   </div>
                   <div className="flex flex-wrap gap-2">
                     {availableColors.map(color => {
-                      const variantsForColor = product.variants.filter(v => v.colorId === color.id && (!selectedSizeId || v.sizeId === selectedSizeId));
+                      const variantsForColor = variants.filter(v => v.colorId === color.id && (!selectedSizeId || v.sizeId === selectedSizeId));
                       const stockForColor = variantsForColor.reduce((acc, v) => acc + v.stock, 0);
                       
                       return (

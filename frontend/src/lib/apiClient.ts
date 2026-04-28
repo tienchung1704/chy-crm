@@ -6,6 +6,21 @@ export interface ApiOptions extends RequestInit {
   params?: Record<string, string | number | boolean | undefined>;
 }
 
+/**
+ * Custom error class that carries the HTTP status code from API responses.
+ */
+export class ApiError extends Error {
+  status: number;
+  response: { status: number; data: any };
+
+  constructor(message: string, status: number, data?: any) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+    this.response = { status, data };
+  }
+}
+
 export async function apiRequest<T>(
   endpoint: string,
   options: ApiOptions = {}
@@ -40,13 +55,17 @@ export async function apiRequest<T>(
   });
 
   if (!response.ok) {
-    let error;
+    let errorData;
     try {
-      error = await response.json();
+      errorData = await response.json();
     } catch {
-      error = { message: 'An unknown error occurred' };
+      errorData = { message: 'An unknown error occurred' };
     }
-    throw new Error(error.message || `Request failed with status ${response.status}`);
+    throw new ApiError(
+      errorData.message || `Request failed with status ${response.status}`,
+      response.status,
+      errorData,
+    );
   }
 
   return response.json();

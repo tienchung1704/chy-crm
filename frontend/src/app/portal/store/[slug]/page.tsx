@@ -48,27 +48,33 @@ export default async function StoreProfilePage({
   try {
     // 1. Fetch store info
     store = await apiClient.get(`/stores/public/${slug}`);
-    
-    // 2. Fetch store categories (public endpoint with storeId filter)
-    const allCategories = await apiClient.get<any[]>(`/categories?storeId=${store.id}`);
-    categories = allCategories.filter(c => c.storeId === store.id);
-    
-    // 3. Fetch products based on tab
-    if (currentTab === 'products') {
-      const qs = new URLSearchParams();
-      qs.append('storeSlug', slug);
-      qs.append('limit', '1000');
-      if (currentCategory) qs.append('categoryId', currentCategory);
-      productsData = await apiClient.get(`/products?${qs.toString()}`);
-    } else if (currentTab === 'reviews') {
-      // 4. Fetch store reviews
-      reviews = await apiClient.get(`/stores/public/${slug}/reviews`);
-    }
-
   } catch (error: any) {
-    console.error('Error fetching store profile:', error);
-    if (error.response?.status === 404) {
+    console.error('Error fetching store:', error?.message, 'status:', error?.status || error?.response?.status);
+    if (error?.status === 404 || error?.response?.status === 404) {
       notFound();
+    }
+    // store remains null → will show "Cửa hàng không tồn tại"
+  }
+
+  if (store) {
+    try {
+      // 2. Fetch store categories (public endpoint with storeId filter)
+      const allCategories = await apiClient.get<any[]>(`/categories?storeId=${store.id}`);
+      categories = allCategories.filter(c => c.storeId === store.id);
+      
+      // 3. Fetch products based on tab
+      if (currentTab === 'products') {
+        const qs = new URLSearchParams();
+        qs.append('storeSlug', slug);
+        qs.append('limit', '1000');
+        if (currentCategory) qs.append('categoryId', currentCategory);
+        productsData = await apiClient.get(`/products?${qs.toString()}`);
+      } else if (currentTab === 'reviews') {
+        // 4. Fetch store reviews
+        reviews = await apiClient.get(`/stores/public/${slug}/reviews`);
+      }
+    } catch (error: any) {
+      console.error('Error fetching store data:', error?.message);
     }
   }
 

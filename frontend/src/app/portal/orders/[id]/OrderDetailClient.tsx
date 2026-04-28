@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import OrderReviewForm from '@/components/customer/OrderReviewForm';
+import { Copy } from 'lucide-react';
 
 function fmt(amount: number) {
   return `${new Intl.NumberFormat('vi-VN').format(amount || 0)} đ`;
@@ -69,19 +70,19 @@ export default function PortalOrderDetailClient({ order }: { order: any }) {
 
   const displayItems = hasLinkedItems
     ? order.items.map((item: any) => ({
-        id: item.id,
-        name: item.product?.name || 'Sản phẩm',
-        image: item.product?.imageUrl,
-        quantity: item.quantity,
-        price: item.price,
-        size: item.size,
-        color: item.color,
-        isGift: item.isGift,
-        product: item.product,
-        slug: item.product?.slug,
-      }))
+      id: item.id,
+      name: item.product?.name || 'Sản phẩm',
+      image: item.product?.imageUrl,
+      quantity: item.quantity,
+      price: item.price,
+      size: item.size,
+      color: item.color,
+      isGift: item.isGift,
+      product: item.product,
+      slug: item.product?.slug,
+    }))
     : isPancake && m.items?.length > 0
-    ? m.items.map((item: any) => {
+      ? m.items.map((item: any) => {
         const sizeField = item.fields?.find((f: any) => f.name?.toLowerCase() === 'kích thước' || f.name?.toLowerCase() === 'size');
         const colorField = item.fields?.find((f: any) => f.name?.toLowerCase() === 'màu sắc' || f.name?.toLowerCase() === 'màu' || f.name?.toLowerCase() === 'color');
         return {
@@ -97,7 +98,7 @@ export default function PortalOrderDetailClient({ order }: { order: any }) {
           slug: null,
         };
       })
-    : [];
+      : [];
 
   const handleCancel = async () => {
     setCancelling(true);
@@ -157,6 +158,30 @@ export default function PortalOrderDetailClient({ order }: { order: any }) {
     router.refresh();
   };
 
+  const statusLabels: Record<string, string> = {
+    pending: "Đang chờ xử lý",
+    new: "Đang chờ xử lý",
+    waiting_confirmation: "Chờ xác nhận",
+    confirmed: "Đã xác nhận",
+    waiting_for_goods: "Chờ hàng",
+    waiting_print: "Chờ in",
+    printed: "Đã in",
+    packing: "Đang đóng gói",
+    ready_to_ship: "Sẵn sàng vận chuyển",
+    waiting_for_shipping: "Chờ chuyển hàng",
+    delivering: "Đang giao hàng",
+    ready_to_pickup: "Sẵn sàng lấy hàng",
+    picked_up: "Đã lấy hàng",
+    delivered: "Đã giao hàng",
+    payment_collected: "Đã thu tiền",
+    returned: "Đã hoàn trả",
+    returning: "Đang hoàn",
+    partially_returned: "Hoàn một phần",
+    cancelled: "Đã hủy",
+    completed: "Hoàn thành",
+    returned_to_origin: "Hoàn trả về kho"
+  };
+
   return (
     <>
       <div className="mb-6">
@@ -167,15 +192,7 @@ export default function PortalOrderDetailClient({ order }: { order: any }) {
           ← Quay lại đơn hàng
         </Link>
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h1 className="mb-1 text-2xl font-bold text-gray-800">Đơn hàng #{order.orderCode}</h1>
-            <p className="text-sm text-gray-500">
-              Đặt lúc {fmtDate(order.createdAt)}
-              {isPancake && m.pancakeCreatedAt ? ` (Pancake: ${fmtDate(m.pancakeCreatedAt)})` : ''}
-            </p>
-          </div>
           <div className="flex items-center gap-2">
-            <span className={`rounded-lg px-4 py-2 text-sm font-semibold ${st.cls}`}>{st.label}</span>
             {canCancel && (
               <button
                 onClick={() => setShowCancelModal(true)}
@@ -188,41 +205,14 @@ export default function PortalOrderDetailClient({ order }: { order: any }) {
         </div>
       </div>
 
-      {st.step >= 0 && (
-        <div className="mb-6 rounded-xl bg-white p-6 shadow-sm">
-          <div className="relative flex items-center justify-between">
-            <div className="absolute left-0 right-0 top-4 z-0 h-0.5 bg-gray-200" />
-            <div
-              className="absolute left-0 top-4 z-0 h-0.5 bg-green-500 transition-all duration-500"
-              style={{ width: `${Math.min(100, (st.step / (progressSteps.length - 1)) * 100)}%` }}
-            />
-            {progressSteps.map((label, i) => (
-              <div key={label} className="relative z-10 flex flex-col items-center">
-                <div
-                  className={`flex h-8 w-8 items-center justify-center rounded-full border-2 text-xs font-bold transition-all ${i <= st.step
-                    ? 'border-green-500 bg-green-500 text-white'
-                    : 'border-gray-300 bg-white text-gray-400'
-                    }`}
-                >
-                  {i <= st.step ? '✓' : i + 1}
-                </div>
-                <span className={`mt-2 text-xs ${i <= st.step ? 'font-medium text-green-600' : 'text-gray-400'}`}>
-                  {label}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="space-y-6 lg:col-span-2">
-          <div className="rounded-xl bg-white p-6 shadow-sm">
-            <h2 className="mb-4 text-lg font-bold text-gray-800">Sản phẩm ({displayItems.length})</h2>
-            <div className="space-y-3">
+          <div className="rounded-xl bg-white p-6 border border-gray-200">
+            <h2 className="mb-2 text-lg font-bold flex items-center gap-2 text-gray-800">Đơn hàng<p className='text-xm text-gray-700'>({displayItems.length})</p></h2>
+            <div className="space-y-1">
               {displayItems.map((item: any, idx: number) => (
-                <div key={item.id || idx} className="flex gap-4 rounded-lg bg-gray-50 p-3">
-                  <div className="h-16 w-16 flex-shrink-0 overflow-hidden rounded-lg bg-gray-200">
+                <div key={item.id || idx} className="flex gap-4 rounded-lg p-3">
+                  <div className="h-11 w-11 flex-shrink-0 overflow-hidden rounded-lg bg-gray-200">
                     {item.image || item.product?.imageUrl ? (
                       <img
                         src={item.image || item.product?.imageUrl}
@@ -241,6 +231,7 @@ export default function PortalOrderDetailClient({ order }: { order: any }) {
                       <span>SL: {item.quantity}</span>
                       {item.size && <span>Size: {item.size}</span>}
                       {item.color && <span>Màu: {item.color}</span>}
+                      {item.price && <span>Giá: {fmt(item.price)}</span>}
                     </div>
                     <div className="mt-1 flex flex-wrap gap-2 items-center">
                       {(item.isGift || item.isBonusProduct) && (
@@ -249,7 +240,7 @@ export default function PortalOrderDetailClient({ order }: { order: any }) {
                         </span>
                       )}
                       {item.slug && (
-                        <Link 
+                        <Link
                           href={`/portal/products/${item.slug}`}
                           className="inline-block rounded border border-blue-200 bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-600 transition hover:bg-blue-100 hover:text-blue-700"
                         >
@@ -258,21 +249,17 @@ export default function PortalOrderDetailClient({ order }: { order: any }) {
                       )}
                     </div>
                   </div>
-                  <div className="flex-shrink-0 text-right">
-                    <p className="text-sm font-bold text-gray-800">{fmt(item.price)}</p>
-                    <p className="text-xs text-gray-500">Tổng: {fmt(item.price * item.quantity)}</p>
-                  </div>
                 </div>
               ))}
             </div>
           </div>
 
-          <div className="rounded-xl bg-white p-6 shadow-sm">
-            <h2 className="mb-4 text-lg font-bold text-gray-800">Tổng quan thanh toán</h2>
+          <div className="rounded-xl bg-white p-6 border border-gray-200">
+            <h2 className="mb-1 text-lg font-bold text-gray-800">Chi tiết thanh toán</h2>
             <div className="space-y-2 text-sm">
               <div className="flex justify-between text-gray-700">
-                <span>Tạm tính:</span>
-                <span className="font-semibold">{fmt(order.subtotal)}</span>
+                <span>Tiền hàng:</span>
+                <span className="">{fmt(order.subtotal)}</span>
               </div>
               {order.discountAmount > 0 && (
                 <div className="flex justify-between text-green-600">
@@ -280,37 +267,8 @@ export default function PortalOrderDetailClient({ order }: { order: any }) {
                   <span className="font-semibold">-{fmt(order.discountAmount)}</span>
                 </div>
               )}
-              <div className="flex justify-between text-gray-700">
-                <span>Phí vận chuyển:</span>
-                <span className="font-semibold">
-                  {order.shippingFee > 0 ? fmt(order.shippingFee) : 'Miễn phí'}
-                </span>
-              </div>
-
               {isPancake && payment.totalPaid > 0 && (
-                <div className="mt-3 space-y-1.5">
-                  {payment.cod > 0 && (
-                    <div className="flex justify-between text-gray-600">
-                      <span>Tiền thu hộ (COD):</span>
-                      <span className="font-medium">{fmt(payment.cod)}</span>
-                    </div>
-                  )}
-                  {payment.cash > 0 && (
-                    <div className="flex justify-between text-gray-600">
-                      <span>Tiền mặt:</span>
-                      <span className="font-medium">{fmt(payment.cash)}</span>
-                    </div>
-                  )}
-                  <div className="flex justify-between font-bold">
-                    <span>Đã thanh toán:</span>
-                    <span className="text-green-600">{fmt(payment.totalPaid)}</span>
-                  </div>
-                  {payment.moneyToCollect > 0 && (
-                    <div className="flex justify-between font-bold">
-                      <span>Còn cần thu:</span>
-                      <span className="text-red-600">{fmt(order.totalAmount - payment.totalPaid)}</span>
-                    </div>
-                  )}
+                <div className="mt-1">
                   {payment.transferMoney > 0 && (
                     <div className="flex justify-between text-gray-600">
                       <span>Chuyển khoản:</span>
@@ -328,52 +286,66 @@ export default function PortalOrderDetailClient({ order }: { order: any }) {
           </div>
 
           {isPancake && partner.trackingCode && (
-            <div className="rounded-xl bg-white p-6 shadow-sm">
-              <h2 className="mb-4 text-lg font-bold text-gray-800">Thông tin vận chuyển</h2>
-              <div className="mb-4 flex items-center justify-between rounded-lg border border-gray-200 p-4">
-                <div>
-                  <p className="text-xs text-gray-500">Mã vận đơn</p>
-                  <p className="font-mono text-lg font-bold text-gray-800">{partner.trackingCode}</p>
+            <div className="rounded-xl bg-white p-6 border border-gray-200">
+              <h2 className="mb-4 text-lg font-bold text-gray-800 flex items-center gap-2">
+                🚚 Thông tin vận chuyển
+              </h2>
+              {(partner.deliveryName || partner.deliveryPhone) && (
+                <div className="grid grid-cols-2 gap-3 text-sm mb-4">
+                  {partner.deliveryName && (
+                    <div>
+                      <p className="text-xs text-gray-500">Tên shipper</p>
+                      <p className="font-medium text-gray-800">{partner.deliveryName}</p>
+                    </div>
+                  )}
+                  {partner.deliveryPhone && (
+                    <div>
+                      <p className="text-xs text-gray-500">SĐT shipper</p>
+                      <p className="font-medium text-gray-800">{partner.deliveryPhone}</p>
+                    </div>
+                  )}
                 </div>
-                <div className="text-right">
-                  <p className="text-xs text-gray-500">Phí vận chuyển</p>
-                  <p className="font-semibold text-gray-800">{fmt(partner.totalFee)}</p>
-                </div>
-              </div>
+              )}
 
-              <div className="grid grid-cols-2 gap-3 text-sm">
-                {partner.deliveryName && (
-                  <div>
-                    <p className="text-xs text-gray-500">Tên shipper</p>
-                    <p className="font-medium text-gray-800">{partner.deliveryName}</p>
-                  </div>
-                )}
-                {partner.deliveryPhone && (
-                  <div>
-                    <p className="text-xs text-gray-500">SĐT shipper</p>
-                    <p className="font-medium text-gray-800">{partner.deliveryPhone}</p>
-                  </div>
-                )}
-              </div>
-
+              {/* Shipping Timeline */}
               {partner.courierUpdates?.length > 0 && (
-                <div className="mt-4 border-t border-gray-200 pt-4">
-                  <h3 className="mb-3 text-sm font-semibold text-gray-700">Cập nhật vận chuyển</h3>
-                  <div className="space-y-2">
-                    {partner.courierUpdates.map((update: any, idx: number) => (
-                      <div key={idx} className="flex gap-3 rounded-lg bg-gray-50 p-2.5 text-sm">
-                        <div className="mt-1.5 h-2 w-2 flex-shrink-0 rounded-full bg-blue-500" />
-                        <div className="flex-1">
-                          <div className="flex justify-between">
-                            <span className="font-medium text-gray-800">{update.status || update.key}</span>
-                            {update.update_at && (
-                              <span className="text-xs text-gray-500">{fmtDate(update.update_at)}</span>
+                <div className="">
+                  <div className="relative pl-6">
+                    {/* Vertical line */}
+                    <div className="absolute left-[9px] top-2 bottom-2 w-0.5 bg-gray-200" />
+                    <div className="space-y-4">
+                      {partner.courierUpdates.map((update: any, idx: number) => (
+                        <div key={idx} className="relative">
+                          {/* Dot */}
+                          <div className={`absolute -left-6 top-1 w-[18px] h-[18px] rounded-full border-2 flex items-center justify-center z-10 ${idx === 0
+                            ? 'bg-blue-500 border-blue-500'
+                            : 'bg-white border-gray-300'
+                            }`}>
+                            {idx === 0 && (
+                              <div className="w-1.5 h-1.5 bg-white rounded-full" />
                             )}
                           </div>
-                          {update.note && <p className="mt-0.5 text-xs text-gray-500">{update.note}</p>}
+                          {/* Content */}
+                          <div className="ml-2 pb-1">
+                            <p className={`font-semibold text-sm ${idx === 0 ? 'text-blue-700' : 'text-gray-700'}`}>
+                              {update.status || update.key || 'Cập nhật'}
+                            </p>
+                            {update.note && (
+                              <p className="text-xs text-gray-500 mt-0.5">{update.note}</p>
+                            )}
+                            {update.address && (
+                              <p className="text-xs text-gray-400 mt-0.5">{update.address}</p>
+                            )}
+                            {update.location && (
+                              <p className="text-xs text-gray-400 mt-0.5">{update.location}</p>
+                            )}
+                            {update.update_at && (
+                              <p className="text-xs text-gray-400 mt-1">{fmtDate(update.update_at)}</p>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
                   </div>
                 </div>
               )}
@@ -382,7 +354,7 @@ export default function PortalOrderDetailClient({ order }: { order: any }) {
         </div>
 
         <div className="space-y-6">
-          <div className="rounded-xl bg-white p-6 shadow-sm">
+          <div className="rounded-xl bg-white p-6 border border-gray-200">
             <h2 className="mb-3 text-lg font-bold text-gray-800">Thông tin nhận hàng</h2>
             <div className="space-y-2.5 text-sm">
               <div>
@@ -409,37 +381,41 @@ export default function PortalOrderDetailClient({ order }: { order: any }) {
               </div>
             </div>
           </div>
-
-          <div className="rounded-xl bg-white p-6 shadow-sm">
-            <h2 className="mb-3 text-lg font-bold text-gray-800">Thanh toán</h2>
-            <div className="space-y-2.5 text-sm">
-              <div>
-                <p className="text-xs text-gray-500">Phương thức</p>
-                <p className="font-medium text-gray-800">
-                  {order.paymentMethod || (isPancake ? 'Thanh toán qua Pancake' : 'Chưa xác định')}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs text-gray-500">Trạng thái</p>
-                <p
-                  className={`font-semibold ${order.paymentStatus === 'PAID' ? 'text-green-600' : 'text-orange-600'
-                    }`}
-                >
-                  {order.paymentStatus === 'PAID'
-                    ? 'Đã thanh toán'
-                    : order.paymentStatus === 'UNPAID'
-                      ? 'Chưa thanh toán'
-                      : order.paymentStatus}
-                </p>
-              </div>
-              {order.paidAt && (
-                <div>
-                  <p className="text-xs text-gray-500">Thanh toán lúc</p>
-                  <p className="font-medium text-gray-800">{fmtDate(order.paidAt)}</p>
+          {isPancake && partner.trackingCode && (
+            <div className="rounded-xl bg-white p-6 border border-gray-200">
+              <h2 className="mb-3 text-lg font-bold text-gray-800 flex items-center gap-2">
+                📋 Thông tin đơn hàng
+              </h2>
+              <div className="divide-y divide-gray-100 text-sm">
+                <div className="flex items-center justify-between py-2.5">
+                  <p className="text-gray-500">Mã vận đơn:</p>
+                  <div className="font-medium text-blue-500 flex items-center gap-1 cursor-pointer" onClick={() => navigator.clipboard.writeText(partner.trackingCode)}>
+                    {partner.trackingCode}
+                    <Copy className="w-4 h-4" />
+                  </div>
                 </div>
-              )}
+                <div className="flex items-center justify-between py-2.5">
+                  <p className="text-gray-500">Ngày đặt hàng:</p>
+                  <p className="font-medium text-gray-800">{fmtDate(m.pancakeCreatedAt || order.createdAt)}</p>
+                </div>
+                <div className="flex items-center justify-between py-2.5">
+                  <p className="text-gray-500">Trạng thái đơn hàng:</p>
+                  <p className="font-medium text-gray-800">
+                    {statusLabels[m.pancakeStatusName] || m.pancakeStatusName || st.label}
+                  </p>
+                </div>
+                <div className="flex items-center justify-between py-2.5">
+                  <p className="text-gray-500">Đơn vị vận chuyển:</p>
+                  <p className="font-medium text-gray-800">
+                    {partner.partnerId === 'viettelpost' || partner.partnerId === '3' ? 'VTP'
+                      : partner.partnerId === 'GHN' ? 'GHN'
+                        : partner.partnerId === 'GHTK' ? 'GHTK'
+                          : partner.partnerId || 'ĐVVC'}
+                  </p>
+                </div>
+              </div>
             </div>
-          </div>
+          )}
 
           {order.customerNote && (
             <div className="rounded-xl bg-white p-6 shadow-sm">
@@ -447,20 +423,6 @@ export default function PortalOrderDetailClient({ order }: { order: any }) {
               <div className="rounded-r-lg border-l-4 border-gray-200 bg-gray-50 p-3">
                 <p className="text-sm italic text-gray-700">{order.customerNote}</p>
               </div>
-            </div>
-          )}
-
-          {isPancake && m.trackingLink && (
-            <div className="rounded-xl bg-white p-6 shadow-sm">
-              <h2 className="mb-3 text-lg font-bold text-gray-800">Theo dõi đơn hàng</h2>
-              <a
-                href={m.trackingLink}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-blue-50 px-4 py-2.5 text-sm font-medium text-blue-600 transition-colors hover:bg-blue-100"
-              >
-                Xem trên trang vận chuyển →
-              </a>
             </div>
           )}
 

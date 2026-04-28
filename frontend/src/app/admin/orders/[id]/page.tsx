@@ -469,7 +469,9 @@ export default async function OrderDetailPage(props: {
           {/* Shipping Partner / Tracking for Pancake */}
           {isPancake && partner && partner.trackingCode && (
             <div className="bg-white rounded-xl shadow-sm p-6">
-              <h2 className="text-xl font-bold text-gray-800 mb-4">Vận chuyển</h2>
+              <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+                🚚 Trạng thái đơn hàng
+              </h2>
               <div className="space-y-4">
                 {/* Tracking header */}
                 <div className="flex items-center justify-between p-4 bg-blue-50 rounded-lg">
@@ -492,27 +494,47 @@ export default async function OrderDetailPage(props: {
                   <InfoRow label="Thời điểm đối soát" value={partner.paidAt ? fmtDate(partner.paidAt) : null} />
                 </div>
 
-                {/* Courier updates */}
+                {/* Timeline */}
                 {partner.courierUpdates && partner.courierUpdates.length > 0 && (
-                  <div className="mt-4">
-                    <h3 className="font-semibold text-gray-700 mb-3">Cập nhật từ ĐVVC</h3>
-                    <div className="space-y-2">
-                      {partner.courierUpdates.map((update: any, idx: number) => (
-                        <div key={idx} className="flex gap-3 p-3 bg-gray-50 rounded-lg text-sm">
-                          <div className="w-2 h-2 rounded-full bg-blue-500 mt-1.5 flex-shrink-0" />
-                          <div className="flex-1">
-                            <div className="flex justify-between">
-                              <span className="font-medium text-gray-800">{update.status || update.key}</span>
-                              {update.update_at && (
-                                <span className="text-xs text-gray-500">{fmtDate(update.update_at)}</span>
+                  <div className="mt-4 pt-4 border-t border-gray-200">
+                    <h3 className="font-semibold text-gray-700 mb-4">Lịch sử vận chuyển</h3>
+                    <div className="relative pl-6">
+                      {/* Vertical line */}
+                      <div className="absolute left-[9px] top-2 bottom-2 w-0.5 bg-gray-200" />
+                      <div className="space-y-4">
+                        {partner.courierUpdates.map((update: any, idx: number) => (
+                          <div key={idx} className="relative">
+                            {/* Dot */}
+                            <div className={`absolute -left-6 top-1 w-[18px] h-[18px] rounded-full border-2 flex items-center justify-center z-10 ${
+                              idx === 0 
+                                ? 'bg-blue-500 border-blue-500' 
+                                : 'bg-white border-gray-300'
+                            }`}>
+                              {idx === 0 && (
+                                <div className="w-1.5 h-1.5 bg-white rounded-full" />
                               )}
                             </div>
-                            {update.note && (
-                              <p className="text-gray-600 text-xs mt-1">{update.note}</p>
-                            )}
+                            {/* Content */}
+                            <div className="ml-2 pb-1">
+                              <p className={`font-semibold text-sm ${idx === 0 ? 'text-blue-700' : 'text-gray-700'}`}>
+                                {update.status || update.key || 'Cập nhật'}
+                              </p>
+                              {update.note && (
+                                <p className="text-xs text-gray-500 mt-0.5">{update.note}</p>
+                              )}
+                              {update.address && (
+                                <p className="text-xs text-gray-400 mt-0.5">{update.address}</p>
+                              )}
+                              {update.location && (
+                                <p className="text-xs text-gray-400 mt-0.5">{update.location}</p>
+                              )}
+                              {update.update_at && (
+                                <p className="text-xs text-gray-400 mt-1">{fmtDate(update.update_at)}</p>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                      ))}
+                        ))}
+                      </div>
                     </div>
                   </div>
                 )}

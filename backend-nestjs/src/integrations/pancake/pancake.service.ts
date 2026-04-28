@@ -847,13 +847,16 @@ export class PancakeService {
    * Sync product variations
    */
   private async syncProductVariations(productId: string, variations: any[]) {
+    // Track which size+color combos we've already processed to aggregate stock
+    const variantMap = new Map<string, { sizeId: string | null; colorId: string | null; price: number | null; stock: number }>();
+
     for (const variation of variations) {
       const productName = variation.product?.name || '';
       const { color, size } = this.extractProductInfo(productName, variation.fields);
       
       if (!size && !color) continue;
 
-      let sizeId = null;
+      let sizeId: string | null = null;
       if (size) {
         let sizeRecord = await this.prisma.size.findUnique({ where: { name: size } });
         if (!sizeRecord) {
@@ -862,7 +865,7 @@ export class PancakeService {
         sizeId = sizeRecord.id;
       }
 
-      let colorId = null;
+      let colorId: string | null = null;
       if (color) {
         let colorRecord = await this.prisma.color.findUnique({ where: { name: color } });
         if (!colorRecord) {
@@ -871,33 +874,64 @@ export class PancakeService {
         colorId = colorRecord.id;
       }
 
-      const stock = variation.remain_quantity || 0;
+      const stock = Math.max(0, variation.remain_quantity || 0);
+      const price = variation.price_at_counter || variation.retail_price || null;
+      const key = `${sizeId || 'null'}_${colorId || 'null'}`;
 
-      const existingVariant = await this.prisma.productVariant.findFirst({
-        where: {
-          productId,
-          sizeId,
-          colorId,
+      if (variantMap.has(key)) {
+        // Aggregate stock for duplicate size+color combos
+        const existing = variantMap.get(key)!;
+        existing.stock += stock;
+        if (price && (!existing.price || price > existing.price)) {
+          existing.price = price;
         }
-      });
-
-      const variantData = {
-        productId,
-        sizeId,
-        colorId,
-        price: variation.price_at_counter || variation.retail_price || null,
-        stock,
-      };
-
-      if (existingVariant) {
-        await this.prisma.productVariant.update({
-          where: { id: existingVariant.id },
-          data: { price: variantData.price, stock: variantData.stock }
-        });
       } else {
-        await this.prisma.productVariant.create({
-          data: variantData
+        variantMap.set(key, { sizeId, colorId, price, stock });
+      }
+    }
+
+    // Now upsert each unique variant
+    for (const [, variant] of variantMap) {
+      try {
+        const existingVariant = await this.prisma.productVariant.findFirst({
+          where: {
+            productId,
+            sizeId: variant.sizeId,
+            colorId: variant.colorId,
+          }
         });
+
+        if (existingVariant) {
+          await this.prisma.productVariant.update({
+            where: { id: existingVariant.id },
+            data: { price: variant.price, stock: variant.stock }
+          });
+        } else {
+          await this.prisma.productVariant.create({
+            data: {
+              productId,
+              sizeId: variant.sizeId,
+              colorId: variant.colorId,
+              price: variant.price,
+              stock: variant.stock,
+            }
+          });
+        }
+      } catch (error: any) {
+        // Handle race condition: if unique constraint still fails, try update
+        if (error.code === 'P2002') {
+          const existing = await this.prisma.productVariant.findFirst({
+            where: { productId, sizeId: variant.sizeId, colorId: variant.colorId }
+          });
+          if (existing) {
+            await this.prisma.productVariant.update({
+              where: { id: existing.id },
+              data: { price: variant.price, stock: variant.stock }
+            });
+          }
+        } else {
+          throw error;
+        }
       }
     }
   }
