@@ -1,15 +1,36 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, OnModuleInit } from '@nestjs/common';
 import * as bcrypt from 'bcryptjs';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { MailService } from '../mail/mail.service';
 
 @Injectable()
-export class StoresService {
+export class StoresService implements OnModuleInit {
   constructor(
     private prisma: PrismaService,
     private mailService: MailService,
   ) {}
+
+  async onModuleInit() {
+    try {
+      const adminStore = await this.prisma.store.findFirst({
+        where: { slug: 'admin-global-store' },
+      });
+      if (adminStore) {
+        let newSlug = adminStore.name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+        if (!newSlug || newSlug === 'admin-global-store') {
+          newSlug = `admin-store-${Date.now()}`;
+        }
+        await this.prisma.store.update({
+          where: { id: adminStore.id },
+          data: { slug: newSlug, isActive: true },
+        });
+        console.log(`[StoresService] Fixed admin store slug from admin-global-store to: ${newSlug}`);
+      }
+    } catch (error) {
+      console.error('[StoresService] Error fixing admin store slug:', error);
+    }
+  }
 
   /**
    * Get all stores (public)

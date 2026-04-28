@@ -6,7 +6,7 @@ export const dynamic = 'force-dynamic';
 
 async function getProducts() {
   try {
-    const response = await apiClient.get<any>('/products');
+    const response = await apiClient.get<any>('/products?limit=1000');
     return response.data; // Backend returns { data: Product[], meta: ... }
   } catch (error) {
     console.error('Error fetching products:', error);

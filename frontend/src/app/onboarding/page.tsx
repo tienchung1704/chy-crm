@@ -180,11 +180,10 @@ function OnboardingContent() {
                         updateForm({ gender: option.value });
                         setGenderOpen(false);
                       }}
-                      className={`w-full px-4 py-3 text-left hover:bg-blue-50 transition ${
-                        formData.gender === option.value
-                          ? 'bg-blue-50 text-blue-700'
-                          : 'text-gray-700'
-                      }`}
+                      className={`w-full px-4 py-3 text-left hover:bg-blue-50 transition ${formData.gender === option.value
+                        ? 'bg-blue-50 text-blue-700'
+                        : 'text-gray-700'
+                        }`}
                     >
                       {option.label}
                     </button>
@@ -218,11 +217,10 @@ function OnboardingContent() {
                   key={interest.id}
                   type="button"
                   onClick={() => toggleInterest(interest.id)}
-                  className={`px-4 py-3 rounded-xl border text-center text-sm font-medium transition-all ${
-                    formData.interests.includes(interest.id)
-                      ? 'border-blue-500 bg-blue-50 text-blue-700'
-                      : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
-                  }`}
+                  className={`px-4 py-3 rounded-xl border text-center text-sm font-medium transition-all ${formData.interests.includes(interest.id)
+                    ? 'border-blue-500 bg-blue-50 text-blue-700'
+                    : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
+                    }`}
                 >
                   {interest.label}
                 </button>
@@ -235,7 +233,7 @@ function OnboardingContent() {
               {!showPhoneInput ? (
                 <div className="flex flex-col gap-3">
                   <p className="text-sm text-gray-700">
-                    Nếu bạn đã từng mua hàng trước đây, hãy nhập số điện thoại để đồng bộ đơn Pancake.
+                    Bạn đã từng mua hàng trước đây, hãy nhập số điện thoại để đồng bộ đơn hàng.
                   </p>
                   <div>
                     <button
@@ -257,12 +255,9 @@ function OnboardingContent() {
                     id="phoneSync"
                     value={formData.phone}
                     onChange={(event) => updateForm({ phone: event.target.value })}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-4 bg-white py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     placeholder="0912 345 678"
                   />
-                  <p className="text-xs text-gray-500 mt-2">
-                    Hệ thống sẽ thử sync đơn ngay cả khi bạn bấm Hoàn thành hoặc Bỏ qua.
-                  </p>
                 </div>
               )}
             </div>

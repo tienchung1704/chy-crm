@@ -178,48 +178,58 @@ export default async function PortalVouchersPage() {
     );
   };
 
-  const renderSystemVoucherCard = (v: any) => (
-    <div key={v.id} className="bg-white border-2 border-dashed border-gray-300 rounded-xl overflow-hidden transition-all hover:shadow-md opacity-90">
-      <div className="p-4">
-        <div className="flex items-center gap-2 mb-2">
-          <span className="text-xl">{campaignIcons[v.campaignCategory] || '🎫'}</span>
-          <span className="font-bold text-gray-800">{v.name}</span>
-        </div>
-        <div className="font-mono text-sm font-bold text-blue-600 tracking-wide mb-3 bg-blue-50 px-3 py-1.5 rounded inline-block">
-          {v.code}
-        </div>
-        <div className="text-sm text-gray-600 mb-2">
-          Đơn tối thiểu: <span className="font-semibold">{fmt(v.minOrderValue)}</span>
-        </div>
-        <div className="text-sm text-gray-600 mb-3">
-          Giảm: <span className="font-semibold text-green-600">
-            {v.type === 'STACK' ? (() => {
-              const tiers = v.stackTiers;
-              if (tiers && tiers.length > 0) {
-                const maxTier = tiers.reduce((max: any, t: any) => t.discount > max.discount ? t : max, tiers[0]);
-                return `Đến ${maxTier.type === 'PERCENT' ? `${maxTier.discount}%` : fmt(maxTier.discount)}`;
-              }
-              return 'Stack';
-            })() : v.type === 'PERCENT' ? `${v.value}%` :
-              v.type === 'FREESHIP' ? 'Phí ship' : fmt(v.value)}
-          </span>
-        </div>
-        {v.validTo && (
-          <div className="text-xs text-gray-500 mb-3">
-            ⏰ Hạn dùng: {formatVnDate(v.validTo)}
+  const renderSystemVoucherCard = (v: any) => {
+    const isClaimed = userVouchers.some(uv => uv.voucher?.id === v.id || uv.voucherId === v.id);
+
+    return (
+      <div key={v.id} className="bg-white border-2 border-dashed border-gray-300 rounded-xl overflow-hidden transition-all hover:shadow-md opacity-90">
+        <div className="p-4">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-xl">{campaignIcons[v.campaignCategory] || '🎫'}</span>
+            <span className="font-bold text-gray-800">{v.name}</span>
           </div>
-        )}
-        <div className="flex justify-end">
-          <a
-            href="/portal/products"
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition-colors text-sm"
-          >
-            Sử dụng ngay
-          </a>
+          <div className="font-mono text-sm font-bold text-blue-600 tracking-wide mb-3 bg-blue-50 px-3 py-1.5 rounded inline-block">
+            {v.code}
+          </div>
+          <div className="text-sm text-gray-600 mb-2">
+            Đơn tối thiểu: <span className="font-semibold">{fmt(v.minOrderValue)}</span>
+          </div>
+          <div className="text-sm text-gray-600 mb-3">
+            Giảm: <span className="font-semibold text-green-600">
+              {v.type === 'STACK' ? (() => {
+                const tiers = v.stackTiers;
+                if (tiers && tiers.length > 0) {
+                  const maxTier = tiers.reduce((max: any, t: any) => t.discount > max.discount ? t : max, tiers[0]);
+                  return `Đến ${maxTier.type === 'PERCENT' ? `${maxTier.discount}%` : fmt(maxTier.discount)}`;
+                }
+                return 'Stack';
+              })() : v.type === 'PERCENT' ? `${v.value}%` :
+                v.type === 'FREESHIP' ? 'Phí ship' : fmt(v.value)}
+            </span>
+          </div>
+          {v.validTo && (
+            <div className="text-xs text-gray-500 mb-3">
+              ⏰ Hạn dùng: {formatVnDate(v.validTo)}
+            </div>
+          )}
+          <div className="flex justify-end">
+            {isClaimed ? (
+              <span className="px-4 py-2 bg-green-50 text-green-700 rounded-lg font-medium text-sm border border-green-200">
+                Đã nhận
+              </span>
+            ) : (
+              <a
+                href="/portal/products"
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition-colors text-sm"
+              >
+                Sử dụng ngay
+              </a>
+            )}
+          </div>
         </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   const groupedVouchersMap = systemVouchers.reduce((acc: any, v: any) => {
     const storeName = v.store?.name || 'Voucher toàn sàn';

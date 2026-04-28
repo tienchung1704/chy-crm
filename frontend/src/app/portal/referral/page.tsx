@@ -1,6 +1,7 @@
 import { getSession } from '@/lib/auth';
 import ReferralCard from './ReferralCard';
 import { apiClient } from '@/lib/apiClient';
+import { headers } from 'next/headers';
 
 export default async function PortalReferralPage() {
   const session = await getSession();
@@ -31,7 +32,11 @@ export default async function PortalReferralPage() {
   const getRate = (level: number) => configMap.get(level) || 0;
 
   const fmt = (n: number) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 }).format(n);
-  const referralLink = `${process.env.NEXT_PUBLIC_FRONTEND_URL || 'http://localhost:3000'}/login?ref=${user?.referralCode}`;
+  
+  const headersList = await headers();
+  const host = headersList.get('x-forwarded-host') || headersList.get('host') || 'localhost:3000';
+  const protocol = headersList.get('x-forwarded-proto') || (host.includes('localhost') ? 'http' : 'https');
+  const referralLink = `${protocol}://${host}/login?ref=${user?.referralCode}`;
 
   return (
     <>

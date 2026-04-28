@@ -545,16 +545,16 @@ export class PancakeService {
   /**
    * Extract product info (name, color, size)
    */
-  private extractProductInfo(productName: string) {
+  private extractProductInfo(productName: string, itemFields?: any[]) {
     let baseName = productName;
     let color = null;
     let size = null;
     
     baseName = baseName.replace(/_+/g, ' ');
     
-    const sizeValuePattern = /\s+(?:Size|size|ize)\s+([X]{1,3}L|2XL|3XL|[LMS])\b|\s+([X]{1,3}L|[LMS])\b(?=\s*$)/gi;
+    const sizeValuePattern = /\s+(?:Size|size|ize)\s+([X]{1,3}L|2XL|3XL|[LMS]|Freesize|Free\s*size)\b|\s+([X]{1,3}L|[LMS]|Freesize|Free\s*size)\b(?=\s*$)/gi;
     const sizeMatches = Array.from(baseName.matchAll(sizeValuePattern));
-    if (sizeMatches.length > 0) {
+    if (sizeMatches.length > 0 && !size) {
       const lastMatch = sizeMatches[sizeMatches.length - 1];
       size = (lastMatch[1] || lastMatch[2] || '').toUpperCase().trim();
     }
@@ -572,9 +572,9 @@ export class PancakeService {
     baseName = baseName.replace(/\s+ize\b/gi, ' ');
     baseName = baseName.trim();
     
-    const colorPattern = /(�en|�?|Xanh|Tr?ng|H?ng|Be|T�m|V�ng|N�u|X�m|Cam)\b/gi;
+    const colorPattern = /(Đen|Đỏ|Xanh|Trắng|Hồng|Be|Tím|Vàng|Nâu|Xám|Cam)\b/gi;
     const colorMatches = Array.from(baseName.matchAll(colorPattern));
-    if (colorMatches.length > 0) {
+    if (colorMatches.length > 0 && !color) {
       color = colorMatches[0][1];
     }
     
@@ -849,7 +849,7 @@ export class PancakeService {
   private async syncProductVariations(productId: string, variations: any[]) {
     for (const variation of variations) {
       const productName = variation.product?.name || '';
-      const { color, size } = this.extractProductInfo(productName);
+      const { color, size } = this.extractProductInfo(productName, variation.fields);
       
       if (!size && !color) continue;
 
@@ -1451,7 +1451,7 @@ export class PancakeService {
    * Handle product webhook from Pancake
    */
   private async handleProductWebhook(productData: any, shopId?: string) {
-    this.logger.log(`[Pancake Webhook] Processing product: ${productData.id}`);
+    this.logger.log(`[Pancake Webhook] Processing product update: ${productData.id || 'unknown'}`);
 
     try {
       const whereClause: any = { platform: 'PANCAKE', isActive: true };
@@ -1459,29 +1459,20 @@ export class PancakeService {
 
       const integration = await this.prisma.storeIntegration.findFirst({
         where: whereClause,
-        include: { store: true }
       });
 
-      if (!integration || !integration.store) {
-        return { processed: false, reason: 'No active store' };
+      if (!integration || !integration.storeId) {
+        return { processed: false, reason: 'No active store integration' };
       }
 
-      const config = await this.getPancakeConfig(integration.storeId, shopId);
-      if (!config) return { processed: false, reason: 'No config' };
-
-      const url = `https://pos.pages.fm/api/v1/shops/${config.shopId}/products/${productData.id}?api_key=${config.apiKey}`;
-      const response = await fetch(url);
-      const data = await response.json();
-
-      if (!data.success) {
-        return { processed: false, reason: 'Failed to fetch product' };
-      }
-
-      this.logger.log(`[Pancake Webhook] Product sync not fully implemented yet`);
+      // Trigger full product sync asynchronously (runs in background)
+      this.syncAllProducts(integration.storeId).catch(err => {
+        this.logger.error(`[Pancake Webhook] Error in background product sync:`, err);
+      });
       
-      return { processed: true, action: 'acknowledged', productId: productData.id };
+      return { processed: true, action: 'background_sync_started', productId: productData.id };
     } catch (error) {
-      this.logger.error(`[Pancake Webhook] Error processing product:`, error);
+      this.logger.error(`[Pancake Webhook] Error handling product webhook:`, error);
       throw error;
     }
   }
@@ -1490,12 +1481,26 @@ export class PancakeService {
    * Handle inventory webhook from Pancake
    */
   private async handleInventoryWebhook(inventoryData: any, shopId?: string) {
-    this.logger.log(`[Pancake Webhook] Processing inventory update: ${inventoryData.variation_id}`);
+    this.logger.log(`[Pancake Webhook] Processing inventory update: ${inventoryData.variation_id || 'unknown'}`);
 
     try {
-      this.logger.log(`[Pancake Webhook] Inventory sync not fully implemented yet`);
+      const whereClause: any = { platform: 'PANCAKE', isActive: true };
+      if (shopId) whereClause.shopId = shopId;
+
+      const integration = await this.prisma.storeIntegration.findFirst({
+        where: whereClause,
+      });
+
+      if (!integration || !integration.storeId) {
+        return { processed: false, reason: 'No active store integration' };
+      }
+
+      // Trigger full product sync asynchronously to recalculate all stock
+      this.syncAllProducts(integration.storeId).catch(err => {
+        this.logger.error(`[Pancake Webhook] Error in background inventory sync:`, err);
+      });
       
-      return { processed: true, action: 'acknowledged' };
+      return { processed: true, action: 'background_sync_started', variationId: inventoryData.variation_id };
     } catch (error) {
       this.logger.error(`[Pancake Webhook] Error processing inventory:`, error);
       throw error;

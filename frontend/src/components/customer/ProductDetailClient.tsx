@@ -289,7 +289,7 @@ export default function ProductDetailClient({ product, relatedProducts = [], ini
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8 relative">
+    <div className="min-h-screen bg-gray-50 py-4 md:py-8 relative">
       {/* Toast Notification */}
       {toast && (
         <div className={`fixed top-24 right-4 z-50 px-6 py-3 rounded-xl shadow-2xl flex items-center gap-3 transform transition-all duration-500 max-w-sm border-l-4 ${toast.type === 'success' ? 'bg-white border-green-500' : 'bg-white border-red-500'} animate-fade-in-down`}>
@@ -312,15 +312,15 @@ export default function ProductDetailClient({ product, relatedProducts = [], ini
         </div>
 
         <div className="overflow-hidden mb-12">
-          <div className="flex flex-col md:flex-row items-start gap-14">
+          <div className="flex flex-col md:flex-row items-start gap-6 md:gap-14">
             {/* Left: Image Box */}
-            <div className="flex-shrink-0 relative pt-8 pl-4 lg:pl-10">
+            <div className="flex-shrink-0 relative w-full flex justify-center md:justify-start pt-2 md:pt-8 md:pl-10">
               {product.imageUrl ? (
                 <img
                   src={product.imageUrl}
                   alt={product.name}
                   onClick={() => setIsImageModalOpen(true)}
-                  className="w-full max-w-[280px] aspect-[3/4] object-cover rounded-2xl shadow-xl cursor-pointer hover:opacity-90 transition-opacity"
+                  className="w-[85%] sm:w-full max-w-[280px] aspect-[3/4] object-cover rounded-2xl shadow-xl cursor-pointer hover:opacity-90 transition-opacity"
                 />
               ) : (
                 <div className="w-full max-w-[280px] aspect-[3/4] bg-gray-200 rounded-2xl flex items-center justify-center shadow-xl">
@@ -336,7 +336,7 @@ export default function ProductDetailClient({ product, relatedProducts = [], ini
             </div>
 
             {/* Right: Info Box */}
-            <div className="flex-1 lg:pt-8 p-4 md:pl-0">
+            <div className="flex-1 lg:pt-8 py-4 md:pl-0 w-full">
               <div className="flex justify-between items-start mb-3">
                 <div>
                   {/* Category & Store Track */}
@@ -359,12 +359,15 @@ export default function ProductDetailClient({ product, relatedProducts = [], ini
                     {product.store && (
                       <>
                         {product.categories.length > 0 && <span className="text-gray-300 mx-1">|</span>}
-                        <div className="flex items-center gap-2 text-sm text-gray-600 bg-gray-50 px-3 py-1 rounded-md cursor-pointer hover:bg-gray-100 transition-colors">
-                          <div className="w-5 h-5 rounded-full bg-white flex items-center justify-center overflow-hidden shadow-sm">
+                        <div 
+                          onClick={() => router.push(`/portal/store/${product.store?.slug}`)}
+                          className="flex items-center gap-2 text-sm text-gray-600 bg-gray-50 px-3 py-1.5 rounded-md cursor-pointer hover:bg-indigo-50 hover:text-indigo-600 transition-colors"
+                        >
+                          <div className="w-6 h-6 rounded-full bg-white flex items-center justify-center overflow-hidden shadow-sm border border-gray-200">
                             {product.store.logoUrl ? (
                               <img src={product.store.logoUrl} alt={product.store.name} className="w-full h-full object-cover" />
                             ) : (
-                              <span className="text-[10px] font-bold text-gray-500">{(product.store.name || 'S').charAt(0)}</span>
+                              <span className="text-[11px] font-bold text-gray-500">{(product.store.name || 'S').charAt(0)}</span>
                             )}
                           </div>
                           <span className="font-semibold">{product.store.name}</span>

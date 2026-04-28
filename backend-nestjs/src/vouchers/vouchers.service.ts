@@ -51,7 +51,7 @@ export class VouchersService implements OnModuleInit {
 
   async findAll(storeId?: string) {
     const now = new Date();
-    return this.prisma.voucher.findMany({
+    const vouchers = await this.prisma.voucher.findMany({
       where: {
         isActive: true,
         campaignCategory: { not: 'GAMIFICATION' },
@@ -69,10 +69,26 @@ export class VouchersService implements OnModuleInit {
             slug: true,
           },
         },
+        _count: {
+          select: {
+            userVouchers: true,
+          },
+        },
       },
       orderBy: {
         createdAt: 'desc',
       },
+    });
+
+    // Filter out vouchers that have reached their total usage limit
+    return vouchers.filter(v => {
+      if (v.totalUsageLimit !== null && v._count.userVouchers >= v.totalUsageLimit) {
+        return false;
+      }
+      return true;
+    }).map(v => {
+      const { _count, ...rest } = v;
+      return rest;
     });
   }
 
@@ -256,10 +272,19 @@ export class VouchersService implements OnModuleInit {
     // Check if voucher exists and is active
     const voucher = await this.prisma.voucher.findUnique({
       where: { id: finalVoucherId },
+      include: {
+        _count: {
+          select: { userVouchers: true },
+        },
+      },
     });
 
     if (!voucher || !voucher.isActive) {
       throw new NotFoundException('Voucher không tồn tại hoặc đã hết hạn');
+    }
+
+    if (voucher.totalUsageLimit !== null && voucher._count.userVouchers >= voucher.totalUsageLimit) {
+      throw new BadRequestException('Voucher này đã hết số lượng phát hành');
     }
 
     // Create user voucher with PENDING status
@@ -543,6 +568,16 @@ export class VouchersService implements OnModuleInit {
       }
     }
 
+    // Hard delete if it is already inactive
+    if (!voucher.isActive) {
+      await this.prisma.userVoucher.deleteMany({
+        where: { voucherId: id },
+      });
+      return this.prisma.voucher.delete({
+        where: { id },
+      });
+    }
+
     // Instead of deleting, we might want to just deactivate if it has user claims
     const claimsCount = await this.prisma.userVoucher.count({
       where: { voucherId: id },
@@ -567,6 +602,11 @@ export class VouchersService implements OnModuleInit {
         campaignCategory: 'WELCOME',
         isActive: true,
       },
+      include: {
+        _count: {
+          select: { userVouchers: true },
+        },
+      },
     });
 
     if (welcomeVouchers.length === 0) {
@@ -574,8 +614,13 @@ export class VouchersService implements OnModuleInit {
       return;
     }
 
+    let grantedCount = 0;
     // Grant each welcome voucher to the user
     for (const voucher of welcomeVouchers) {
+      if (voucher.totalUsageLimit !== null && voucher._count.userVouchers >= voucher.totalUsageLimit) {
+        continue; // Skip if limit reached
+      }
+
       const expiresAt = voucher.durationDays
         ? new Date(Date.now() + voucher.durationDays * 24 * 60 * 60 * 1000)
         : voucher.validTo || new Date(Date.now() + 90 * 24 * 60 * 60 * 1000);
@@ -589,8 +634,11 @@ export class VouchersService implements OnModuleInit {
           isUsed: false,
         },
       });
+      grantedCount++;
     }
 
-    this.logger.log(`✅ Granted ${welcomeVouchers.length} welcome vouchers to user ${userId}`);
+    if (grantedCount > 0) {
+      this.logger.log(`✅ Granted ${grantedCount} welcome vouchers to user ${userId}`);
+    }
   }
 }

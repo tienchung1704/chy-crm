@@ -33,11 +33,12 @@ export default async function StoreProfilePage({
   searchParams,
 }: {
   params: { slug: string };
-  searchParams: { categoryId?: string; tab?: string };
+  searchParams: { categoryId?: string; tab?: string; page?: string };
 }) {
   const { slug } = params;
   const currentTab = searchParams.tab || 'products';
   const currentCategory = searchParams.categoryId || null;
+  const pageParam = parseInt(searchParams.page || '1', 10);
 
   let store: any = null;
   let productsData: any = { data: [], meta: {} };
@@ -56,6 +57,7 @@ export default async function StoreProfilePage({
     if (currentTab === 'products') {
       const qs = new URLSearchParams();
       qs.append('storeSlug', slug);
+      qs.append('limit', '1000');
       if (currentCategory) qs.append('categoryId', currentCategory);
       productsData = await apiClient.get(`/products?${qs.toString()}`);
     } else if (currentTab === 'reviews') {
@@ -68,6 +70,17 @@ export default async function StoreProfilePage({
     if (error.response?.status === 404) {
       notFound();
     }
+  }
+
+  const pageSize = 24;
+  let paginatedProducts: any[] = [];
+  let totalPages = 1;
+  let totalProducts = 0;
+
+  if (currentTab === 'products' && productsData.data) {
+    totalProducts = productsData.data.length;
+    totalPages = Math.ceil(totalProducts / pageSize);
+    paginatedProducts = productsData.data.slice((pageParam - 1) * pageSize, pageParam * pageSize);
   }
 
   if (!store) {
@@ -212,8 +225,9 @@ export default async function StoreProfilePage({
               </div>
 
               {productsData.data && productsData.data.length > 0 ? (
-                <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                  {productsData.data.map((product: any) => (
+                <>
+                  <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                    {paginatedProducts.map((product: any) => (
                     <Link 
                       key={product.id} 
                       href={`/portal/products/${product.slug}`}
@@ -255,6 +269,34 @@ export default async function StoreProfilePage({
                     </Link>
                   ))}
                 </div>
+                {totalPages > 1 && (
+                  <div className="mt-8 flex items-center justify-center gap-2">
+                    <Link
+                      href={`/portal/store/${slug}?tab=products${currentCategory ? `&categoryId=${currentCategory}` : ''}&page=${Math.max(1, pageParam - 1)}`}
+                      className={`px-4 py-2 rounded-lg border ${pageParam === 1 ? 'border-gray-200 text-gray-400 pointer-events-none' : 'border-gray-300 text-gray-700 hover:bg-gray-50'}`}
+                    >
+                      Trước
+                    </Link>
+                    <div className="flex items-center gap-1">
+                      {Array.from({ length: totalPages }, (_, i) => i + 1).map(p => (
+                        <Link
+                          key={p}
+                          href={`/portal/store/${slug}?tab=products${currentCategory ? `&categoryId=${currentCategory}` : ''}&page=${p}`}
+                          className={`w-10 h-10 flex items-center justify-center rounded-lg font-medium transition-colors ${pageParam === p ? 'bg-indigo-600 text-white' : 'text-gray-700 hover:bg-gray-100'}`}
+                        >
+                          {p}
+                        </Link>
+                      ))}
+                    </div>
+                    <Link
+                      href={`/portal/store/${slug}?tab=products${currentCategory ? `&categoryId=${currentCategory}` : ''}&page=${Math.min(totalPages, pageParam + 1)}`}
+                      className={`px-4 py-2 rounded-lg border ${pageParam === totalPages ? 'border-gray-200 text-gray-400 pointer-events-none' : 'border-gray-300 text-gray-700 hover:bg-gray-50'}`}
+                    >
+                      Sau
+                    </Link>
+                  </div>
+                )}
+                </>
               ) : (
                 <div className="bg-white p-12 rounded-xl text-center shadow-sm border border-gray-100">
                   <div className="text-5xl mb-4 opacity-50">🛍️</div>

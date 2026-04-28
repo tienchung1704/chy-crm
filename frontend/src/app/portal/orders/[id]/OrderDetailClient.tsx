@@ -65,10 +65,10 @@ export default function PortalOrderDetailClient({ order }: { order: any }) {
   const canConfirmReceived = ['DELIVERED', 'PAYMENT_COLLECTED'].includes(order.status);
   const canReview = order.status === 'COMPLETED' && !order.hasReview;
 
-  const displayItems =
-    isPancake && m.items?.length > 0
-      ? m.items
-      : (order.items || []).map((item: any) => ({
+  const hasLinkedItems = order.items && order.items.length > 0 && order.items.some((i: any) => i.product);
+
+  const displayItems = hasLinkedItems
+    ? order.items.map((item: any) => ({
         id: item.id,
         name: item.product?.name || 'Sản phẩm',
         image: item.product?.imageUrl,
@@ -78,7 +78,26 @@ export default function PortalOrderDetailClient({ order }: { order: any }) {
         color: item.color,
         isGift: item.isGift,
         product: item.product,
-      }));
+        slug: item.product?.slug,
+      }))
+    : isPancake && m.items?.length > 0
+    ? m.items.map((item: any) => {
+        const sizeField = item.fields?.find((f: any) => f.name?.toLowerCase() === 'kích thước' || f.name?.toLowerCase() === 'size');
+        const colorField = item.fields?.find((f: any) => f.name?.toLowerCase() === 'màu sắc' || f.name?.toLowerCase() === 'màu' || f.name?.toLowerCase() === 'color');
+        return {
+          id: item.id || item.variationId,
+          name: item.name || 'Sản phẩm',
+          image: item.image || item.images?.[0],
+          quantity: item.quantity,
+          price: item.price,
+          size: item.size || sizeField?.value,
+          color: item.color || colorField?.value,
+          isGift: item.isBonusProduct || item.isGift || item.is_bonus_product,
+          product: null,
+          slug: null,
+        };
+      })
+    : [];
 
   const handleCancel = async () => {
     setCancelling(true);
@@ -223,11 +242,21 @@ export default function PortalOrderDetailClient({ order }: { order: any }) {
                       {item.size && <span>Size: {item.size}</span>}
                       {item.color && <span>Màu: {item.color}</span>}
                     </div>
-                    {(item.isGift || item.isBonusProduct) && (
-                      <span className="mt-1 inline-block rounded bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-700">
-                        Quà tặng
-                      </span>
-                    )}
+                    <div className="mt-1 flex flex-wrap gap-2 items-center">
+                      {(item.isGift || item.isBonusProduct) && (
+                        <span className="inline-block rounded bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-700">
+                          Quà tặng
+                        </span>
+                      )}
+                      {item.slug && (
+                        <Link 
+                          href={`/portal/products/${item.slug}`}
+                          className="inline-block rounded border border-blue-200 bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-600 transition hover:bg-blue-100 hover:text-blue-700"
+                        >
+                          Mua lại
+                        </Link>
+                      )}
+                    </div>
                   </div>
                   <div className="flex-shrink-0 text-right">
                     <p className="text-sm font-bold text-gray-800">{fmt(item.price)}</p>

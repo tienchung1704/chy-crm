@@ -89,6 +89,7 @@ export class UsersService {
         interests: true,
         onboardingComplete: true,
         role: true,
+        referralCode: true,
         oauthAccounts: {
           select: { provider: true }
         }
