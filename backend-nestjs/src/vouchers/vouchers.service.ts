@@ -98,7 +98,6 @@ export class VouchersService implements OnModuleInit {
   }
 
   async claimQRVoucher(userId: string, orderCode: string, phone: string, voucherId?: string) {
-    const QR_VOUCHER_AMOUNTS = [50000, 40000, 30000, 20000, 10000];
     const MAX_QR_CLAIMS = 5;
     
     // Get lock duration from system config, fallback to 7 days
@@ -209,63 +208,48 @@ export class VouchersService implements OnModuleInit {
       if (orderVoucher && orderVoucher.isActive) {
         finalVoucherId = orderVoucher.id;
       } else {
-        // Priority 2: Check system config for default QR voucher
+        // Priority 2 & 3: Use system config values array for gamification tiers
         const config = await this.prisma.systemConfig.findUnique({
           where: { key: 'qr_voucher_default' },
         });
         const configData = config?.value as any;
 
-        if (configData && configData.value) {
-          const configValue = configData.value;
-          const configMinOrder = configData.minOrderValue || 0;
-          const voucherCode = `QR-DEFAULT-${configValue}`;
-
-          let defaultVoucher = await this.prisma.voucher.findUnique({
-            where: { code: voucherCode },
-          });
-
-          if (!defaultVoucher) {
-            defaultVoucher = await this.prisma.voucher.create({
-              data: {
-                code: voucherCode,
-                name: `Voucher QR ${configValue.toLocaleString('vi-VN')}đ`,
-                description: `Giảm ${configValue.toLocaleString('vi-VN')}đ cho đơn hàng từ ${configMinOrder.toLocaleString('vi-VN')}đ`,
-                campaignCategory: 'GAMIFICATION',
-                type: 'FIXED_AMOUNT',
-                value: configValue,
-                minOrderValue: configMinOrder,
-                perCustomerLimit: 1,
-                isActive: true,
-              },
-            });
-          }
-          finalVoucherId = defaultVoucher.id;
-        } else {
-          // Priority 3: Fallback to gamification tiered amounts
-          const voucherAmount = QR_VOUCHER_AMOUNTS[userClaimCount] || QR_VOUCHER_AMOUNTS[QR_VOUCHER_AMOUNTS.length - 1];
-          const voucherCode = `QR${voucherAmount / 1000}K`;
-
-          let voucher = await this.prisma.voucher.findUnique({
-            where: { code: voucherCode },
-          });
-
-          if (!voucher) {
-            voucher = await this.prisma.voucher.create({
-              data: {
-                code: voucherCode,
-                name: `Voucher QR ${voucherAmount.toLocaleString('vi-VN')}đ`,
-                description: `Giảm ${voucherAmount.toLocaleString('vi-VN')}đ cho đơn hàng từ ${(voucherAmount * 2).toLocaleString('vi-VN')}đ`,
-                campaignCategory: 'GAMIFICATION',
-                type: 'FIXED_AMOUNT',
-                value: voucherAmount,
-                minOrderValue: voucherAmount * 2,
-                perCustomerLimit: 1,
-                isActive: true,
-              },
-            });
-          }
-          finalVoucherId = voucher.id;
+        // Ensure we have an array of values (support both new 'values' array and old 'value' fallback)
+        let configValues = [50000, 40000, 30000, 20000, 10000]; // Absolute fallback
+        if (configData?.values && Array.isArray(configData.values) && configData.values.length > 0) {
+          configValues = configData.values;
+        } else if (configData?.value) {
+          configValues = [configData.value];
         }
+
+        const configMinOrder = configData?.minOrderValue || 0;
+        
+        // Determine amount based on claim count (if count exceeds array, use the last value)
+        const voucherAmount = configValues[userClaimCount] || configValues[configValues.length - 1];
+        const voucherCode = `QR-DEFAULT-${voucherAmount}`;
+
+        let defaultVoucher = await this.prisma.voucher.findUnique({
+          where: { code: voucherCode },
+        });
+
+        if (!defaultVoucher) {
+          defaultVoucher = await this.prisma.voucher.create({
+            data: {
+              code: voucherCode,
+              name: `Voucher QR ${voucherAmount.toLocaleString('vi-VN')}đ`,
+              description: `Giảm ${voucherAmount.toLocaleString('vi-VN')}đ cho đơn hàng từ ${configMinOrder.toLocaleString('vi-VN')}đ`,
+              campaignCategory: 'GAMIFICATION',
+              type: 'FIXED_AMOUNT',
+              value: voucherAmount,
+              minOrderValue: configMinOrder,
+              perCustomerLimit: 1,
+              isActive: true,
+            },
+          });
+        }
+        finalVoucherId = defaultVoucher.id;
+
+
       }
     }
 

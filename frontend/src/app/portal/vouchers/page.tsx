@@ -15,6 +15,13 @@ function formatVnDate(date: string | Date | null) {
   }).format(new Date(date));
 }
 
+function daysUntil(date: string | Date) {
+  const now = new Date();
+  const target = new Date(date);
+  const diff = target.getTime() - now.getTime();
+  return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
+}
+
 export default async function PortalVouchersPage() {
   const session = await getSession();
   if (!session) return null;
@@ -35,8 +42,17 @@ export default async function PortalVouchersPage() {
     console.error('Error fetching vouchers:', error);
   }
 
+  // Separate PENDING vouchers from available ones
+  const pendingVouchers = userVouchers.filter(v => {
+    if (v.isUsed) return false;
+    if (v.status === 'PENDING') return true;
+    return false;
+  });
+
   const available = userVouchers.filter(v => {
     if (v.isUsed) return false;
+    if (v.status === 'PENDING') return false; // Exclude PENDING from available
+    if (v.status === 'REJECTED') return false;
     if (!v.expiresAt) return true;
     return new Date(v.expiresAt) > now;
   });
@@ -103,6 +119,65 @@ export default async function PortalVouchersPage() {
     </div>
   );
 
+  const renderPendingVoucherCard = (uv: any) => {
+    const days = uv.unlockAt ? daysUntil(uv.unlockAt) : 0;
+
+    return (
+      <div key={uv.id} className="bg-white border-2 border-amber-200 rounded-xl overflow-hidden transition-all hover:shadow-md relative">
+        {/* Pending overlay badge */}
+        <div className="absolute top-3 right-3">
+          <span className="px-2.5 py-1 bg-amber-100 text-amber-700 rounded-full text-[11px] font-bold">
+            ⏳ Đang chờ
+          </span>
+        </div>
+        <div className="p-4">
+          <div className="flex items-center gap-2 mb-2 flex-wrap">
+            <span className="text-xl">{campaignIcons[uv.voucher.campaignCategory] || '🎫'}</span>
+            <span className="font-bold text-gray-800">{uv.voucher.name}</span>
+          </div>
+          <div className="font-mono text-sm font-bold text-gray-400 tracking-wide mb-3 bg-gray-100 px-3 py-1.5 rounded inline-block">
+            {uv.voucher.code}
+          </div>
+          <div className="text-sm text-gray-600 mb-2">
+            Giảm: <span className="font-semibold text-green-600">
+              {uv.voucher.type === 'PERCENT' ? `${uv.voucher.value}%` :
+                uv.voucher.type === 'FREESHIP' ? 'Phí ship' : fmt(uv.voucher.value)}
+            </span>
+          </div>
+
+          {/* Unlock date info */}
+          <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+            <div className="flex items-center gap-2 text-sm">
+              <span className="text-amber-500">🔒</span>
+              {days > 0 ? (
+                <span className="text-amber-700 font-medium">
+                  Khả dụng sau <strong>{days} ngày</strong>
+                  <span className="text-gray-500 font-normal"> ({formatVnDate(uv.unlockAt)})</span>
+                </span>
+              ) : (
+                <span className="text-green-700 font-medium">
+                  Đang chờ hệ thống kích hoạt...
+                </span>
+              )}
+            </div>
+          </div>
+
+          {uv.sourceOrderCode && (
+            <div className="mt-2 text-xs text-gray-500">
+              Từ đơn hàng: <span className="font-mono font-semibold">#{uv.sourceOrderCode}</span>
+            </div>
+          )}
+
+          <div className="flex justify-end mt-3">
+            <span className="px-4 py-2 bg-gray-200 text-gray-500 rounded-lg font-medium text-sm cursor-not-allowed">
+              Chưa khả dụng
+            </span>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   const renderSystemVoucherCard = (v: any) => (
     <div key={v.id} className="bg-white border-2 border-dashed border-gray-300 rounded-xl overflow-hidden transition-all hover:shadow-md opacity-90">
       <div className="p-4">
@@ -160,13 +235,17 @@ export default async function PortalVouchersPage() {
     <>
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-800 mb-1">Voucher của tôi</h1>
-        <p className="text-gray-600 text-sm">{available.length} voucher khả dụng</p>
+        <p className="text-gray-600 text-sm">{available.length} voucher khả dụng{pendingVouchers.length > 0 && ` · ${pendingVouchers.length} đang chờ kích hoạt`}</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
         <div className="bg-white p-6 rounded-xl shadow-sm">
           <div className="text-sm text-gray-600 mb-2">🎫 Khả dụng</div>
           <div className="text-3xl font-bold text-green-600">{regularAvailable.length}</div>
+        </div>
+        <div className="bg-white p-6 rounded-xl shadow-sm">
+          <div className="text-sm text-gray-600 mb-2">⏳ Đang chờ kích hoạt</div>
+          <div className="text-3xl font-bold text-amber-600">{pendingVouchers.length}</div>
         </div>
         <div className="bg-white p-6 rounded-xl shadow-sm">
           <div className="text-sm text-gray-600 mb-2">⏰ Sắp hết hạn</div>
@@ -174,7 +253,19 @@ export default async function PortalVouchersPage() {
         </div>
       </div>
 
-      {available.length === 0 ? (
+      {/* Pending Vouchers Section */}
+      {pendingVouchers.length > 0 && (
+        <>
+          <h3 className="text-lg font-bold mb-4 text-amber-600 flex items-center gap-2">
+            ⏳ Đang chờ kích hoạt
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 mb-8">
+            {pendingVouchers.map(renderPendingVoucherCard)}
+          </div>
+        </>
+      )}
+
+      {available.length === 0 && pendingVouchers.length === 0 ? (
         <div className="bg-white p-12 rounded-xl shadow-sm text-center">
           <div className="text-6xl mb-3">🎫</div>
           <div className="font-semibold mb-2">Chưa có voucher nào</div>

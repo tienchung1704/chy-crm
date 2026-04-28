@@ -11,10 +11,9 @@ export default function QRConfigPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [config, setConfig] = useState({
-    value: 500000,
-    type: 'FIXED_AMOUNT',
+    values: [50000, 40000, 30000, 20000, 10000],
     minOrderValue: 0,
-    displayText: 'Quét mã QR để nhận ngay voucher trị giá 500K',
+    displayText: 'Quét mã QR để nhận ngay voucher trị giá 50K',
     lockDurationDays: 7,
     expirationDays: 90,
   });
@@ -27,7 +26,13 @@ export default function QRConfigPage() {
     try {
       const res = await apiClientClient.get<any>('/admin/system-config/qr_voucher_default');
       if (res?.value) {
-        setConfig({ ...config, ...res.value });
+        // Migration: if old config has 'value' instead of 'values', convert it
+        let configData = { ...res.value };
+        if (configData.value !== undefined && !configData.values) {
+          configData.values = [configData.value];
+          delete configData.value;
+        }
+        setConfig({ ...config, ...configData });
       }
     } catch (e) {
       // Use defaults
@@ -72,21 +77,55 @@ export default function QRConfigPage() {
             <h2 className="text-xl font-bold text-gray-800 mb-6">Cấu hình mặc định</h2>
 
             <div className="space-y-6">
-              {/* Voucher Value */}
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Giá trị voucher mặc định (VNĐ)
-                </label>
-                <input
-                  type="number"
-                  value={config.value}
-                  onChange={(e) => setConfig({ ...config, value: Number(e.target.value) })}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-lg font-semibold"
-                  placeholder="500000"
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  Hiển thị: {fmtVND(config.value)}đ — Đây là giá trị voucher khi admin không tạo voucher riêng cho đơn.
-                </p>
+              {/* Voucher Values Array */}
+              <div className="p-4 border border-blue-100 bg-blue-50/30 rounded-xl space-y-3">
+                <div className="flex items-center justify-between mb-2">
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-800">
+                      Giá trị voucher theo từng lần quét (VNĐ)
+                    </label>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Mỗi lần khách quét một mã QR đơn hàng mới, giá trị voucher sẽ giảm dần theo các mốc dưới đây.
+                      Nếu quét vượt số mốc, sẽ lấy giá trị của mốc cuối cùng.
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setConfig({ ...config, values: [...config.values, 10000] })}
+                    className="px-3 py-1.5 text-xs font-semibold bg-blue-100 text-blue-700 hover:bg-blue-200 rounded-lg transition-colors"
+                  >
+                    + Thêm mốc
+                  </button>
+                </div>
+                
+                <div className="space-y-2">
+                  {config.values.map((val, idx) => (
+                    <div key={idx} className="flex items-center gap-3">
+                      <div className="w-24 text-sm font-medium text-gray-600">Lần {idx + 1}:</div>
+                      <input
+                        type="number"
+                        value={val}
+                        onChange={(e) => {
+                          const newValues = [...config.values];
+                          newValues[idx] = Number(e.target.value);
+                          setConfig({ ...config, values: newValues });
+                        }}
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none font-semibold"
+                        placeholder="VD: 50000"
+                      />
+                      <button
+                        onClick={() => {
+                          const newValues = config.values.filter((_, i) => i !== idx);
+                          setConfig({ ...config, values: newValues });
+                        }}
+                        disabled={config.values.length <= 1}
+                        className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-30"
+                        title="Xoá mốc này"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))}
+                </div>
               </div>
 
               {/* Min Order Value */}
