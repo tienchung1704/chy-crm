@@ -327,13 +327,14 @@ export class VouchersService implements OnModuleInit {
   async createOrderVoucher(data: {
     orderId: string; 
     name?: string;
-    type?: 'FIXED_AMOUNT' | 'PERCENT';
+    type?: 'FIXED_AMOUNT' | 'PERCENT' | 'FREESHIP' | 'STACK';
     value?: number; 
     maxDiscount?: number;
     minOrderValue?: number;
     durationDays?: number;
+    stackTiers?: any;
   }) {
-    const { orderId, name, type, value, maxDiscount, minOrderValue, durationDays } = data;
+    const { orderId, name, type, value, maxDiscount, minOrderValue, durationDays, stackTiers } = data;
 
     // Find the order
     const order = await this.prisma.order.findUnique({
@@ -382,6 +383,7 @@ export class VouchersService implements OnModuleInit {
         maxDiscount: maxDiscount || null,
         minOrderValue: voucherMinOrder || 0,
         durationDays: durationDays || null,
+        stackTiers: stackTiers || null,
         perCustomerLimit: 1,
         totalUsageLimit: 1,
         isActive: true,
@@ -409,6 +411,54 @@ export class VouchersService implements OnModuleInit {
     });
 
     return { exists: !!voucher, voucher: voucher || null };
+  }
+
+  /**
+   * Get all order-specific vouchers for admin management
+   */
+  async getOrderVouchersList(user?: any) {
+    let storeFilter: any = {};
+    if (user?.role === 'MODERATOR') {
+      const storeId = await this.getStoreIdForUser(user);
+      if (!storeId) return [];
+      storeFilter = { storeId };
+    }
+
+    const vouchers = await this.prisma.voucher.findMany({
+      where: {
+        ...storeFilter,
+        code: { startsWith: 'QR-ORDER-' },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    if (vouchers.length === 0) return [];
+
+    const orderCodes = vouchers.map(v => v.code.replace('QR-ORDER-', ''));
+    
+    // Search orders across orderCode and tracking metadata if needed, but normally orderCode is sufficient
+    const orders = await this.prisma.order.findMany({
+      where: { orderCode: { in: orderCodes } },
+      select: {
+        id: true,
+        orderCode: true,
+        shippingPhone: true,
+        user: { select: { phone: true } },
+      },
+    });
+
+    const orderMap = new Map(orders.map(o => [o.orderCode, o]));
+
+    return vouchers.map(v => {
+      const orderCode = v.code.replace('QR-ORDER-', '');
+      const order = orderMap.get(orderCode);
+      return {
+        ...v,
+        orderId: order?.id || null,
+        orderCode,
+        phone: order?.shippingPhone || order?.user?.phone || 'N/A',
+      };
+    });
   }
 
   async getUserVouchers(userId: string) {

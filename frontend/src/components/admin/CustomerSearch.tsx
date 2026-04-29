@@ -20,7 +20,7 @@ export default function CustomerSearch() {
       return;
     }
     
-    const params = new URLSearchParams(searchParams.toString());
+    const params = new URLSearchParams(window.location.search);
     
     if (debouncedSearch) {
       params.set('search', debouncedSearch);
@@ -37,7 +37,7 @@ export default function CustomerSearch() {
     params.delete('page'); // Reset page when searching
     
     router.push(`/admin/customers?${params.toString()}`);
-  }, [debouncedSearch, rank, router, searchParams]);
+  }, [debouncedSearch, rank, router]);
 
   return (
     <div className="bg-white p-4 rounded-xl shadow-sm mb-6">

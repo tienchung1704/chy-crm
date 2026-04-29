@@ -1,6 +1,6 @@
-import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
+import { Injectable, HttpException, HttpStatus, Optional, Inject } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { InjectQueue } from '@nestjs/bullmq';
+import { getQueueToken } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { SendBulkZaloDto } from './dto/send-bulk-zalo.dto';
 
@@ -8,7 +8,7 @@ import { SendBulkZaloDto } from './dto/send-bulk-zalo.dto';
 export class NotificationsService {
   constructor(
     private prisma: PrismaService,
-    @InjectQueue('zalo-zns') private readonly zaloQueue: Queue,
+    @Optional() @Inject(getQueueToken('zalo-zns')) private readonly zaloQueue: Queue,
   ) {}
 
   /**
@@ -177,6 +177,9 @@ export class NotificationsService {
       };
     });
 
+    if (!this.zaloQueue) {
+      throw new HttpException('Zalo ZNS queue is not available (Redis not configured)', HttpStatus.SERVICE_UNAVAILABLE);
+    }
     await this.zaloQueue.addBulk(jobs);
 
     return {

@@ -132,18 +132,32 @@ export class OrdersService {
           let voucherDiscount = 0;
 
           if (targetVoucher.type === 'STACK') {
-            // STACK voucher: discount depends on distinct product count
+            // STACK voucher: discount depends on condition type per tier
             const distinctProductCount = new Set(items.map(i => i.productId)).size;
-            const tiers = (targetVoucher as any).stackTiers as Array<{ minProducts: number; discount: number; type?: string }> | null;
+            const tiers = (targetVoucher as any).stackTiers as Array<{ minProducts?: number; minAmount?: number; conditionType?: string; discount: number; type?: string; maxDiscount?: number }> | null;
 
             if (tiers && Array.isArray(tiers) && tiers.length > 0) {
-              // Sort tiers descending by minProducts and find the best match
-              const sortedTiers = [...tiers].sort((a, b) => b.minProducts - a.minProducts);
-              const matchedTier = sortedTiers.find(t => distinctProductCount >= t.minProducts);
+              // Sort tiers descending by threshold and find the best match
+              const sortedTiers = [...tiers].sort((a, b) => {
+                const aVal = a.conditionType === 'amount' ? (a.minAmount || 0) : (a.minProducts || 0);
+                const bVal = b.conditionType === 'amount' ? (b.minAmount || 0) : (b.minProducts || 0);
+                return bVal - aVal;
+              });
+
+              const matchedTier = sortedTiers.find(t => {
+                if (t.conditionType === 'amount') {
+                  return subtotal >= (t.minAmount || 0);
+                }
+                return distinctProductCount >= (t.minProducts || 0);
+              });
 
               if (matchedTier) {
                 if (matchedTier.type === 'PERCENT') {
                   voucherDiscount = subtotal * (matchedTier.discount / 100);
+                  // Apply per-tier maxDiscount if set
+                  if (matchedTier.maxDiscount && voucherDiscount > matchedTier.maxDiscount) {
+                    voucherDiscount = matchedTier.maxDiscount;
+                  }
                 } else {
                   voucherDiscount = matchedTier.discount;
                 }

@@ -18,7 +18,14 @@ interface Voucher {
   value: number;
   maxDiscount?: number;
   minOrderValue: number;
-  stackTiers?: Array<{ minProducts: number; discount: number; type?: string }>;
+  stackTiers?: Array<{ 
+    conditionType?: string; 
+    minProducts?: number; 
+    minAmount?: number; 
+    discount: number; 
+    type?: string; 
+    maxDiscount?: number; 
+  }>;
 }
 
 interface OrderItem {
@@ -155,24 +162,63 @@ export default function CheckoutClient({ user, items, store, cartMode }: Checkou
 
   // Calc Discounts
   let voucherDiscount = 0;
-  let stackTierInfo: { current: number; next?: { minProducts: number; discount: number; type?: string } } | null = null;
+  let stackTierInfo: { current: number; next?: { threshold: number; discount: number; type?: string; conditionType: string } } | null = null;
   if (selectedVoucherId) {
     const sel = vouchers.find(v => v.id === selectedVoucherId);
     if (sel) {
       if (sel.type === 'STACK' && sel.stackTiers && sel.stackTiers.length > 0) {
-        const sortedTiers = [...sel.stackTiers].sort((a, b) => b.minProducts - a.minProducts);
-        const matchedTier = sortedTiers.find(t => distinctProductCount >= t.minProducts);
+        // Sort tiers descending by threshold and find the best match
+        const sortedTiers = [...sel.stackTiers].sort((a, b) => {
+          const aVal = a.conditionType === 'amount' ? (a.minAmount || 0) : (a.minProducts || 0);
+          const bVal = b.conditionType === 'amount' ? (b.minAmount || 0) : (b.minProducts || 0);
+          return bVal - aVal;
+        });
+
+        const matchedTier = sortedTiers.find(t => {
+          if (t.conditionType === 'amount') {
+            return subtotal >= (t.minAmount || 0);
+          }
+          return distinctProductCount >= (t.minProducts || 0);
+        });
+
         if (matchedTier) {
           if (matchedTier.type === 'PERCENT') {
             voucherDiscount = subtotal * (matchedTier.discount / 100);
+            if (matchedTier.maxDiscount && voucherDiscount > matchedTier.maxDiscount) {
+              voucherDiscount = matchedTier.maxDiscount;
+            }
           } else {
             voucherDiscount = matchedTier.discount;
           }
         }
+
         // Find the next tier for motivation message
-        const ascTiers = [...sel.stackTiers].sort((a, b) => a.minProducts - b.minProducts);
-        const nextTier = ascTiers.find(t => t.minProducts > distinctProductCount);
-        stackTierInfo = { current: voucherDiscount, next: nextTier };
+        const ascTiers = [...sel.stackTiers].sort((a, b) => {
+          const aVal = a.conditionType === 'amount' ? (a.minAmount || 0) : (a.minProducts || 0);
+          const bVal = b.conditionType === 'amount' ? (b.minAmount || 0) : (b.minProducts || 0);
+          return aVal - bVal;
+        });
+
+        const nextTier = ascTiers.find(t => {
+          if (t.conditionType === 'amount') {
+            return (t.minAmount || 0) > subtotal;
+          }
+          return (t.minProducts || 0) > distinctProductCount;
+        });
+
+        if (nextTier) {
+          stackTierInfo = { 
+            current: voucherDiscount, 
+            next: {
+              threshold: nextTier.conditionType === 'amount' ? (nextTier.minAmount || 0) : (nextTier.minProducts || 0),
+              discount: nextTier.discount,
+              type: nextTier.type,
+              conditionType: nextTier.conditionType || 'products'
+            }
+          };
+        } else {
+          stackTierInfo = { current: voucherDiscount };
+        }
       } else {
         voucherDiscount = sel.type === 'PERCENT' ? subtotal * (sel.value / 100) : sel.value;
         if (sel.maxDiscount && voucherDiscount > sel.maxDiscount) voucherDiscount = sel.maxDiscount;
@@ -403,8 +449,10 @@ export default function CheckoutClient({ user, items, store, cartMode }: Checkou
                               `Giảm ${v.type === 'PERCENT' ? `${v.value}%` : formatPrice(v.value)}`
                             )}
                           </div>
-                          {v.type === 'STACK' && v.stackTiers && (
-                            <div className="text-xs text-gray-500">Theo số SP khác nhau</div>
+                          {v.type === 'STACK' && v.stackTiers && v.stackTiers[0] && (
+                            <div className="text-xs text-gray-500">
+                              Theo {v.stackTiers[0].conditionType === 'amount' ? 'giá trị đơn' : 'số SP khác nhau'}
+                            </div>
                           )}
                           {v.type !== 'STACK' && v.maxDiscount && <div className="text-xs text-gray-500">Tối đa: {formatPrice(v.maxDiscount)}</div>}
                         </div>
@@ -416,11 +464,15 @@ export default function CheckoutClient({ user, items, store, cartMode }: Checkou
                   {selectedVoucherId && stackTierInfo && (
                     <div className="mt-3 p-3 bg-orange-50 border border-orange-200 rounded-xl text-sm">
                       <div className="font-medium text-orange-800">
-                        📊 Bạn có <strong>{distinctProductCount}</strong> SP khác nhau → Giảm <strong>{formatPrice(stackTierInfo.current)}</strong>
+                        📊 {stackTierInfo.next?.conditionType === 'amount' 
+                          ? `Đơn hàng ${formatPrice(subtotal)}` 
+                          : `Bạn có ${distinctProductCount} SP khác nhau`} → Giảm <strong>{formatPrice(stackTierInfo.current)}</strong>
                       </div>
                       {stackTierInfo.next && (
                         <div className="text-xs text-orange-600 mt-1">
-                          💡 Thêm {stackTierInfo.next.minProducts - distinctProductCount} SP nữa → Giảm {stackTierInfo.next.type === 'PERCENT' ? `${stackTierInfo.next.discount}%` : formatPrice(stackTierInfo.next.discount)}!
+                          💡 {stackTierInfo.next.conditionType === 'amount' 
+                            ? `Mua thêm ${formatPrice(stackTierInfo.next.threshold - subtotal)} nữa` 
+                            : `Thêm ${stackTierInfo.next.threshold - distinctProductCount} SP nữa`} → Giảm {stackTierInfo.next.type === 'PERCENT' ? `${stackTierInfo.next.discount}%` : formatPrice(stackTierInfo.next.discount)}!
                         </div>
                       )}
                     </div>

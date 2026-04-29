@@ -75,9 +75,7 @@ export default async function CustomersPage(props: {
 
       <CustomersTableClient 
         customers={customers} 
-        searchParams={await props.searchParams} 
-        formatCurrency={formatCurrency} 
-        formatDate={formatDate}
+        searchParams={searchParams} 
         isZaloEnabled={isZaloEnabled}
       />
 

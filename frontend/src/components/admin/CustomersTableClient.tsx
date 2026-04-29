@@ -7,12 +7,22 @@ import ZaloZnsModal from './ZaloZnsModal';
 interface CustomersTableClientProps {
   customers: any[];
   searchParams: any;
-  formatCurrency: (amount: number) => string;
-  formatDate: (date: string | Date) => string;
   isZaloEnabled?: boolean;
 }
 
-export default function CustomersTableClient({ customers, searchParams, formatCurrency, formatDate, isZaloEnabled = false }: CustomersTableClientProps) {
+function formatCurrency(amount: number) {
+  return new Intl.NumberFormat('vi-VN', {
+    style: 'currency', currency: 'VND', maximumFractionDigits: 0,
+  }).format(amount);
+}
+
+function formatDate(date: string | Date) {
+  return new Intl.DateTimeFormat('vi-VN', {
+    day: '2-digit', month: '2-digit', year: 'numeric',
+  }).format(new Date(date));
+}
+
+export default function CustomersTableClient({ customers, searchParams, isZaloEnabled = false }: CustomersTableClientProps) {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isZnsModalOpen, setIsZnsModalOpen] = useState(false);
 

@@ -20,7 +20,6 @@ export default function CreateOrderVoucherButton({ orderId, orderCode }: Props) 
   
   const [showForm, setShowForm] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
-  const [useCustom, setUseCustom] = useState(false);
 
   // Form states
   const [customName, setCustomName] = useState('');
@@ -29,6 +28,13 @@ export default function CreateOrderVoucherButton({ orderId, orderCode }: Props) 
   const [customMinOrder, setCustomMinOrder] = useState('');
   const [customMaxDiscount, setCustomMaxDiscount] = useState('');
   const [customDurationDays, setCustomDurationDays] = useState('');
+
+  const defaultStackTiers = [
+    { conditionType: 'products', minProducts: 1, minAmount: 0, discount: 200000, type: 'FIXED_AMOUNT', maxDiscount: 0 },
+    { conditionType: 'products', minProducts: 2, minAmount: 0, discount: 300000, type: 'FIXED_AMOUNT', maxDiscount: 0 },
+    { conditionType: 'products', minProducts: 3, minAmount: 0, discount: 500000, type: 'FIXED_AMOUNT', maxDiscount: 0 },
+  ];
+  const [stackTiers, setStackTiers] = useState(defaultStackTiers);
 
   useEffect(() => {
     checkExisting();
@@ -57,10 +63,11 @@ export default function CreateOrderVoucherButton({ orderId, orderCode }: Props) 
         const body: any = {};
         if (customName) body.name = customName;
         body.type = customType;
-        if (customValue) body.value = Number(customValue);
+        body.value = customType === 'STACK' ? 0 : (customValue ? Number(customValue) : 0);
         body.minOrderValue = customMinOrder ? Number(customMinOrder) : 0;
         body.maxDiscount = customMaxDiscount ? Number(customMaxDiscount) : null;
         body.durationDays = customDurationDays ? Number(customDurationDays) : null;
+        if (customType === 'STACK') body.stackTiers = stackTiers;
 
         const res = await apiClientClient.patch<any>(`/vouchers/${existingVoucher.id}`, body);
         alert('Cập nhật voucher thành công!');
@@ -68,14 +75,13 @@ export default function CreateOrderVoucherButton({ orderId, orderCode }: Props) 
       } else {
         // POST new
         const body: any = { orderId };
-        if (useCustom) {
-          if (customName) body.name = customName;
-          body.type = customType;
-          if (customValue) body.value = Number(customValue);
-          if (customMinOrder) body.minOrderValue = Number(customMinOrder);
-          if (customMaxDiscount) body.maxDiscount = Number(customMaxDiscount);
-          if (customDurationDays) body.durationDays = Number(customDurationDays);
-        }
+        if (customName) body.name = customName;
+        body.type = customType;
+        body.value = customType === 'STACK' ? 0 : (customValue ? Number(customValue) : undefined);
+        if (customMinOrder) body.minOrderValue = Number(customMinOrder);
+        if (customMaxDiscount) body.maxDiscount = Number(customMaxDiscount);
+        if (customDurationDays) body.durationDays = Number(customDurationDays);
+        if (customType === 'STACK') body.stackTiers = stackTiers;
         const res = await apiClientClient.post<any>('/vouchers/create-order-voucher', body);
         alert(res.message || 'Tạo voucher thành công!');
         setExistingVoucher(res.voucher);
@@ -106,13 +112,17 @@ export default function CreateOrderVoucherButton({ orderId, orderCode }: Props) 
 
   function handleEditClick() {
     setIsEditMode(true);
-    setUseCustom(true);
     setCustomName(existingVoucher.name || '');
     setCustomType(existingVoucher.type || 'FIXED_AMOUNT');
     setCustomValue(existingVoucher.value?.toString() || '');
     setCustomMinOrder(existingVoucher.minOrderValue?.toString() || '');
     setCustomMaxDiscount(existingVoucher.maxDiscount?.toString() || '');
     setCustomDurationDays(existingVoucher.durationDays?.toString() || '');
+    if (existingVoucher.type === 'STACK' && existingVoucher.stackTiers?.length) {
+      setStackTiers(existingVoucher.stackTiers);
+    } else {
+      setStackTiers([...defaultStackTiers]);
+    }
     setShowForm(true);
   }
 
@@ -163,7 +173,7 @@ export default function CreateOrderVoucherButton({ orderId, orderCode }: Props) 
             <div className="flex justify-between">
               <span className="text-gray-600">Giá trị:</span>
               <span className="font-bold text-green-700">
-                {existingVoucher.type === 'PERCENT' ? `${existingVoucher.value}%` : fmtVND(existingVoucher.value)}
+                {existingVoucher.type === 'PERCENT' ? `${existingVoucher.value}%` : existingVoucher.type === 'FREESHIP' ? 'Freeship' : fmtVND(existingVoucher.value)}
               </span>
             </div>
             {existingVoucher.type === 'PERCENT' && existingVoucher.maxDiscount > 0 && (
@@ -199,42 +209,10 @@ export default function CreateOrderVoucherButton({ orderId, orderCode }: Props) 
         </p>
       )}
 
-      {!showForm ? (
-        <button
-          onClick={() => {
-            setIsEditMode(false);
-            setUseCustom(false);
-            setCustomName('');
-            setCustomType('FIXED_AMOUNT');
-            setCustomValue('');
-            setCustomMinOrder('');
-            setCustomMaxDiscount('');
-            setCustomDurationDays('');
-            setShowForm(true);
-          }}
-          className="w-full px-4 py-3 bg-amber-500 hover:bg-amber-600 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2"
-        >
-          Tạo Voucher QR cho đơn này
-        </button>
-      ) : (
-        <div className="space-y-4">
-          {!isEditMode && (
-            <div className="flex items-center gap-3 bg-gray-50 p-3 rounded-lg">
-              <input
-                type="checkbox"
-                id="useCustom"
-                checked={useCustom}
-                onChange={(e) => setUseCustom(e.target.checked)}
-                className="w-4 h-4 rounded border-gray-300 text-amber-600 focus:ring-amber-500"
-              />
-              <label htmlFor="useCustom" className="text-sm font-medium text-gray-700">
-                Tùy chỉnh giá trị chi tiết (nếu không chọn sẽ lấy từ cấu hình mặc định)
-              </label>
-            </div>
-          )}
+      <div className="space-y-4">
 
-          {(useCustom || isEditMode) && (
-            <div className="space-y-4 border border-gray-100 rounded-lg p-4 bg-gray-50/50">
+
+          <div className="space-y-4 border border-gray-100 rounded-lg p-4 bg-gray-50/50">
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">Tên Voucher</label>
                 <input
@@ -251,24 +229,136 @@ export default function CreateOrderVoucherButton({ orderId, orderCode }: Props) 
                   <label className="block text-xs font-medium text-gray-600 mb-1">Loại giảm giá</label>
                   <select
                     value={customType}
-                    onChange={(e) => setCustomType(e.target.value)}
+                    onChange={(e) => {
+                      setCustomType(e.target.value);
+                      if (e.target.value === 'STACK') setStackTiers([...defaultStackTiers]);
+                    }}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none bg-white"
                   >
                     <option value="FIXED_AMOUNT">Giảm tiền (VNĐ)</option>
                     <option value="PERCENT">Giảm phần trăm (%)</option>
+                    <option value="FREESHIP">Miễn phí vận chuyển</option>
+                    <option value="STACK">📊 Stack (theo SP)</option>
                   </select>
                 </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">Mức giảm</label>
-                  <input
-                    type="number"
-                    value={customValue}
-                    onChange={(e) => setCustomValue(e.target.value)}
-                    placeholder={customType === 'PERCENT' ? 'VD: 10' : 'VD: 50000'}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none"
-                  />
-                </div>
+                {customType !== 'FREESHIP' && customType !== 'STACK' && (
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Mức giảm</label>
+                    <input
+                      type="number"
+                      value={customValue}
+                      onChange={(e) => setCustomValue(e.target.value)}
+                      placeholder={customType === 'PERCENT' ? 'VD: 10' : 'VD: 50000'}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none"
+                    />
+                  </div>
+                )}
               </div>
+
+              {/* Stack Tiers Editor */}
+              {customType === 'STACK' && (
+                <div className="border border-amber-200 bg-amber-50/50 rounded-lg p-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <h4 className="text-xs font-bold text-gray-800">📊 Mốc giảm giá</h4>
+                    <button
+                      type="button"
+                      className="text-xs font-medium text-amber-600 hover:text-amber-700 px-2 py-0.5 rounded bg-amber-100 hover:bg-amber-200 transition-colors"
+                      onClick={() => setStackTiers(prev => [...prev, { conditionType: 'products', minProducts: prev.length + 1, minAmount: 0, discount: 0, type: 'FIXED_AMOUNT', maxDiscount: 0 }])}
+                    >
+                      + Thêm mốc
+                    </button>
+                  </div>
+                  <div className="space-y-1.5">
+                    <div className="grid grid-cols-[120px_80px_1fr_80px_90px_24px] gap-2 text-[10px] font-semibold text-gray-500 px-0.5">
+                      <span>ĐK</span>
+                      <span>Mốc</span>
+                      <span>Giảm</span>
+                      <span>Loại</span>
+                      <span>TĐ</span>
+                      <span></span>
+                    </div>
+                    {stackTiers.map((tier, idx) => (
+                      <div key={idx} className="grid grid-cols-[120px_80px_1fr_80px_90px_24px] gap-2 items-center">
+                        <select
+                          className="w-full px-1 py-1 border border-gray-300 rounded text-[10px] focus:ring-1 focus:ring-amber-500 focus:border-transparent bg-white"
+                          value={tier.conditionType || 'products'}
+                          onChange={e => {
+                            const updated = [...stackTiers];
+                            updated[idx] = { ...updated[idx], conditionType: e.target.value };
+                            setStackTiers(updated);
+                          }}
+                        >
+                          <option value="products">Số SP</option>
+                          <option value="amount">Tiền</option>
+                        </select>
+                        <input
+                          type="number"
+                          min={tier.conditionType === 'amount' ? 0 : 1}
+                          className="w-full px-1 py-1 border border-gray-300 rounded text-xs text-center focus:ring-1 focus:ring-amber-500 focus:border-transparent bg-white"
+                          value={tier.conditionType === 'amount' ? (tier.minAmount || 0) : (tier.minProducts || 0)}
+                          onChange={e => {
+                            const updated = [...stackTiers];
+                            if (tier.conditionType === 'amount') {
+                              updated[idx] = { ...updated[idx], minAmount: parseFloat(e.target.value) || 0 };
+                            } else {
+                              updated[idx] = { ...updated[idx], minProducts: parseInt(e.target.value) || 1 };
+                            }
+                            setStackTiers(updated);
+                          }}
+                        />
+                        <input
+                          type="number"
+                          min={0}
+                          className="w-full px-1 py-1 border border-gray-300 rounded text-xs focus:ring-1 focus:ring-amber-500 focus:border-transparent bg-white"
+                          value={tier.discount}
+                          onChange={e => {
+                            const updated = [...stackTiers];
+                            updated[idx] = { ...updated[idx], discount: parseFloat(e.target.value) || 0 };
+                            setStackTiers(updated);
+                          }}
+                          placeholder={tier.type === 'PERCENT' ? '10' : '50000'}
+                        />
+                        <select
+                          className="w-full px-0.5 py-1 border border-gray-300 rounded text-[10px] focus:ring-1 focus:ring-amber-500 focus:border-transparent bg-white"
+                          value={tier.type}
+                          onChange={e => {
+                            const updated = [...stackTiers];
+                            updated[idx] = { ...updated[idx], type: e.target.value };
+                            setStackTiers(updated);
+                          }}
+                        >
+                          <option value="FIXED_AMOUNT">VNĐ</option>
+                          <option value="PERCENT">%</option>
+                        </select>
+                        <input
+                          type="number"
+                          min={0}
+                          className="w-full px-1 py-1 border border-gray-300 rounded text-xs focus:ring-1 focus:ring-amber-500 focus:border-transparent bg-white disabled:bg-gray-100 disabled:text-gray-400"
+                          value={tier.maxDiscount || ''}
+                          disabled={tier.type !== 'PERCENT'}
+                          onChange={e => {
+                            const updated = [...stackTiers];
+                            updated[idx] = { ...updated[idx], maxDiscount: parseFloat(e.target.value) || 0 };
+                            setStackTiers(updated);
+                          }}
+                          placeholder={tier.type === 'PERCENT' ? 'TĐ' : '-'}
+                        />
+                        <button
+                          type="button"
+                          className="text-red-400 hover:text-red-600 transition-colors text-xs leading-none"
+                          onClick={() => setStackTiers(prev => prev.filter((_, i) => i !== idx))}
+                          disabled={stackTiers.length <= 1}
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-[10px] text-gray-500 mt-2">
+                    💡 <strong>Số SP</strong> = SP khác nhau. <strong>Tiền</strong> = tổng đơn. <strong>TĐ</strong> = giảm tối đa (chỉ cho %).
+                  </p>
+                </div>
+              )}
 
               <div className="grid grid-cols-2 gap-3">
                 {customType === 'PERCENT' && (
@@ -305,27 +395,26 @@ export default function CreateOrderVoucherButton({ orderId, orderCode }: Props) 
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none"
                 />
               </div>
-            </div>
-          )}
+          </div>
 
-          <div className="flex gap-2">
+          <div className="flex gap-3 pt-4 border-t border-gray-100">
             <button
               onClick={handleCreateOrUpdate}
               disabled={loading}
-              className="flex-1 px-4 py-2.5 bg-amber-500 hover:bg-amber-600 text-white font-semibold rounded-lg transition-colors disabled:opacity-50"
+              className="flex-1 px-4 py-3 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-xl shadow-lg shadow-amber-200 transition-all active:scale-[0.98] disabled:opacity-50"
             >
-              {loading ? 'Đang lưu...' : (isEditMode ? 'Lưu thay đổi' : 'Xác nhận tạo')}
+              {loading ? 'Đang xử lý...' : isEditMode ? 'Lưu thay đổi' : 'Tạo Voucher Ngay'}
             </button>
-            <button
-              onClick={handleCancelForm}
-              disabled={loading}
-              className="px-4 py-2.5 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50"
-            >
-              Hủy
-            </button>
+            {isEditMode && (
+              <button
+                onClick={handleCancelForm}
+                className="px-4 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-xl transition-all"
+              >
+                Hủy
+              </button>
+            )}
           </div>
         </div>
-      )}
     </div>
   );
 }

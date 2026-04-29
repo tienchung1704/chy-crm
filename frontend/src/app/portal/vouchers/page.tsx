@@ -95,9 +95,10 @@ export default async function PortalVouchersPage() {
               const tiers = uv.voucher.stackTiers;
               if (tiers && tiers.length > 0) {
                 const maxTier = tiers.reduce((max: any, t: any) => t.discount > max.discount ? t : max, tiers[0]);
-                return `Đến ${maxTier.type === 'PERCENT' ? `${maxTier.discount}%` : fmt(maxTier.discount)}`;
+                const condition = tiers[0].conditionType === 'amount' ? 'Theo giá trị' : 'Theo số SP';
+                return `📊 ${condition} (Đến ${maxTier.type === 'PERCENT' ? `${maxTier.discount}%` : fmt(maxTier.discount)})`;
               }
-              return 'Stack';
+              return '📊 Stack';
             })() : uv.voucher.type === 'PERCENT' ? `${uv.voucher.value}%` :
               uv.voucher.type === 'FREESHIP' ? 'Phí ship' : fmt(uv.voucher.value)}
           </span>
@@ -200,9 +201,10 @@ export default async function PortalVouchersPage() {
                 const tiers = v.stackTiers;
                 if (tiers && tiers.length > 0) {
                   const maxTier = tiers.reduce((max: any, t: any) => t.discount > max.discount ? t : max, tiers[0]);
-                  return `Đến ${maxTier.type === 'PERCENT' ? `${maxTier.discount}%` : fmt(maxTier.discount)}`;
+                  const condition = tiers[0].conditionType === 'amount' ? 'Theo giá trị' : 'Theo số SP';
+                  return `📊 ${condition} (Đến ${maxTier.type === 'PERCENT' ? `${maxTier.discount}%` : fmt(maxTier.discount)})`;
                 }
-                return 'Stack';
+                return '📊 Stack';
               })() : v.type === 'PERCENT' ? `${v.value}%` :
                 v.type === 'FREESHIP' ? 'Phí ship' : fmt(v.value)}
             </span>

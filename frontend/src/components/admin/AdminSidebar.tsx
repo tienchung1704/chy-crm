@@ -42,6 +42,7 @@ const navItems = [
     label: 'Chiến dịch',
     items: [
       { name: 'Voucher', href: '/admin/vouchers', roles: ALL_ROLES },
+      { name: 'Voucher Đơn Hàng', href: '/admin/order-vouchers', roles: ALL_ROLES },
       { name: 'Referral', href: '/admin/referrals', roles: ADMIN_STAFF },
       { name: 'Vòng quay', href: '/admin/spin', roles: ADMIN_STAFF },
     ],

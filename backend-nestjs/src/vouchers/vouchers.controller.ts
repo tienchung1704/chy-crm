@@ -21,6 +21,14 @@ export class VouchersController {
     return this.vouchersService.findAll(storeId);
   }
 
+  @Get('order-vouchers')
+  @Roles('ADMIN', 'STAFF', 'MODERATOR')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get all order-specific vouchers' })
+  async getOrderVouchersList(@GetUser() user: any) {
+    return this.vouchersService.getOrderVouchersList(user);
+  }
+
   @Get('admin')
   @Roles('ADMIN', 'STAFF', 'MODERATOR')
   @ApiBearerAuth()
@@ -101,11 +109,12 @@ export class VouchersController {
     @Body() data: { 
       orderId: string; 
       name?: string;
-      type?: 'FIXED_AMOUNT' | 'PERCENT';
+      type?: 'FIXED_AMOUNT' | 'PERCENT' | 'FREESHIP' | 'STACK';
       value?: number; 
       maxDiscount?: number;
       minOrderValue?: number;
       durationDays?: number;
+      stackTiers?: any;
     }
   ) {
     return this.vouchersService.createOrderVoucher(data);

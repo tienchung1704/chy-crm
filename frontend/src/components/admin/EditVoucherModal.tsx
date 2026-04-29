@@ -52,7 +52,7 @@ export default function EditVoucherModal({ voucher, onSaved, onClose }: Props) {
 
   const [stackTiers, setStackTiers] = useState<any[]>(
     voucher.stackTiers && Array.isArray(voucher.stackTiers) ? voucher.stackTiers : [
-      { minProducts: 1, discount: 200000, type: 'FIXED_AMOUNT' },
+      { conditionType: 'products', minProducts: 1, minAmount: 0, discount: 200000, type: 'FIXED_AMOUNT', maxDiscount: 0 },
     ]
   );
 
@@ -204,43 +204,68 @@ export default function EditVoucherModal({ voucher, onSaved, onClose }: Props) {
             {form.type === 'STACK' && (
               <div className="border border-blue-200 bg-blue-50/50 rounded-xl p-4">
                 <div className="flex items-center justify-between mb-3">
-                  <h4 className="text-sm font-bold text-gray-800">📊 Bảng mốc giảm giá theo số SP</h4>
+                  <h4 className="text-sm font-bold text-gray-800">📊 Bảng mốc giảm giá</h4>
                   <button
                     type="button"
                     className="text-xs font-medium text-blue-600 hover:text-blue-700 px-2 py-1 rounded bg-blue-100 hover:bg-blue-200 transition-colors"
-                    onClick={() => setStackTiers(prev => [...prev, { minProducts: prev.length + 1, discount: 0, type: 'FIXED_AMOUNT' }])}
+                    onClick={() => setStackTiers(prev => [...prev, { conditionType: 'products', minProducts: prev.length + 1, minAmount: 0, discount: 0, type: 'FIXED_AMOUNT', maxDiscount: 0 }])}
                   >
                     + Thêm mốc
                   </button>
                 </div>
                 <div className="space-y-2">
-                  <div className="grid grid-cols-[60px_1fr_120px_40px] gap-2 text-xs font-semibold text-gray-500 px-1">
-                    <span>Từ SP</span><span>Giảm</span><span>Loại</span><span></span>
-                  </div>
+                    <div className="grid grid-cols-[140px_90px_1fr_100px_120px_32px] gap-3 text-xs font-semibold text-gray-500 px-1">
+                      <span>Điều kiện</span>
+                      <span>Mốc</span>
+                      <span>Giảm</span>
+                      <span>Loại</span>
+                      <span>Tối đa</span>
+                      <span></span>
+                    </div>
                   {stackTiers.map((tier, idx) => (
-                    <div key={idx} className="grid grid-cols-[60px_1fr_120px_40px] gap-2 items-center">
-                      <input
-                        type="number" min={1}
-                        className="px-2 py-1.5 border border-gray-300 rounded-lg text-sm text-center focus:ring-2 focus:ring-blue-500"
-                        value={tier.minProducts}
+                    <div key={idx} className="grid grid-cols-[140px_90px_1fr_100px_120px_32px] gap-3 items-center">
+                      <select
+                        className="w-full px-1.5 py-1.5 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                        value={tier.conditionType || 'products'}
                         onChange={e => {
                           const updated = [...stackTiers];
-                          updated[idx] = { ...updated[idx], minProducts: parseInt(e.target.value) || 1 };
+                          updated[idx] = { ...updated[idx], conditionType: e.target.value };
                           setStackTiers(updated);
                         }}
+                      >
+                        <option value="products">Số lượng SP</option>
+                        <option value="amount">Mốc tiền</option>
+                      </select>
+                      <input
+                        type="number"
+                        min={tier.conditionType === 'amount' ? 0 : 1}
+                        className="w-full px-2 py-1.5 border border-gray-300 rounded-lg text-sm text-center focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                        value={tier.conditionType === 'amount' ? (tier.minAmount || 0) : (tier.minProducts || 0)}
+                        onChange={e => {
+                          const updated = [...stackTiers];
+                          if (tier.conditionType === 'amount') {
+                            updated[idx] = { ...updated[idx], minAmount: parseFloat(e.target.value) || 0 };
+                          } else {
+                            updated[idx] = { ...updated[idx], minProducts: parseInt(e.target.value) || 1 };
+                          }
+                          setStackTiers(updated);
+                        }}
+                        placeholder={tier.conditionType === 'amount' ? '500000' : '1'}
                       />
                       <input
-                        type="number" min={0}
-                        className="px-2 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
+                        type="number"
+                        min={0}
+                        className="w-full px-2 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
                         value={tier.discount}
                         onChange={e => {
                           const updated = [...stackTiers];
                           updated[idx] = { ...updated[idx], discount: parseFloat(e.target.value) || 0 };
                           setStackTiers(updated);
                         }}
+                        placeholder={tier.type === 'PERCENT' ? '10' : '200000'}
                       />
                       <select
-                        className="px-2 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-1.5 py-1.5 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
                         value={tier.type}
                         onChange={e => {
                           const updated = [...stackTiers];
@@ -251,15 +276,33 @@ export default function EditVoucherModal({ voucher, onSaved, onClose }: Props) {
                         <option value="FIXED_AMOUNT">VNĐ</option>
                         <option value="PERCENT">%</option>
                       </select>
+                      <input
+                        type="number"
+                        min={0}
+                        className="w-full px-2 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white disabled:bg-gray-100 disabled:text-gray-400"
+                        value={tier.maxDiscount || ''}
+                        disabled={tier.type !== 'PERCENT'}
+                        onChange={e => {
+                          const updated = [...stackTiers];
+                          updated[idx] = { ...updated[idx], maxDiscount: parseFloat(e.target.value) || 0 };
+                          setStackTiers(updated);
+                        }}
+                        placeholder={tier.type === 'PERCENT' ? 'Tối đa' : '-'}
+                      />
                       <button
                         type="button"
                         className="text-red-400 hover:text-red-600 transition-colors text-lg leading-none"
                         onClick={() => setStackTiers(prev => prev.filter((_, i) => i !== idx))}
                         disabled={stackTiers.length <= 1}
-                      >✕</button>
+                      >
+                        ✕
+                      </button>
                     </div>
                   ))}
                 </div>
+                <p className="text-xs text-gray-500 mt-3">
+                  💡 <strong>Số lượng SP</strong> = số sản phẩm khác nhau trong đơn. <strong>Mốc tiền</strong> = tổng giá trị đơn hàng.
+                </p>
               </div>
             )}
 

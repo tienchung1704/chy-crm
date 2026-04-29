@@ -66,8 +66,11 @@ function InfoRow({ label, value, className }: { label: string; value: any; class
 
 export default async function OrderDetailPage(props: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
   const params = await props.params;
+  const searchParams = await props.searchParams;
+  const backUrl = searchParams?.from === 'order-vouchers' ? '/admin/order-vouchers' : '/admin/orders';
 
   let order: any = null;
 
@@ -84,7 +87,7 @@ export default async function OrderDetailPage(props: {
           Không tìm thấy đơn hàng hoặc bạn không có quyền truy cập
         </h1>
         <Link
-          href="/admin/orders"
+          href={backUrl}
           className="text-blue-600 hover:text-blue-700 font-medium"
         >
           ← Quay lại danh sách
@@ -120,7 +123,7 @@ export default async function OrderDetailPage(props: {
       <OrderReadStatusManager orderId={order.id} isRead={order.isRead} />
       <div className="mb-6">
         <Link
-          href="/admin/orders"
+          href={backUrl}
           className="text-blue-600 hover:text-blue-700 font-medium text-sm mb-4 inline-block"
         >
           ← Quay lại danh sách
@@ -560,6 +563,8 @@ export default async function OrderDetailPage(props: {
               </div>
             </div>
           )}
+          <CreateOrderVoucherButton orderId={order.id} orderCode={order.orderCode} />
+
         </div>
 
         {/* Right Column */}
@@ -758,8 +763,6 @@ export default async function OrderDetailPage(props: {
               </div>
             </div>
           )}
-          <CreateOrderVoucherButton orderId={order.id} orderCode={order.orderCode} />
-
         </div>
       </div>
     </>

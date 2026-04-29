@@ -130,8 +130,18 @@ export default function VoucherTableClient({ vouchers }: { vouchers: any[] }) {
                       ? (() => {
                           const tiers = voucher.stackTiers as any[] | null;
                           if (tiers && tiers.length > 0) {
+                            const minTier = tiers.reduce((min: any, t: any) => t.discount < min.discount ? t : min, tiers[0]);
                             const maxTier = tiers.reduce((max: any, t: any) => t.discount > max.discount ? t : max, tiers[0]);
-                            return `Đến ${maxTier.type === 'PERCENT' ? `${maxTier.discount}%` : formatCurrency(maxTier.discount)}`;
+                            const isPercent = maxTier.type === 'PERCENT';
+                            const condition = tiers[0].conditionType === 'amount' ? 'giá trị' : 'số SP';
+                            return (
+                              <div className="flex flex-col">
+                                <span className="text-indigo-600">Theo {condition}</span>
+                                <span className="text-[11px] text-gray-500">
+                                  {isPercent ? `${minTier.discount}% - ${maxTier.discount}%` : `${formatCurrency(minTier.discount)} - ${formatCurrency(maxTier.discount)}`}
+                                </span>
+                              </div>
+                            );
                           }
                           return '—';
                         })()
