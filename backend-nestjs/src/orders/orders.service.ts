@@ -492,7 +492,10 @@ export class OrdersService {
       const searchFilter = {
         OR: [
           { orderCode: { contains: search } },
+          { shippingName: { contains: search } },
+          { shippingPhone: { contains: search } },
           { user: { name: { contains: search } } },
+          { user: { phone: { contains: search } } },
         ],
       };
       where.OR = searchFilter.OR;

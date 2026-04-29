@@ -324,7 +324,17 @@ export class VouchersService implements OnModuleInit {
   /**
    * Create a dedicated voucher for a specific order (Admin only)
    */
-  async createOrderVoucher(orderId: string, value?: number, minOrderValue?: number) {
+  async createOrderVoucher(data: {
+    orderId: string; 
+    name?: string;
+    type?: 'FIXED_AMOUNT' | 'PERCENT';
+    value?: number; 
+    maxDiscount?: number;
+    minOrderValue?: number;
+    durationDays?: number;
+  }) {
+    const { orderId, name, type, value, maxDiscount, minOrderValue, durationDays } = data;
+
     // Find the order
     const order = await this.prisma.order.findUnique({
       where: { id: orderId },
@@ -348,7 +358,7 @@ export class VouchersService implements OnModuleInit {
     let voucherValue = value;
     let voucherMinOrder = minOrderValue;
 
-    if (!voucherValue) {
+    if (voucherValue === undefined) {
       const config = await this.prisma.systemConfig.findUnique({
         where: { key: 'qr_voucher_default' },
       });
@@ -357,16 +367,21 @@ export class VouchersService implements OnModuleInit {
       voucherMinOrder = voucherMinOrder ?? configData?.minOrderValue ?? 0;
     }
 
+    const voucherType = type || 'FIXED_AMOUNT';
+    const voucherName = name || `Voucher QR đơn #${order.orderCode}`;
+
     // Create the voucher (GAMIFICATION category so it won't show in user-facing lists)
     const voucher = await this.prisma.voucher.create({
       data: {
         code: `QR-ORDER-${order.orderCode}`,
-        name: `Voucher QR đơn #${order.orderCode}`,
+        name: voucherName,
         description: `Voucher riêng dành cho đơn hàng #${order.orderCode}`,
         campaignCategory: 'GAMIFICATION',
-        type: 'FIXED_AMOUNT',
+        type: voucherType,
         value: voucherValue,
+        maxDiscount: maxDiscount || null,
         minOrderValue: voucherMinOrder || 0,
+        durationDays: durationDays || null,
         perCustomerLimit: 1,
         totalUsageLimit: 1,
         isActive: true,
@@ -375,12 +390,12 @@ export class VouchersService implements OnModuleInit {
     });
 
     this.logger.log(
-      `🎟️ Created order-specific voucher ${voucher.code} (${voucherValue}đ) for order #${order.orderCode}`,
+      `🎟️ Created order-specific voucher ${voucher.code} (${voucherValue}) for order #${order.orderCode}`,
     );
 
     return {
       success: true,
-      message: `Đã tạo voucher ${voucherValue.toLocaleString('vi-VN')}đ cho đơn hàng #${order.orderCode}`,
+      message: `Đã tạo voucher ${voucherValue.toLocaleString('vi-VN')}${voucherType === 'PERCENT' ? '%' : 'đ'} cho đơn hàng #${order.orderCode}`,
       voucher,
     };
   }

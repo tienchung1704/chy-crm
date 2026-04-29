@@ -4,6 +4,8 @@ import { useState } from 'react';
 import Link from 'next/link';
 import ExportQRButton from './ExportQRButton';
 import CreateOrderButton from './CreateOrderButton';
+import OrderSearchInput from './OrderSearchInput';
+import OrderStatusFilter from './OrderStatusFilter';
 
 const statusMap: Record<string, { cls: string; label: string }> = {
   PENDING: { cls: 'badge-warning', label: 'Chờ xác nhận' },
@@ -27,9 +29,10 @@ function fmtDate(d: string | Date) {
 
 interface OrdersTableClientProps {
   orders: any[];
+  statusCounts: Record<string, number>;
 }
 
-export default function OrdersTableClient({ orders }: OrdersTableClientProps) {
+export default function OrdersTableClient({ orders, statusCounts }: OrdersTableClientProps) {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   const allSelected = orders.length > 0 && selectedIds.size === orders.length;
@@ -60,11 +63,21 @@ export default function OrdersTableClient({ orders }: OrdersTableClientProps) {
 
   return (
     <>
-      {/* Action bar */}
-      <div className="flex items-center gap-3 mb-4">
-        <ExportQRButton selectedOrders={selectedOrders} />
-        <CreateOrderButton />
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900 tracking-tight">Đơn hàng</h1>
+          <p className="text-gray-500 mt-1 text-sm font-medium">Quản lý và theo dõi hiệu quả kinh doanh</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="w-full md:w-80">
+            <OrderSearchInput />
+          </div>
+          <ExportQRButton selectedOrders={selectedOrders} />
+          <CreateOrderButton />
+        </div>
       </div>
+      
+      <OrderStatusFilter counts={statusCounts} />
 
       {/* Table */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">

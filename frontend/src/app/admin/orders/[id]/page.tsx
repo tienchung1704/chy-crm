@@ -4,6 +4,7 @@ import OrderReadStatusManager from '@/components/admin/OrderReadStatusManager';
 import DeleteOrderButton from '@/components/admin/DeleteOrderButton';
 import CreateOrderVoucherButton from '@/components/admin/CreateOrderVoucherButton';
 import { apiClient } from '@/lib/apiClient';
+import { Copy } from 'lucide-react';
 
 function fmt(amount: number) {
   return new Intl.NumberFormat('vi-VN').format(amount || 0) + ' đ';
@@ -130,15 +131,9 @@ export default async function OrderDetailPage(props: {
               Đơn hàng #{order.orderCode}
             </h1>
             <div className="flex items-center gap-3 text-sm text-gray-500">
-              <span>Tạo lúc {fmtDate(order.createdAt)}</span>
               {isPancake && m.pancakeCreatedAt && (
-                <span className="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded">
-                  Pancake: {fmtDate(m.pancakeCreatedAt)}
-                </span>
-              )}
-              {isPancake && (
-                <span className="text-xs bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded font-medium">
-                  Pancake #{m.pancakeOrderId}
+                <span className="text-xs py-0.5 rounded">
+                  {fmtDate(m.pancakeCreatedAt)}
                 </span>
               )}
             </div>
@@ -170,7 +165,7 @@ export default async function OrderDetailPage(props: {
                   key={item.id}
                   className="flex gap-4 p-4 bg-gray-50 rounded-lg"
                 >
-                  <div className="w-20 h-20 bg-gray-200 rounded-lg overflow-hidden flex-shrink-0">
+                  <div className="w-14 h-14 bg-gray-200 rounded-lg overflow-hidden flex-shrink-0">
                     {item.product?.imageUrl ? (
                       <img
                         src={item.product.imageUrl}
@@ -178,7 +173,7 @@ export default async function OrderDetailPage(props: {
                         className="w-full h-full object-cover"
                       />
                     ) : (
-                      <div className="w-full h-full flex items-center justify-center text-gray-400">
+                      <div className="w-10 h-10 flex items-center justify-center text-gray-400">
                         📦
                       </div>
                     )}
@@ -218,7 +213,7 @@ export default async function OrderDetailPage(props: {
                       key={idx}
                       className="flex gap-4 p-4 bg-gray-50 rounded-lg"
                     >
-                      <div className="w-20 h-20 bg-gray-200 rounded-lg overflow-hidden flex-shrink-0">
+                      <div className="w-14 h-14 bg-gray-200 rounded-lg overflow-hidden flex-shrink-0">
                         {item.image ? (
                           <img
                             src={item.image}
@@ -226,7 +221,7 @@ export default async function OrderDetailPage(props: {
                             className="w-full h-full object-cover"
                           />
                         ) : (
-                          <div className="w-full h-full flex items-center justify-center text-gray-400">
+                          <div className="w-14 h-14 flex items-center justify-center text-gray-400">
                             📦
                           </div>
                         )}
@@ -291,27 +286,27 @@ export default async function OrderDetailPage(props: {
           {/* Order Summary / Financials */}
           <div className="bg-white rounded-xl shadow-sm p-6">
             <h2 className="text-xl font-bold text-gray-800 mb-4">
-              Tổng quan thanh toán
+              Chi tiết thanh toán
             </h2>
-            <div className="space-y-3">
+            <div>
               <div className="flex justify-between text-gray-700">
-                <span>Tạm tính (sản phẩm):</span>
-                <span className="font-semibold">{fmt(order.subtotal)}</span>
+                <span>Tiền hàng :</span>
+                <span className="text-gray-800">{fmt(order.subtotal)}</span>
               </div>
               {order.discountAmount > 0 && (
                 <div className="flex justify-between text-green-600">
                   <span>Giảm giá:</span>
-                  <span className="font-semibold">-{fmt(order.discountAmount)}</span>
+                  <span className="text-gray-800">-{fmt(order.discountAmount)}</span>
                 </div>
               )}
               <div className="flex justify-between text-gray-700">
                 <span>Phí vận chuyển:</span>
-                <span className="font-semibold">{fmt(order.shippingFee)}</span>
+                <span className="text-gray-800">{fmt(order.shippingFee)}</span>
               </div>
               {order.shippingDiscount > 0 && (
                 <div className="flex justify-between text-green-600">
                   <span>Giảm phí ship:</span>
-                  <span className="font-semibold">
+                  <span className="text-gray-800">
                     -{fmt(order.shippingDiscount)}
                   </span>
                 </div>
@@ -322,22 +317,17 @@ export default async function OrderDetailPage(props: {
                   <span className="font-semibold">{fmt(financial.surcharge)}</span>
                 </div>
               )}
-              <div className="pt-3 border-t border-gray-200 flex justify-between text-lg font-bold text-gray-900">
-                <span>Tổng cộng:</span>
-                <span className="text-blue-600">{fmt(order.totalAmount)}</span>
-              </div>
 
               {/* Payment breakdown for Pancake orders */}
               {isPancake && payment.totalPaid > 0 && (
-                <div className="mt-4 pt-4 border-t border-gray-200">
-                  <h3 className="font-semibold text-gray-700 mb-3">Chi tiết thanh toán</h3>
-                  <div className="grid grid-cols-2 gap-1 text-sm">
+                <div className="border-gray-200">
+                  <div className="grid grid-cols-2 gap-1">
                     {payment.cod > 0 && (
                       <div className="flex justify-between py-1.5 col-span-2">
                         <span className="text-gray-600 flex items-center gap-1.5">
                           Tiền thu hộ (COD):
                         </span>
-                        <span className="font-semibold text-gray-800">{fmt(payment.cod)}</span>
+                        <span className=" text-gray-800">{fmt(order.totalAmount - payment.totalPaid)}</span>
                       </div>
                     )}
                     {payment.cash > 0 && (
@@ -345,7 +335,7 @@ export default async function OrderDetailPage(props: {
                         <span className="text-gray-600 flex items-center gap-1.5">
                           Tiền mặt:
                         </span>
-                        <span className="font-semibold text-gray-800">{fmt(payment.cash)}</span>
+                        <span className=" text-gray-800">{fmt(payment.cash)}</span>
                       </div>
                     )}
                     {payment.transferMoney > 0 && (
@@ -353,7 +343,7 @@ export default async function OrderDetailPage(props: {
                         <span className="text-gray-600 flex items-center gap-1.5">
                           Chuyển khoản:
                         </span>
-                        <span className="font-semibold text-gray-800">{fmt(payment.transferMoney)}</span>
+                        <span className=" text-gray-800">{fmt(payment.transferMoney)}</span>
                       </div>
                     )}
                     {payment.chargedByMomo > 0 && (
@@ -409,14 +399,14 @@ export default async function OrderDetailPage(props: {
                       </div>
                     )}
                   </div>
-                  <div className="mt-4 pt-3 border-t-2 border-gray-100 flex justify-between font-bold">
+                  <div className="flex justify-between">
                     <span className="text-gray-800">Đã thanh toán:</span>
-                    <span className="text-blue-600">{fmt(payment.totalPaid)}</span>
+                    <span className="text-gray-800">{fmt(payment.totalPaid)}</span>
                   </div>
                   {payment.moneyToCollect > 0 && (
-                    <div className="mt-1 flex justify-between font-bold">
+                    <div className="mt-1 flex justify-between">
                       <span className="text-gray-800">Còn cần thu:</span>
-                      <span className="text-red-600">{fmt(payment.moneyToCollect)}</span>
+                      <span className="text-gray-800">{fmt(order.totalAmount - payment.totalPaid)}</span>
                     </div>
                   )}
                 </div>
@@ -470,17 +460,17 @@ export default async function OrderDetailPage(props: {
           {isPancake && partner && partner.trackingCode && (
             <div className="bg-white rounded-xl shadow-sm p-6">
               <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
-                🚚 Trạng thái đơn hàng
+                Trạng thái đơn hàng
               </h2>
               <div className="space-y-4">
                 {/* Tracking header */}
-                <div className="flex items-center justify-between p-4 bg-blue-50 rounded-lg">
-                  <div>
-                    <p className="text-xs text-gray-500">Mã vận đơn</p>
-                    <p className="font-mono font-bold text-blue-700 text-lg">{partner.trackingCode}</p>
+                <div className="flex items-center justify-between rounded-lg">
+                  <div className='flex items-center gap-2'>
+                    <p className="font-mono font-bold text-blue-700 text-lg select-all">{partner.trackingCode}</p>
+                    <Copy className='w-4 h-4 text-blue-500' />
                   </div>
                   <div className="text-right">
-                    <p className="text-xs text-gray-500">Phí ĐVVC</p>
+                    <p className="text-xs text-gray-500">Phí Ship</p>
                     <p className="font-semibold text-gray-800">{fmt(partner.totalFee)}</p>
                   </div>
                 </div>
@@ -505,11 +495,10 @@ export default async function OrderDetailPage(props: {
                         {partner.courierUpdates.map((update: any, idx: number) => (
                           <div key={idx} className="relative">
                             {/* Dot */}
-                            <div className={`absolute -left-6 top-1 w-[18px] h-[18px] rounded-full border-2 flex items-center justify-center z-10 ${
-                              idx === 0 
-                                ? 'bg-blue-500 border-blue-500' 
-                                : 'bg-white border-gray-300'
-                            }`}>
+                            <div className={`absolute -left-6 top-1 w-[18px] h-[18px] rounded-full border-2 flex items-center justify-center z-10 ${idx === 0
+                              ? 'bg-blue-500 border-blue-500'
+                              : 'bg-white border-gray-300'
+                              }`}>
                               {idx === 0 && (
                                 <div className="w-1.5 h-1.5 bg-white rounded-full" />
                               )}
@@ -571,9 +560,6 @@ export default async function OrderDetailPage(props: {
               </div>
             </div>
           )}
-
-          {/* Order QR Voucher */}
-          <CreateOrderVoucherButton orderId={order.id} orderCode={order.orderCode} />
         </div>
 
         {/* Right Column */}
@@ -772,6 +758,8 @@ export default async function OrderDetailPage(props: {
               </div>
             </div>
           )}
+          <CreateOrderVoucherButton orderId={order.id} orderCode={order.orderCode} />
+
         </div>
       </div>
     </>

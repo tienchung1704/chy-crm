@@ -1,7 +1,9 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
+import { apiClientClient } from '@/lib/apiClientClient';
+import { LogOut } from 'lucide-react';
 
 interface AdminSidebarProps {
   user: {
@@ -62,6 +64,15 @@ const navItems = [
 
 export default function AdminSidebar({ user, isOpen = true, unreadCount = 0, pendingStoresCount = 0, onClose }: AdminSidebarProps) {
   const pathname = usePathname();
+  const router = useRouter();
+
+  const handleLogout = async () => {
+    try {
+      await apiClientClient.post('/auth/logout', {});
+    } catch { }
+    router.push('/login');
+    router.refresh();
+  };
 
   const isActive = (href: string) => {
     if (href === '/admin') return pathname === '/admin';
@@ -117,6 +128,16 @@ export default function AdminSidebar({ user, isOpen = true, unreadCount = 0, pen
             </div>
           );
         })}
+
+        <div className="mt-6 pt-6 border-t border-gray-100">
+          <button
+            onClick={handleLogout}
+            className="flex items-center gap-3 px-3 py-2 w-full rounded-lg text-sm font-medium text-red-600 hover:bg-red-50 transition-colors"
+          >
+            <LogOut size={18} />
+            <span>Đăng xuất</span>
+          </button>
+        </div>
       </nav>
     </aside>
   );

@@ -77,11 +77,10 @@ export default function OrderStatusManager({
 
       {message && (
         <div
-          className={`mb-4 p-3 rounded-lg text-sm font-medium ${
-            message.type === 'success'
+          className={`mb-4 p-3 rounded-lg text-sm font-medium ${message.type === 'success'
               ? 'bg-green-50 text-green-700 border border-green-200'
               : 'bg-red-50 text-red-700 border border-red-200'
-          }`}
+            }`}
         >
           {message.text}
         </div>
@@ -129,12 +128,6 @@ export default function OrderStatusManager({
         >
           {loading ? 'Đang cập nhật...' : 'Cập nhật trạng thái'}
         </button>
-      </div>
-
-      <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-        <p className="text-xs text-blue-700">
-          <strong>Lưu ý:</strong> Khi chuyển đơn hàng sang "Hoàn thành", số lượng đã bán của sản phẩm sẽ được cập nhật tự động.
-        </p>
       </div>
     </div>
   );

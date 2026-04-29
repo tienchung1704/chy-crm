@@ -97,8 +97,18 @@ export class VouchersController {
   @Roles('ADMIN', 'STAFF', 'MODERATOR')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Create a dedicated voucher for a specific order' })
-  async createOrderVoucher(@Body() data: { orderId: string; value?: number; minOrderValue?: number }) {
-    return this.vouchersService.createOrderVoucher(data.orderId, data.value, data.minOrderValue);
+  async createOrderVoucher(
+    @Body() data: { 
+      orderId: string; 
+      name?: string;
+      type?: 'FIXED_AMOUNT' | 'PERCENT';
+      value?: number; 
+      maxDiscount?: number;
+      minOrderValue?: number;
+      durationDays?: number;
+    }
+  ) {
+    return this.vouchersService.createOrderVoucher(data);
   }
 
   @Get('order-voucher/:orderCode')

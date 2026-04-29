@@ -1,9 +1,15 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
+import { SendBulkZaloDto } from './dto/send-bulk-zalo.dto';
 
 @Injectable()
 export class NotificationsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    @InjectQueue('zalo-zns') private readonly zaloQueue: Queue,
+  ) {}
 
   /**
    * Get user notifications with pagination
@@ -101,4 +107,94 @@ export class NotificationsService {
       where: { id: notificationId },
     });
   }
+
+  /**
+   * Send bulk Zalo messages by queueing them
+   */
+  async sendBulkZalo(dto: SendBulkZaloDto) {
+    // 1. Validate template
+    const template = await this.prisma.notificationTemplate.findUnique({
+      where: { id: dto.templateId },
+    });
+
+    if (!template || template.channel !== 'ZALO' || template.zaloStatus !== 'ENABLE') {
+      throw new HttpException('Template không hợp lệ hoặc chưa được Zalo duyệt (ENABLE).', HttpStatus.BAD_REQUEST);
+    }
+
+    // 2. Fetch users and filter out those without phone numbers
+    const users = await this.prisma.user.findMany({
+      where: {
+        id: { in: dto.userIds },
+        phone: { not: null },
+      },
+      select: { id: true, phone: true },
+    });
+
+    if (users.length === 0) {
+      throw new HttpException('Không có khách hàng nào có số điện thoại hợp lệ để gửi.', HttpStatus.BAD_REQUEST);
+    }
+
+    // 3. Create Notification records
+    const notifications = await Promise.all(
+      users.map(user => 
+        this.prisma.notification.create({
+          data: {
+            userId: user.id,
+            channel: 'ZALO',
+            type: template.type,
+            title: template.subject || template.name,
+            body: template.body, // In a real scenario, you might replace placeholders here too
+            status: 'QUEUED',
+            metadata: dto.templateData as any,
+          }
+        })
+      )
+    );
+
+    // 4. Enqueue jobs with delay to respect rate limits (e.g. 200ms per message = 5 msgs/sec)
+    let delay = 0;
+    const delayIncrement = 200; // ms
+
+    const jobs = users.map((user, index) => {
+      const jobData = {
+        notificationId: notifications[index].id,
+        phone: user.phone,
+        templateId: template.zaloTemplateId,
+        templateData: dto.templateData,
+      };
+      
+      const currentDelay = delay;
+      delay += delayIncrement;
+
+      return {
+        name: 'send-zns',
+        data: jobData,
+        opts: { 
+          delay: currentDelay,
+          attempts: 3,
+          backoff: { type: 'exponential', delay: 2000 } 
+        },
+      };
+    });
+
+    await this.zaloQueue.addBulk(jobs);
+
+    return {
+      success: true,
+      queuedCount: users.length,
+      skippedCount: dto.userIds.length - users.length,
+      message: `Đã đưa ${users.length} tin nhắn vào hàng đợi gửi.`,
+    };
+  }
+
+  /**
+   * Get all Zalo templates
+   */
+  async getZaloTemplates() {
+    return this.prisma.notificationTemplate.findMany({
+      where: { channel: 'ZALO' },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
 }
+

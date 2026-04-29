@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import AdminSidebar from './AdminSidebar';
 import AdminHeader from './AdminHeader';
+import PageTransition from '@/components/ui/PageTransition';
 
 interface AdminShellProps {
   children: React.ReactNode;
@@ -43,10 +44,13 @@ export default function AdminShell({ children, user, unreadCount = 0, pendingSto
         <AdminHeader user={user} onToggleSidebar={toggleSidebar} isSidebarOpen={isSidebarOpen} />
         <main className="flex-1 overflow-y-auto bg-gray-50 p-4 md:p-6">
           <div className="w-full">
-            {children}
+            <PageTransition>
+              {children}
+            </PageTransition>
           </div>
         </main>
       </div>
     </div>
   );
 }
+

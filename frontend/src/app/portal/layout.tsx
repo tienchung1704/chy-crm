@@ -5,6 +5,7 @@ import PortalNavbar from '@/components/customer/PortalNavbar';
 import FloatingCartButton from '@/components/customer/FloatingCartButton';
 import Footer from '@/components/customer/Footer';
 import QrClaimModal from '@/components/customer/QrClaimModal';
+import PortalContent from '@/components/customer/PortalContent';
 import { apiClient } from '@/lib/apiClient';
 
 export default async function PortalLayout({ children }: { children: React.ReactNode }) {
@@ -89,7 +90,9 @@ export default async function PortalLayout({ children }: { children: React.React
       <PortalNavbar user={enrichedSession} />
       <main className="flex-1 py-4 md:py-8">
         <div className="w-full px-4 md:w-[80%] md:px-0 mx-auto">
-          {children}
+          <PortalContent>
+            {children}
+          </PortalContent>
         </div>
       </main>
       <FloatingCartButton itemCount={cartItemCount} />

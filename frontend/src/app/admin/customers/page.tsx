@@ -2,6 +2,7 @@ export const dynamic = 'force-dynamic';
 import Link from 'next/link';
 import CustomerActions from '@/components/admin/CustomerActions';
 import CustomerSearch from '@/components/admin/CustomerSearch';
+import CustomersTableClient from '@/components/admin/CustomersTableClient';
 import { apiClient } from '@/lib/apiClient';
 
 interface SearchParams {
@@ -37,17 +38,22 @@ export default async function CustomersPage(props: {
 
   let customers: any[] = [];
   let pagination: any = { page: 1, limit: 20, total: 0, totalPages: 0 };
+  let isZaloEnabled = false;
 
   try {
-    const data = await apiClient.get<any>('/admin/customers', {
-      params: {
-        page: searchParams.page,
-        search: searchParams.search,
-        rank: searchParams.rank,
-      }
-    });
+    const [data, zaloConfig] = await Promise.all([
+      apiClient.get<any>('/admin/customers', {
+        params: {
+          page: searchParams.page,
+          search: searchParams.search,
+          rank: searchParams.rank,
+        }
+      }),
+      apiClient.get<any>('/notifications/zalo/config').catch(() => ({ isConfigured: false }))
+    ]);
     customers = data.customers;
     pagination = data.pagination;
+    isZaloEnabled = zaloConfig.isConfigured;
   } catch (error) {
     console.error('Error fetching customers:', error);
   }
@@ -67,83 +73,13 @@ export default async function CustomersPage(props: {
       {/* Filters */}
       <CustomerSearch />
 
-      {/* Customer Table */}
-      <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Khách hàng</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Hạng</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Tổng chi tiêu</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Số đơn</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Giới thiệu</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Hoa hồng</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Ngày đăng ký</th>
-                <th className="px-6 py-3"></th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {customers.length === 0 ? (
-                <tr>
-                  <td colSpan={8}>
-                    <div className="text-center py-12">
-                      <div className="text-6xl mb-3">👥</div>
-                      <div className="text-xl font-semibold text-gray-800 mb-2">Không tìm thấy khách hàng</div>
-                      <div className="text-gray-600">
-                        {searchParams.search
-                          ? 'Thử tìm kiếm với từ khóa khác'
-                          : 'Thêm khách hàng đầu tiên để bắt đầu'}
-                      </div>
-                    </div>
-                  </td>
-                </tr>
-              ) : (
-                customers.map((customer) => (
-                  <tr key={customer.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4">
-                      <div>
-                        <div className="font-semibold text-gray-800">
-                          {customer.phone || customer.name}
-                        </div>
-                        <div className="text-xs text-gray-600">
-                          {customer.name !== customer.phone ? customer.name : (customer.email || 'Chưa cập nhật')}
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className={`px-3 py-1 rounded-full text-xs font-semibold ${customer.rank === 'PLATINUM' ? 'bg-purple-100 text-purple-700' :
-                          customer.rank === 'DIAMOND' ? 'bg-blue-100 text-blue-700' :
-                            customer.rank === 'GOLD' ? 'bg-yellow-100 text-yellow-700' :
-                              customer.rank === 'SILVER' ? 'bg-gray-200 text-gray-700' :
-                                'bg-gray-100 text-gray-600'
-                        }`}>
-                        {customer.rank}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 font-semibold text-gray-800">
-                      {formatCurrency(customer.totalSpent)}
-                    </td>
-                    <td className="px-6 py-4">{customer._count?.orders || 0}</td>
-                    <td className="px-6 py-4">
-                      <span className="px-3 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-700">
-                        {customer._count?.referees || 0} người
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 font-semibold text-gray-800">{formatCurrency(customer.commissionBalance)}</td>
-                    <td className="px-6 py-4 text-sm text-gray-600">{formatDate(customer.createdAt)}</td>
-                    <td className="px-6 py-4">
-                      <Link href={`/admin/customers/${customer.id}`} className="text-sm text-blue-600 hover:text-blue-700 font-medium">
-                        Chi tiết
-                      </Link>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      <CustomersTableClient 
+        customers={customers} 
+        searchParams={await props.searchParams} 
+        formatCurrency={formatCurrency} 
+        formatDate={formatDate}
+        isZaloEnabled={isZaloEnabled}
+      />
 
       {/* Pagination */}
       {pagination.totalPages > 1 && (() => {

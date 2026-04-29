@@ -1,8 +1,6 @@
 export const dynamic = 'force-dynamic';
 import Link from 'next/link';
 import { getSession } from '@/lib/auth';
-import OrderSearchInput from '@/components/admin/OrderSearchInput';
-import OrderStatusFilter from '@/components/admin/OrderStatusFilter';
 import OrdersTableClient from '@/components/admin/OrdersTableClient';
 import { apiClient } from '@/lib/apiClient';
 
@@ -33,19 +31,7 @@ export default async function OrdersPage(props: { searchParams: Promise<{ page?:
 
   return (
     <>
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900 tracking-tight">Đơn hàng</h1>
-          <p className="text-gray-500 mt-1 text-sm font-medium">Quản lý và theo dõi hiệu quả kinh doanh</p>
-        </div>
-        <div className="w-full md:w-80">
-          <OrderSearchInput />
-        </div>
-      </div>
-
-      <OrderStatusFilter counts={statusCounts} />
-
-      <OrdersTableClient orders={orders} />
+      <OrdersTableClient orders={orders} statusCounts={statusCounts} />
 
       {pagination.totalPages > 1 && (
         <div className="flex items-center justify-center gap-2 mt-8 mb-4">

@@ -344,7 +344,7 @@ export default function ProductsClient({ products, categories, initialWishlistId
         }
       `}</style>
 
-      <div className="max-w-7xl mx-auto px-4">
+      <div className="mx-auto px-4">
         {/* Page Header */}
         <div className="mb-8 flex flex-col justify-between gap-4 md:flex-row md:items-center">
           <div className="flex items-center gap-3">
@@ -375,6 +375,10 @@ export default function ProductsClient({ products, categories, initialWishlistId
                   <span className="text-sm text-gray-500">sản phẩm</span>
                 </div>
               </div>
+              <div className="inline-flex h-9 items-center gap-1.5 rounded-full bg-rose-50 px-3 text-sm font-medium text-rose-600">
+                <Heart className="h-4 w-4 fill-rose-500" />
+                {wishlistIds.size}
+              </div>
             </div>
 
             <div className="hidden sm:flex flex-wrap items-center justify-end gap-2">
@@ -385,10 +389,6 @@ export default function ProductsClient({ products, categories, initialWishlistId
                   <span>{totalPages}</span>
                 </div>
               )}
-              <div className="inline-flex h-9 items-center gap-1.5 rounded-full bg-rose-50 px-3 text-sm font-medium text-rose-600">
-                <Heart className="h-4 w-4 fill-rose-500" />
-                {wishlistIds.size}
-              </div>
             </div>
 
             {/* Mobile Layout */}
@@ -548,7 +548,7 @@ export default function ProductsClient({ products, categories, initialWishlistId
             </div>
 
             {/* Location Filter (Desktop) */}
-            <div className="bg-white rounded-xl shadow-sm p-4 sticky top-[calc(1rem+650px)] mt-4">
+            <div className="bg-white rounded-xl shadow-sm p-4 sticky top-24 mt-4">
               <h3 className="text-lg font-bold text-gray-800 mb-4">Khu vực</h3>
               <div className="max-h-60 overflow-y-auto space-y-1 pr-2 custom-scrollbar">
                 <button
