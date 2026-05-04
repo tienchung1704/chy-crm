@@ -106,6 +106,7 @@ export class CommissionsService {
   }
 
   async getNetwork(userId: string) {
+    // Try closure table first (supports multi-level)
     const closures = await this.prisma.referralClosure.findMany({
       where: {
         ancestorId: userId,
@@ -127,9 +128,31 @@ export class CommissionsService {
       orderBy: { depth: 'asc' },
     });
 
-    return closures.map((c) => ({
-      ...c.descendant,
-      level: c.depth,
+    if (closures.length > 0) {
+      return closures.map((c) => ({
+        ...c.descendant,
+        level: c.depth,
+      }));
+    }
+
+    // Fallback: query directly from user.referrerId (for users without closure entries)
+    const directReferees = await this.prisma.user.findMany({
+      where: { referrerId: userId },
+      select: {
+        id: true,
+        name: true,
+        createdAt: true,
+        rank: true,
+        _count: {
+          select: { orders: true },
+        },
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    return directReferees.map((r) => ({
+      ...r,
+      level: 1,
     }));
   }
 

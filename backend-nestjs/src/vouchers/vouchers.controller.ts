@@ -40,6 +40,45 @@ export class VouchersController {
     return this.vouchersService.findAllAdmin(excludeGamification === 'true', user);
   }
 
+  @Get('user/my-vouchers')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get current user vouchers' })
+  async getMyVouchers(@GetUser('id') userId: string) {
+    return this.vouchersService.getUserVouchers(userId);
+  }
+
+  @Get('referral-vouchers')
+  @Roles('ADMIN', 'STAFF', 'MODERATOR')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get all referral vouchers for admin' })
+  async getReferralVouchersList(@GetUser() user: any) {
+    return this.vouchersService.getReferralVouchersList(user);
+  }
+
+  @Get('referral-rewards-config')
+  @Roles('ADMIN', 'STAFF', 'MODERATOR')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get referral reward tiers config' })
+  async getReferralRewardConfig() {
+    return this.vouchersService.getReferralRewardConfig();
+  }
+
+  @Get('referral-rewards-config/public')
+  @Public()
+  @ApiOperation({ summary: 'Get referral reward tiers config for portal' })
+  async getReferralRewardConfigPublic() {
+    return this.vouchersService.getReferralRewardConfig();
+  }
+
+  @Get('order-voucher/:orderCode')
+  @Roles('ADMIN', 'STAFF', 'MODERATOR')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get voucher info for a specific order' })
+  async getOrderVoucher(@Param('orderCode') orderCode: string) {
+    return this.vouchersService.getOrderVoucher(orderCode);
+  }
+
+  // --- :id routes MUST be last among GETs ---
   @Get(':id')
   @Public()
   @ApiOperation({ summary: 'Get voucher by ID' })
@@ -55,22 +94,6 @@ export class VouchersController {
     return this.vouchersService.create(data, user);
   }
 
-  @Patch(':id')
-  @Roles('ADMIN', 'STAFF', 'MODERATOR')
-  @ApiBearerAuth()
-  @ApiOperation({ summary: 'Update a voucher' })
-  async update(@GetUser() user: any, @Param('id') id: string, @Body() data: any) {
-    return this.vouchersService.update(id, data, user);
-  }
-
-  @Delete(':id')
-  @Roles('ADMIN', 'STAFF', 'MODERATOR')
-  @ApiBearerAuth()
-  @ApiOperation({ summary: 'Delete a voucher' })
-  async remove(@GetUser() user: any, @Param('id') id: string) {
-    return this.vouchersService.remove(id, user);
-  }
-
   @Post('claim-qr')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Claim a QR voucher' })
@@ -84,13 +107,6 @@ export class VouchersController {
       dto.phone,
       dto.voucherId,
     );
-  }
-
-  @Get('user/my-vouchers')
-  @ApiBearerAuth()
-  @ApiOperation({ summary: 'Get current user vouchers' })
-  async getMyVouchers(@GetUser('id') userId: string) {
-    return this.vouchersService.getUserVouchers(userId);
   }
 
   @Post('manual-verify')
@@ -120,11 +136,36 @@ export class VouchersController {
     return this.vouchersService.createOrderVoucher(data);
   }
 
-  @Get('order-voucher/:orderCode')
+  @Post('referral-voucher')
   @Roles('ADMIN', 'STAFF', 'MODERATOR')
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Get voucher info for a specific order' })
-  async getOrderVoucher(@Param('orderCode') orderCode: string) {
-    return this.vouchersService.getOrderVoucher(orderCode);
+  @ApiOperation({ summary: 'Create a referral voucher' })
+  async createReferralVoucher(@GetUser() user: any, @Body() data: any) {
+    return this.vouchersService.createReferralVoucher(data, user);
+  }
+
+  @Post('referral-rewards-config')
+  @Roles('ADMIN', 'STAFF', 'MODERATOR')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Save referral reward tiers config' })
+  async saveReferralRewardConfig(@Body() data: { tiers: any[] }) {
+    return this.vouchersService.saveReferralRewardConfig(data);
+  }
+
+  @Patch(':id')
+  @Roles('ADMIN', 'STAFF', 'MODERATOR')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Update a voucher' })
+  async update(@GetUser() user: any, @Param('id') id: string, @Body() data: any) {
+    return this.vouchersService.update(id, data, user);
+  }
+
+  @Delete(':id')
+  @Roles('ADMIN', 'STAFF', 'MODERATOR')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Delete a voucher' })
+  async remove(@GetUser() user: any, @Param('id') id: string) {
+    return this.vouchersService.remove(id, user);
   }
 }
+

@@ -233,6 +233,9 @@ function LoginForm() {
               required
               minLength={6}
             />
+            {!isLogin && (
+              <p className="text-xs text-gray-400 mt-1.5">Mật khẩu tối thiểu 6 ký tự</p>
+            )}
           </div>
 
           {!isLogin && (

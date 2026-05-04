@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { MapPin, CreditCard, Ticket, CheckCircle2 } from 'lucide-react';
+import { MapPin, CreditCard, Ticket, CheckCircle2, Loader2 } from 'lucide-react';
 import { apiClientClient } from '@/lib/apiClientClient';
 
 interface AddressOption {
@@ -66,32 +66,62 @@ export default function CheckoutClient({ user, items, store, cartMode }: Checkou
   const [useCommissionPoints, setUseCommissionPoints] = useState(false);
 
   const [loading, setLoading] = useState(false);
+  const [importingAddress, setImportingAddress] = useState(false);
   const [shippingFee, setShippingFee] = useState(0);
   const [isCalculatingFee, setIsCalculatingFee] = useState(false);
   
   const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const totalWeight = items.reduce((sum, item) => sum + item.quantity * (item.product.weight || 500), 0);
+  const distinctProductCount = new Set(items.map(item => item.product.id)).size;
   
-  useEffect(() => {
-    apiClientClient.get<AddressOption[]>('/address?type=provinces')
-      .then(setProvinces).catch(console.error);
+  const normalizeName = useCallback((name: string) => {
+    return name
+      .toLowerCase()
+      .trim()
+      .replace(/^(tỉnh|thành phố|thành\s*phố|quận|huyện|phường|xã|thị trấn|thị\s*trấn)\s+/i, '')
+      .replace(/\s+/g, ' ');
   }, []);
 
-  const fetchWards = useCallback(async (provinceName: string) => {
-    if (!provinceName) { setWards([]); return; }
-    const p = provinces.find(x => x.name === provinceName);
-    if (!p) return;
-    try {
-      const data = await apiClientClient.get<AddressOption[]>(`/address?type=wards&provinceCode=${p.code}`);
-      setWards(data);
-    } catch {}
-  }, [provinces]);
+  const findAddressOption = useCallback((options: AddressOption[], value: string) => {
+    const normalizedValue = normalizeName(value);
+    return options.find(option => {
+      const normalizedOption = normalizeName(option.name);
+      return normalizedOption === normalizedValue || normalizedOption.includes(normalizedValue) || normalizedValue.includes(normalizedOption);
+    });
+  }, [normalizeName]);
+
+  const loadProvinces = useCallback(async () => {
+    const res = await fetch('/internal-api/address?type=provinces');
+    if (!res.ok) throw new Error('Failed to load provinces');
+    const data = await res.json();
+    return data as AddressOption[];
+  }, []);
+
+  useEffect(() => {
+    loadProvinces().then(setProvinces).catch(console.error);
+  }, [loadProvinces]);
+
+  const loadWards = useCallback(async (provinceName: string, provinceOptions = provinces) => {
+    if (!provinceName) return null;
+    const p = findAddressOption(provinceOptions, provinceName);
+    if (!p) return null;
+    const res = await fetch(`/internal-api/address?type=wards&provinceCode=${p.code}`);
+    if (!res.ok) throw new Error('Failed to load wards');
+    const data = await res.json();
+    return { province: p, wards: data as AddressOption[] };
+  }, [findAddressOption, provinces]);
 
   useEffect(() => {
     if (provinces.length && province && !wards.length) {
-      fetchWards(province);
+      loadWards(province)
+        .then(result => {
+          if (!result) return;
+          setWards(result.wards);
+          setProvince(result.province.name);
+        })
+        .catch(() => {});
     }
-  }, [provinces, province, fetchWards, wards.length]);
+  }, [provinces, province, loadWards, wards.length]);
 
   // Calculate shipping fee
   useEffect(() => {
@@ -123,42 +153,104 @@ export default function CheckoutClient({ user, items, store, cartMode }: Checkou
     }, 800);
 
     return () => clearTimeout(timer);
-  }, [province, ward, street, totalWeight]);
+  }, [province, ward, street, totalWeight, store?.id]);
 
-  const handleImportSavedAddress = () => {
-    setName(user.name || '');
-    setPhone(user.phone || '');
-    setProvince(user.addressProvince || '');
-    setWard(user.addressWard || '');
-    setStreet(user.addressStreet || '');
+  const handleImportSavedAddress = async () => {
+    setImportingAddress(true);
+    try {
+      const nextProvince = user.addressProvince || '';
+      const nextWard = user.addressWard || '';
+      const provinceOptions = provinces.length ? provinces : await loadProvinces();
+      if (!provinces.length) setProvinces(provinceOptions);
+      const provinceOption = nextProvince ? findAddressOption(provinceOptions, nextProvince) : null;
+
+      setName(user.name || '');
+      setPhone(user.phone || '');
+      setProvince(provinceOption?.name || nextProvince);
+      setStreet(user.addressStreet || '');
+
+      if (provinceOption) {
+        const result = await loadWards(provinceOption.name, provinceOptions);
+        const wardOptions = result?.wards || [];
+        setWards(wardOptions);
+        const wardOption = nextWard ? findAddressOption(wardOptions, nextWard) : null;
+        setWard(wardOption?.name || nextWard);
+      } else {
+        setWards([]);
+        setWard(nextWard);
+      }
+    } finally {
+      window.setTimeout(() => setImportingAddress(false), 250);
+    }
   };
 
+  const getMatchedStackTier = useCallback((voucher: Voucher) => {
+    if (voucher.type !== 'STACK' || !voucher.stackTiers || voucher.stackTiers.length === 0) {
+      return null;
+    }
+
+    const sortedTiers = [...voucher.stackTiers].sort((a, b) => {
+      const aVal = a.conditionType === 'amount' ? (a.minAmount || 0) : (a.minProducts || 0);
+      const bVal = b.conditionType === 'amount' ? (b.minAmount || 0) : (b.minProducts || 0);
+      return bVal - aVal;
+    });
+
+    return sortedTiers.find(t => {
+      if (t.conditionType === 'amount') {
+        return subtotal >= (t.minAmount || 0);
+      }
+      return distinctProductCount >= (t.minProducts || 0);
+    }) || null;
+  }, [distinctProductCount, subtotal]);
+
+  const isVoucherApplicable = useCallback((voucher: Voucher) => {
+    if (subtotal < voucher.minOrderValue) return false;
+    if (voucher.type === 'STACK') return Boolean(getMatchedStackTier(voucher));
+    return true;
+  }, [getMatchedStackTier, subtotal]);
+
   useEffect(() => {
-    apiClientClient.get<any[]>('/vouchers/user/my-vouchers')
-      .then(data => {
-        if (Array.isArray(data)) {
-          // Map UserVoucher[] with nested voucher to flat Voucher[]
-          const mapped: Voucher[] = data
-            .filter((uv: any) => !uv.isUsed && uv.voucher && uv.status !== 'PENDING')
-            .map((uv: any) => ({
-              id: uv.voucher.id,
-              code: uv.voucher.code,
-              name: uv.voucher.name,
-              type: uv.voucher.type,
-              value: uv.voucher.value,
-              maxDiscount: uv.voucher.maxDiscount,
-              minOrderValue: uv.voucher.minOrderValue,
-              stackTiers: uv.voucher.stackTiers,
-            }));
-          const applicable = mapped.filter(v => subtotal >= v.minOrderValue);
-          setVouchers(applicable);
+    Promise.all([
+      apiClientClient.get<any[]>('/vouchers/user/my-vouchers'),
+      apiClientClient.get<Voucher[]>('/vouchers'),
+    ])
+      .then(([userVoucherData, systemVoucherData]) => {
+        const voucherMap = new Map<string, Voucher>();
+
+        if (Array.isArray(userVoucherData)) {
+          userVoucherData
+            .filter((uv: any) => !uv.isUsed && uv.voucher && uv.status !== 'PENDING' && uv.status !== 'REJECTED')
+            .forEach((uv: any) => {
+              if (uv.expiresAt && new Date(uv.expiresAt) <= new Date()) return;
+              voucherMap.set(uv.voucher.id, {
+                id: uv.voucher.id,
+                code: uv.voucher.code,
+                name: uv.voucher.name,
+                type: uv.voucher.type,
+                value: uv.voucher.value,
+                maxDiscount: uv.voucher.maxDiscount,
+                minOrderValue: uv.voucher.minOrderValue,
+                stackTiers: uv.voucher.stackTiers,
+              });
+            });
         }
+
+        if (Array.isArray(systemVoucherData)) {
+          systemVoucherData.forEach(v => {
+            voucherMap.set(v.id, v);
+          });
+        }
+
+        setVouchers(Array.from(voucherMap.values()).filter(isVoucherApplicable));
       })
       .catch(console.error);
-  }, [subtotal]);
+  }, [isVoucherApplicable]);
 
-  // Distinct product count for STACK voucher
-  const distinctProductCount = new Set(items.map(item => item.product.id)).size;
+  useEffect(() => {
+    if (selectedVoucherId && !vouchers.some(v => v.id === selectedVoucherId)) {
+      setSelectedVoucherId('');
+    }
+  }, [selectedVoucherId, vouchers]);
 
   // Calc Discounts
   let voucherDiscount = 0;
@@ -167,19 +259,7 @@ export default function CheckoutClient({ user, items, store, cartMode }: Checkou
     const sel = vouchers.find(v => v.id === selectedVoucherId);
     if (sel) {
       if (sel.type === 'STACK' && sel.stackTiers && sel.stackTiers.length > 0) {
-        // Sort tiers descending by threshold and find the best match
-        const sortedTiers = [...sel.stackTiers].sort((a, b) => {
-          const aVal = a.conditionType === 'amount' ? (a.minAmount || 0) : (a.minProducts || 0);
-          const bVal = b.conditionType === 'amount' ? (b.minAmount || 0) : (b.minProducts || 0);
-          return bVal - aVal;
-        });
-
-        const matchedTier = sortedTiers.find(t => {
-          if (t.conditionType === 'amount') {
-            return subtotal >= (t.minAmount || 0);
-          }
-          return distinctProductCount >= (t.minProducts || 0);
-        });
+        const matchedTier = getMatchedStackTier(sel);
 
         if (matchedTier) {
           if (matchedTier.type === 'PERCENT') {
@@ -282,7 +362,7 @@ export default function CheckoutClient({ user, items, store, cartMode }: Checkou
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
       {/* LEFT COLUMN */}
       <div className="lg:col-span-2 space-y-6">
-        
+
         {/* Store Info */}
         {store && (
           <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-4 flex items-center gap-3">
@@ -307,9 +387,17 @@ export default function CheckoutClient({ user, items, store, cartMode }: Checkou
             <button 
               type="button" 
               onClick={handleImportSavedAddress}
-              className="text-sm font-semibold text-indigo-600 hover:text-indigo-700 bg-indigo-50 px-3 py-1.5 rounded-lg transition-colors border border-indigo-100"
+              disabled={importingAddress}
+              className="text-sm font-semibold text-indigo-600 hover:text-indigo-700 bg-indigo-50 px-3 py-1.5 rounded-lg transition-colors border border-indigo-100 disabled:opacity-70 disabled:cursor-wait inline-flex items-center justify-center gap-2 min-w-[210px]"
             >
-              📥 Sử dụng địa chỉ mặc định
+              {importingAddress ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span className="h-4 w-32 rounded bg-indigo-200/80 animate-pulse" aria-label="Dang ap dung dia chi" />
+                </>
+              ) : (
+                '📥 Sử dụng địa chỉ mặc định'
+              )}
             </button>
           </div>
           
@@ -328,7 +416,16 @@ export default function CheckoutClient({ user, items, store, cartMode }: Checkou
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Tỉnh/Thành phố *</label>
-                <select className="w-full border border-gray-300 rounded-lg focus:ring-indigo-500 px-4 py-2.5 outline-none" value={province} onChange={e => { setProvince(e.target.value); setWard(''); fetchWards(e.target.value); }} required>
+                <select className="w-full border border-gray-300 rounded-lg focus:ring-indigo-500 px-4 py-2.5 outline-none" value={province} onChange={async e => {
+                  const nextProvince = e.target.value;
+                  setProvince(nextProvince);
+                  setWard('');
+                  setWards([]);
+                  try {
+                    const result = await loadWards(nextProvince);
+                    if (result) setWards(result.wards);
+                  } catch {}
+                }} required>
                   <option value="">Chọn Tỉnh/Thành</option>
                   {provinces.map(p => <option key={p.code} value={p.name}>{p.name}</option>)}
                 </select>

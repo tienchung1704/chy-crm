@@ -174,6 +174,13 @@ export class OrdersController {
     return this.ordersService.customerConfirmReceived(id, userId);
   }
 
+  @Get('public/qr-summary/:orderCode')
+  @Public()
+  @ApiOperation({ summary: 'Get basic order info for QR claim by order code' })
+  async getQrSummary(@Param('orderCode') orderCode: string) {
+    return this.ordersService.getQrSummary(orderCode);
+  }
+
   @Get('public/track')
   @Public()
   @ApiOperation({ summary: 'Publicly track order by code and phone' })

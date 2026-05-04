@@ -61,6 +61,10 @@ fi
 read -p "Enter SSH User (default: nguyenvanthanh): " SSH_USER
 SSH_USER=$(echo "${SSH_USER:-nguyenvanthanh}" | tr -d '\r')
 
+# Ask if user wants to install dependencies
+read -p "Do you want to install dependencies? (yes/no, default: no): " INSTALL_DEPS
+INSTALL_DEPS=$(echo "${INSTALL_DEPS:-no}" | tr -d '\r' | tr '[:upper:]' '[:lower:]')
+
 # Server path
 SERVER_DIR="/srv/projects-deploy/${APP_NAME}"
 
@@ -121,12 +125,16 @@ if [ -f "next-source.tar.gz" ]; then
 fi
 
 # Install dependencies and build
-echo "📦 Installing dependencies..."
-if command -v yarn >/dev/null 2>&1; then
-    yarn install
+if [ "$INSTALL_DEPS" == "yes" ] || [ "$INSTALL_DEPS" == "y" ]; then
+    echo "📦 Installing dependencies..."
+    if command -v yarn >/dev/null 2>&1; then
+        yarn install
+    else
+        echo "  ⚠️  yarn not found, using npm..."
+        npm install
+    fi
 else
-    echo "  ⚠️  yarn not found, using npm..."
-    npm install
+    echo "⏭️ Skipping dependency installation..."
 fi
 
 echo "📦 Building application on server..."

@@ -288,7 +288,7 @@ export default function PortalOrderDetailClient({ order }: { order: any }) {
           {isPancake && partner.trackingCode && (
             <div className="rounded-xl bg-white p-6 border border-gray-200">
               <h2 className="mb-4 text-lg font-bold text-gray-800 flex items-center gap-2">
-                🚚 Thông tin vận chuyển
+                Thông tin vận chuyển
               </h2>
               {(partner.deliveryName || partner.deliveryPhone) && (
                 <div className="grid grid-cols-2 gap-3 text-sm mb-4">
@@ -384,7 +384,7 @@ export default function PortalOrderDetailClient({ order }: { order: any }) {
           {isPancake && partner.trackingCode && (
             <div className="rounded-xl bg-white p-6 border border-gray-200">
               <h2 className="mb-3 text-lg font-bold text-gray-800 flex items-center gap-2">
-                📋 Thông tin đơn hàng
+                Thông tin đơn hàng
               </h2>
               <div className="divide-y divide-gray-100 text-sm">
                 <div className="flex items-center justify-between py-2.5">

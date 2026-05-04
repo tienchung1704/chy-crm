@@ -11,18 +11,21 @@ export default async function PortalReferralPage() {
   let referees: any[] = [];
   let commissions: any[] = [];
   let commissionConfigs: any[] = [];
+  let rewardConfig: any = { tiers: [] };
 
   try {
-    const [userData, networkData, ledgerData, configsData] = await Promise.all([
+    const [userData, networkData, ledgerData, configsData, rewardConfigData] = await Promise.all([
       apiClient.get<any>('/users/profile'),
       apiClient.get<any[]>('/commissions/network'),
       apiClient.get<any[]>('/commissions/ledger'),
       apiClient.get<any[]>('/commissions/configs'),
+      apiClient.get<any>('/vouchers/referral-rewards-config/public').catch(() => ({ tiers: [] })),
     ]);
     user = userData;
     referees = networkData;
     commissions = ledgerData;
     commissionConfigs = configsData;
+    rewardConfig = rewardConfigData || { tiers: [] };
   } catch (error) {
     console.error('Error fetching referral data:', error);
   }
@@ -82,34 +85,37 @@ export default async function PortalReferralPage() {
             Phần thưởng mời bạn mới
           </h3>
           <div className="space-y-6">
-            <div className="flex items-start gap-3">
-              <div className="flex-shrink-0 w-8 h-8 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center font-bold text-sm mt-0.5">1</div>
-              <div>
-                <p className="font-semibold text-gray-800 text-sm">Người đầu tiên</p>
-                <p className="text-xs text-gray-500 mt-0.5">Cả 2 đều nhận mã giảm free ship 25k mọi đơn.</p>
-              </div>
-            </div>
-            <div className="flex items-start gap-3">
-              <div className="flex-shrink-0 w-8 h-8 bg-purple-100 text-purple-600 rounded-full flex items-center justify-center font-bold text-sm mt-0.5">2</div>
-              <div>
-                <p className="font-semibold text-gray-800 text-sm">Người thứ 2</p>
-                <p className="text-xs text-gray-500 mt-0.5">Bạn nhận được thêm 1 lượt quay may mắn.</p>
-              </div>
-            </div>
-            <div className="flex items-start gap-3">
-              <div className="flex-shrink-0 w-8 h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-bold text-sm mt-0.5">3</div>
-              <div>
-                <p className="font-semibold text-gray-800 text-sm">Người thứ 3</p>
-                <p className="text-xs text-gray-500 mt-0.5">Bạn nhận mã giảm free ship 35k.</p>
-              </div>
-            </div>
-            <div className="flex items-start gap-3">
-              <div className="flex-shrink-0 w-8 h-8 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center font-bold text-sm mt-0.5">4</div>
-              <div>
-                <p className="font-semibold text-gray-800 text-sm">Người thứ 4</p>
-                <p className="text-xs text-gray-500 mt-0.5">+1 lượt quay may mắn nữa.</p>
-              </div>
-            </div>
+            {(rewardConfig.tiers && rewardConfig.tiers.length > 0) ? (
+              rewardConfig.tiers.map((tier: any, idx: number) => {
+                const colors = [
+                  'bg-rose-100 text-rose-600',
+                  'bg-purple-100 text-purple-600',
+                  'bg-blue-100 text-blue-600',
+                  'bg-amber-100 text-amber-600',
+                  'bg-emerald-100 text-emerald-600',
+                  'bg-pink-100 text-pink-600',
+                ];
+                const colorClass = colors[idx % colors.length];
+                const label = tier.milestone === 1 ? 'Người đầu tiên' : `Người thứ ${tier.milestone}`;
+                let desc = '';
+                if (tier.rewardType === 'SPIN') {
+                  desc = `Bạn nhận được ${tier.spinTurns || 1} lượt quay may mắn.`;
+                } else if (tier.rewardType === 'VOUCHER') {
+                  desc = tier.voucherName || 'Bạn nhận được voucher đặc biệt.';
+                }
+                return (
+                  <div key={idx} className="flex items-start gap-3">
+                    <div className={`flex-shrink-0 w-8 h-8 ${colorClass} rounded-full flex items-center justify-center font-bold text-sm mt-0.5`}>{tier.milestone}</div>
+                    <div>
+                      <p className="font-semibold text-gray-800 text-sm">{label}</p>
+                      <p className="text-xs text-gray-500 mt-0.5">{desc}</p>
+                    </div>
+                  </div>
+                );
+              })
+            ) : (
+              <p className="text-sm text-gray-500">Chương trình thưởng đang được cập nhật.</p>
+            )}
           </div>
         </div>
       </div>

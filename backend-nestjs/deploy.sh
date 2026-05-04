@@ -61,6 +61,10 @@ fi
 read -p "Enter SSH User (default: nguyenvanthanh): " SSH_USER
 SSH_USER=$(echo "${SSH_USER:-nguyenvanthanh}" | tr -d '\r')
 
+# Ask if user wants to install dependencies
+read -p "Do you want to install dependencies? (yes/no, default: no): " INSTALL_DEPS
+INSTALL_DEPS=$(echo "${INSTALL_DEPS:-no}" | tr -d '\r' | tr '[:upper:]' '[:lower:]')
+
 # Ask if user wants to reset database
 read -p "Do you want to RESET database? (yes/no, default: no): " RESET_DB
 RESET_DB=$(echo "${RESET_DB:-no}" | tr -d '\r' | tr '[:upper:]' '[:lower:]')
@@ -129,11 +133,15 @@ if [ -f "be-source.tar.gz" ]; then
 fi
 
 # Install dependencies
-echo "📦 Installing dependencies..."
-if command -v yarn >/dev/null 2>&1; then
-    yarn install
+if [ "$INSTALL_DEPS" == "yes" ] || [ "$INSTALL_DEPS" == "y" ]; then
+    echo "📦 Installing dependencies..."
+    if command -v yarn >/dev/null 2>&1; then
+        yarn install
+    else
+        npm install
+    fi
 else
-    npm install
+    echo "⏭️ Skipping dependency installation..."
 fi
 
 echo "📦 Generating Prisma client..."

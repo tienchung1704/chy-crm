@@ -51,6 +51,7 @@ export class OrdersService {
 
     // Process items and calculate totals
     let subtotal = 0;
+    let orderStoreId: string | null | undefined;
     const orderItemsToCreate = [];
 
     for (const item of items) {
@@ -61,6 +62,13 @@ export class OrdersService {
 
       if (!product || !product.isActive) {
         throw new BadRequestException(`Product unavailable`);
+      }
+
+      const currentStoreId = product.storeId || null;
+      if (orderStoreId === undefined) {
+        orderStoreId = currentStoreId;
+      } else if (orderStoreId !== currentStoreId) {
+        throw new BadRequestException('Cannot mix products from different stores in one order');
       }
 
       if (product.stockQuantity < item.quantity) {
@@ -116,11 +124,25 @@ export class OrdersService {
 
     // Apply Voucher
     if (voucherId) {
+      const now = new Date();
       const targetVoucher = await this.prisma.voucher.findUnique({
         where: { id: voucherId },
+        include: {
+          _count: {
+            select: { userVouchers: true },
+          },
+        },
       });
 
-      if (targetVoucher && targetVoucher.isActive) {
+      const isVoucherInDateRange = targetVoucher
+        && (!targetVoucher.validFrom || targetVoucher.validFrom <= now)
+        && (!targetVoucher.validTo || targetVoucher.validTo > now);
+      const hasVoucherStock = targetVoucher
+        && (targetVoucher.totalUsageLimit === null || targetVoucher._count.userVouchers < targetVoucher.totalUsageLimit);
+      const isVoucherForOrderStore = targetVoucher
+        && (!targetVoucher.storeId || targetVoucher.storeId === (orderStoreId || null));
+
+      if (targetVoucher && targetVoucher.isActive && isVoucherInDateRange && hasVoucherStock && isVoucherForOrderStore) {
         const userUsedCount = await this.prisma.userVoucher.count({
           where: { userId, voucherId, isUsed: true },
         });
@@ -180,16 +202,40 @@ export class OrdersService {
 
           discountAmount += voucherDiscount;
 
-          const newlyClaimed = await this.prisma.userVoucher.create({
-            data: {
+          const existingUserVoucher = await this.prisma.userVoucher.findFirst({
+            where: {
               userId,
               voucherId: targetVoucher.id,
-              isUsed: true,
-              usedAt: new Date(),
+              isUsed: false,
+              status: { notIn: ['PENDING', 'REJECTED'] },
+              OR: [
+                { expiresAt: null },
+                { expiresAt: { gt: now } },
+              ],
             },
+            orderBy: { createdAt: 'asc' },
           });
 
-          appliedUserVoucherId = newlyClaimed.id;
+          if (existingUserVoucher) {
+            const usedVoucher = await this.prisma.userVoucher.update({
+              where: { id: existingUserVoucher.id },
+              data: {
+                isUsed: true,
+                usedAt: now,
+              },
+            });
+            appliedUserVoucherId = usedVoucher.id;
+          } else {
+            const newlyClaimed = await this.prisma.userVoucher.create({
+              data: {
+                userId,
+                voucherId: targetVoucher.id,
+                isUsed: true,
+                usedAt: now,
+              },
+            });
+            appliedUserVoucherId = newlyClaimed.id;
+          }
 
           await this.prisma.voucher.update({
             where: { id: targetVoucher.id },
@@ -219,12 +265,6 @@ export class OrdersService {
     const parsedShippingFee = parseFloat(clientShippingFee.toString()) || 0;
     let totalAmount = subtotal - discountAmount + parsedShippingFee;
     if (totalAmount < 0) totalAmount = 0;
-
-    // Determine storeId
-    const firstProduct = await this.prisma.product.findUnique({
-      where: { id: items[0].productId },
-    });
-    const orderStoreId = firstProduct?.storeId || null;
 
     // Create Order
     const order = await this.prisma.order.create({
@@ -1066,6 +1106,56 @@ export class OrdersService {
     });
 
     return { success: true, order: updated };
+  }
+
+  async getQrSummary(code: string) {
+    if (!code) {
+      throw new BadRequestException('Mã đơn hàng không hợp lệ');
+    }
+
+    const cleanCode = code.trim().toUpperCase();
+
+    const order = await this.prisma.order.findFirst({
+      where: {
+        OR: [
+          { orderCode: cleanCode },
+          {
+            metadata: {
+              path: '$.partner.trackingCode',
+              equals: cleanCode,
+            },
+          },
+        ],
+      },
+      include: {
+        items: {
+          include: {
+            product: {
+              select: { name: true, imageUrl: true }
+            }
+          }
+        }
+      }
+    });
+
+    if (!order) {
+      throw new NotFoundException('Không tìm thấy đơn hàng với mã này');
+    }
+
+    // Return basic summary safe for public viewing (no user details)
+    return {
+      id: order.id,
+      orderCode: order.orderCode,
+      totalAmount: order.totalAmount,
+      discountAmount: order.discountAmount,
+      paymentStatus: order.paymentStatus,
+      status: order.status,
+      items: order.items.map((item) => ({
+        name: item.product?.name || 'Sản phẩm',
+        image: item.product?.imageUrl,
+        quantity: item.quantity,
+      }))
+    };
   }
 
   async trackPublicOrder(code: string, phone: string) {

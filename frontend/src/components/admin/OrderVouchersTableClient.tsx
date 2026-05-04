@@ -1,30 +1,24 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { apiClientClient } from '@/lib/apiClientClient';
-import { Pencil, FileText } from 'lucide-react';
+import { Pencil, Trash2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 function fmtVND(amount: number) {
-  return new Intl.NumberFormat('vi-VN').format(amount || 0) + ' đ';
-}
-
-function fmtDate(d: string | Date) {
-  if (!d) return '—';
-  return new Intl.DateTimeFormat('vi-VN', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(new Date(d));
+  return new Intl.NumberFormat('vi-VN').format(amount || 0) + ' VND';
 }
 
 export default function OrderVouchersTableClient() {
   const [vouchers, setVouchers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
+
+  // Search / filter state
+  const [searchOrderCode, setSearchOrderCode] = useState('');
+  const [searchPhone, setSearchPhone] = useState('');
+  const [searchStatus, setSearchStatus] = useState('');
 
   useEffect(() => {
     fetchVouchers();
@@ -42,6 +36,37 @@ export default function OrderVouchersTableClient() {
     }
   }
 
+  // Derived filtered list
+  const filtered = useMemo(() => {
+    let list = vouchers;
+
+    if (searchOrderCode.trim()) {
+      const q = searchOrderCode.trim().toLowerCase();
+      list = list.filter(v => v.orderCode?.toLowerCase().includes(q));
+    }
+    if (searchPhone.trim()) {
+      const q = searchPhone.trim();
+      list = list.filter(v => v.phone?.includes(q));
+    }
+    if (searchStatus === 'active') {
+      list = list.filter(v => v.isActive && v.usedCount < (v.totalUsageLimit || Infinity));
+    } else if (searchStatus === 'used') {
+      list = list.filter(v => v.totalUsageLimit && v.usedCount >= v.totalUsageLimit);
+    }
+
+    return list;
+  }, [vouchers, searchOrderCode, searchPhone, searchStatus]);
+
+  const handleDelete = async (id: string, code: string) => {
+    if (!confirm(`Xoá voucher "${code}"?\nHành động không thể hoàn tác.`)) return;
+    try {
+      await apiClientClient.delete(`/vouchers/${id}`);
+      setVouchers(prev => prev.filter(v => v.id !== id));
+    } catch (err: any) {
+      alert(err.message || 'Lỗi xoá voucher');
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center py-12">
@@ -50,111 +75,153 @@ export default function OrderVouchersTableClient() {
     );
   }
 
+  function getStatus(v: any) {
+    if (v.totalUsageLimit && v.usedCount >= v.totalUsageLimit) {
+      return { label: 'Đã sử dụng', cls: 'text-gray-500' };
+    }
+    if (!v.isActive) {
+      return { label: 'Tắt', cls: 'text-red-600' };
+    }
+    return { label: 'Còn hiệu lực', cls: 'text-green-600 font-semibold' };
+  }
+
   return (
     <>
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900 tracking-tight">Voucher Đơn Hàng</h1>
-          <p className="text-gray-500 mt-1 text-sm font-medium">Quản lý danh sách các voucher được tạo riêng cho từng đơn hàng</p>
+      {/* Filters */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 mb-6">
+        <h2 className="text-base font-bold text-gray-800 mb-4">Danh Sách Voucher theo đơn hàng</h2>
+        <div className="flex flex-wrap items-center gap-3">
+          <input
+            type="text"
+            placeholder="Mã đơn hàng"
+            className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent w-44"
+            value={searchOrderCode}
+            onChange={e => setSearchOrderCode(e.target.value)}
+          />
+          <input
+            type="text"
+            placeholder="Số điện thoại"
+            className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent w-40"
+            value={searchPhone}
+            onChange={e => setSearchPhone(e.target.value)}
+          />
+          <select
+            className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent w-40"
+            value={searchStatus}
+            onChange={e => setSearchStatus(e.target.value)}
+          >
+            <option value="">Trạng Thái</option>
+            <option value="active">Còn hiệu lực</option>
+            <option value="used">Đã sử dụng</option>
+          </select>
+          <button
+            className="px-5 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
+            onClick={() => {
+              // Force re-filter (already reactive via useMemo, this is for UX clarity)
+              setSearchOrderCode(prev => prev);
+            }}
+          >
+            Tìm Kiếm
+          </button>
         </div>
       </div>
 
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+      {/* Table */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
+          <table className="w-full text-left border-collapse text-sm">
             <thead>
-              <tr className="border-b border-gray-50 bg-gray-50/50">
-                <th className="px-6 py-4 text-[13px] font-bold text-gray-400 uppercase tracking-wider">Tên Voucher</th>
-                <th className="px-6 py-4 text-[13px] font-bold text-gray-400 uppercase tracking-wider">Mã Đơn</th>
-                <th className="px-6 py-4 text-[13px] font-bold text-gray-400 uppercase tracking-wider">Số Điện Thoại</th>
-                <th className="px-6 py-4 text-[13px] font-bold text-gray-400 uppercase tracking-wider">Loại</th>
-                <th className="px-6 py-4 text-[13px] font-bold text-gray-400 uppercase tracking-wider">Mức Giảm</th>
-                <th className="px-6 py-4 text-[13px] font-bold text-gray-400 uppercase tracking-wider">Đơn Tối Thiểu</th>
-                <th className="px-6 py-4 text-[13px] font-bold text-gray-400 uppercase tracking-wider">Ngày Tạo</th>
-                <th className="px-6 py-4"></th>
+              <tr className="border-b border-gray-100 bg-gray-50/60">
+                <th className="px-4 py-3 text-xs font-semibold text-gray-500 whitespace-nowrap">Tên hiển thị</th>
+                <th className="px-4 py-3 text-xs font-semibold text-gray-500 whitespace-nowrap">Mã đơn hàng</th>
+                <th className="px-4 py-3 text-xs font-semibold text-gray-500 whitespace-nowrap">Số điện thoại</th>
+                <th className="px-4 py-3 text-xs font-semibold text-gray-500 whitespace-nowrap">Giá trị %</th>
+                <th className="px-4 py-3 text-xs font-semibold text-gray-500 whitespace-nowrap">Giá trị thanh toán</th>
+                <th className="px-4 py-3 text-xs font-semibold text-gray-500 whitespace-nowrap">Giá trị Voucher</th>
+                <th className="px-4 py-3 text-xs font-semibold text-gray-500 whitespace-nowrap">Hạn sử dụng</th>
+                <th className="px-4 py-3 text-xs font-semibold text-gray-500 whitespace-nowrap">Trạng Thái</th>
+                <th className="px-4 py-3 text-xs font-semibold text-gray-500 whitespace-nowrap">Áp dụng</th>
+                <th className="px-4 py-3 text-xs font-semibold text-gray-500 whitespace-nowrap">Đã sử dụng</th>
+                <th className="px-4 py-3 text-xs font-semibold text-gray-500 whitespace-nowrap">Còn Lại</th>
+                <th className="px-4 py-3 text-xs font-semibold text-gray-500 whitespace-nowrap">Hành Động</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
-              {vouchers.length === 0 ? (
+              {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={8}>
-                    <div className="text-center py-10 bg-white">
+                  <td colSpan={12}>
+                    <div className="text-center py-12">
                       <div className="text-xl font-bold text-gray-900">Không tìm thấy voucher đơn hàng nào</div>
                       <p className="text-gray-500 mt-2 text-sm">Bạn có thể tạo voucher riêng cho đơn hàng trong trang Chi tiết Đơn hàng.</p>
                     </div>
                   </td>
                 </tr>
-              ) : vouchers.map((v) => (
-                <tr key={v.id} className="transition-all duration-200 hover:bg-black/[0.01]">
-                  <td className="px-6 py-4">
-                    <div className="font-bold text-gray-900 text-sm max-w-[200px] truncate" title={v.name}>{v.name}</div>
-                    <div className="text-xs text-gray-500 font-mono mt-0.5">{v.code}</div>
-                  </td>
-                  <td className="px-6 py-4">
-                    {v.orderId ? (
-                      <Link href={`/admin/orders/${v.orderId}?from=order-vouchers`} className="text-indigo-600 hover:underline font-bold text-sm font-mono flex items-center gap-1">
-                        <FileText size={14} />
-                        #{v.orderCode}
-                      </Link>
-                    ) : (
-                      <span className="text-gray-500 font-bold text-sm font-mono">#{v.orderCode}</span>
-                    )}
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className="font-medium text-sm text-gray-700">{v.phone}</span>
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className={`px-2.5 py-1 rounded-md text-[10px] font-bold ${
-                      v.type === 'PERCENT' ? 'bg-purple-100 text-purple-700' : 
-                      v.type === 'FREESHIP' ? 'bg-teal-100 text-teal-700' : 
-                      v.type === 'STACK' ? 'bg-orange-100 text-orange-700' :
-                      'bg-blue-100 text-blue-700'
-                    }`}>
-                      {v.type === 'PERCENT' ? 'PHẦN TRĂM' : v.type === 'FREESHIP' ? 'FREESHIP' : v.type === 'STACK' ? '📊 STACK' : 'SỐ TIỀN'}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className="font-bold text-green-700 text-sm">
-                      {v.type === 'PERCENT' ? `${v.value}%` : 
-                       v.type === 'FREESHIP' ? 'Miễn phí' : 
-                       v.type === 'STACK' ? (() => {
-                         const tiers = v.stackTiers as any[] | null;
-                         if (tiers && tiers.length > 0) {
-                           const maxTier = tiers.reduce((max: any, t: any) => t.discount > max.discount ? t : max, tiers[0]);
-                           return `Đến ${maxTier.type === 'PERCENT' ? `${maxTier.discount}%` : fmtVND(maxTier.discount)}`;
-                         }
-                         return '—';
-                       })() : 
-                       fmtVND(v.value)}
-                    </span>
-                    {v.type === 'PERCENT' && v.maxDiscount > 0 && (
-                      <div className="text-xs text-gray-500 mt-0.5">Tối đa: {fmtVND(v.maxDiscount)}</div>
-                    )}
-                    {v.type === 'STACK' && (
-                      <div className="text-[10px] text-gray-400 mt-0.5">Nhiều mức giảm</div>
-                    )}
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className="font-medium text-gray-700 text-sm">
-                      {v.minOrderValue > 0 ? fmtVND(v.minOrderValue) : 'Không có'}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-[13px] font-medium text-gray-500">
-                    {fmtDate(v.createdAt)}
-                  </td>
-                  <td className="px-6 py-4 text-right">
-                    {v.orderId && (
-                      <Link
-                        href={`/admin/orders/${v.orderId}?from=order-vouchers`}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-lg font-bold transition-all"
-                      >
-                        <Pencil size={14} />
-                        Edit
-                      </Link>
-                    )}
-                  </td>
-                </tr>
-              ))}
+              ) : filtered.map((v) => {
+                const status = getStatus(v);
+                const durationLabel = v.durationDays ? `${v.durationDays} ngày` : '—';
+
+                return (
+                  <tr key={v.id} className="hover:bg-gray-50/50 transition-colors">
+                    <td className="px-4 py-3 font-medium text-gray-800 whitespace-nowrap max-w-[180px] truncate" title={v.name}>
+                      {v.name}
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      {v.orderId ? (
+                        <Link href={`/admin/orders/${v.orderId}?from=order-vouchers`} className="text-indigo-600 hover:underline font-medium">
+                          {v.orderCode}
+                        </Link>
+                      ) : (
+                        <span className="text-gray-600">{v.orderCode}</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-gray-700 whitespace-nowrap">{v.phone}</td>
+                    <td className="px-4 py-3 text-gray-800 whitespace-nowrap">
+                      {v.type === 'PERCENT' ? `${v.value}%` : '—'}
+                    </td>
+                    <td className="px-4 py-3 text-gray-800 whitespace-nowrap">
+                      {fmtVND(v.orderTotalAmount)}
+                    </td>
+                    <td className="px-4 py-3 text-gray-800 whitespace-nowrap">
+                      {fmtVND(v.voucherMonetaryValue)}
+                    </td>
+                    <td className="px-4 py-3 text-gray-700 whitespace-nowrap">
+                      {durationLabel}
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      <span className={status.cls}>{status.label}</span>
+                    </td>
+                    <td className="px-4 py-3 text-gray-700 whitespace-nowrap">
+                      {v.usedCount}/{v.totalUsageLimit || '∞'}
+                    </td>
+                    <td className="px-4 py-3 text-gray-800 whitespace-nowrap">
+                      {fmtVND(v.totalDiscountUsed)}
+                    </td>
+                    <td className="px-4 py-3 text-gray-800 whitespace-nowrap">
+                      {fmtVND(v.remainingValue)}
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      <div className="flex items-center gap-1.5">
+                        {v.orderId && (
+                          <Link
+                            href={`/admin/orders/${v.orderId}?from=order-vouchers`}
+                            className="p-1.5 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-md transition-colors"
+                            title="Chỉnh sửa"
+                          >
+                            <Pencil size={15} />
+                          </Link>
+                        )}
+                        <button
+                          onClick={() => handleDelete(v.id, v.code)}
+                          className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"
+                          title="Xoá"
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

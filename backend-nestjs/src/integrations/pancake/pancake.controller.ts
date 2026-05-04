@@ -64,11 +64,12 @@ export class PancakeController {
   @Roles('ADMIN')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Sync all orders from Pancake (Admin only)' })
-  async syncAllOrders(@Body() data?: { storeId?: string; startDate?: string; endDate?: string }) {
+  async syncAllOrders(@Body() data?: { storeId?: string; startDate?: string; endDate?: string; dates?: string[] }) {
     const result = await this.pancakeService.syncAllOrders(
       data?.storeId,
       data?.startDate,
       data?.endDate,
+      data?.dates,
     );
     return {
       success: true,

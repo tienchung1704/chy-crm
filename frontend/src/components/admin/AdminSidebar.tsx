@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { apiClientClient } from '@/lib/apiClientClient';
 import { LogOut } from 'lucide-react';
@@ -45,6 +46,7 @@ const navItems = [
       { name: 'Voucher Đơn Hàng', href: '/admin/order-vouchers', roles: ALL_ROLES },
       { name: 'Referral', href: '/admin/referrals', roles: ADMIN_STAFF },
       { name: 'Vòng quay', href: '/admin/spin', roles: ADMIN_STAFF },
+      { name: 'Voucher Mã Mời', href: '/admin/referral-vouchers', roles: ADMIN_STAFF },
     ],
   },
   {
@@ -67,7 +69,10 @@ export default function AdminSidebar({ user, isOpen = true, unreadCount = 0, pen
   const pathname = usePathname();
   const router = useRouter();
 
+  const [loggingOut, setLoggingOut] = useState(false);
+
   const handleLogout = async () => {
+    setLoggingOut(true);
     try {
       await apiClientClient.post('/auth/logout', {});
     } catch { }
@@ -133,10 +138,14 @@ export default function AdminSidebar({ user, isOpen = true, unreadCount = 0, pen
         <div className="mt-6 pt-6 border-t border-gray-100">
           <button
             onClick={handleLogout}
-            className="flex items-center gap-3 px-3 py-2 w-full rounded-lg text-sm font-medium text-red-600 hover:bg-red-50 transition-colors"
+            disabled={loggingOut}
+            className="flex items-center gap-3 px-3 py-2 w-full rounded-lg text-sm font-medium text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50"
           >
-            <LogOut size={18} />
-            <span>Đăng xuất</span>
+            {loggingOut ? (
+              <><span className="w-4 h-4 border-2 border-red-300 border-t-red-600 rounded-full animate-spin" /> Đang đăng xuất...</>
+            ) : (
+              <><LogOut size={18} /><span>Đăng xuất</span></>
+            )}
           </button>
         </div>
       </nav>

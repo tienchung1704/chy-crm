@@ -3,7 +3,7 @@ export const dynamic = 'force-dynamic';
 
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { Layers, ArrowLeft, Eye, EyeOff } from 'lucide-react';
+import { ArrowLeft, Eye, EyeOff, X } from 'lucide-react';
 import { apiClientClient } from '@/lib/apiClientClient';
 
 interface Integration {
@@ -49,6 +49,9 @@ export default function IntegrationDetailPage() {
   const [syncMessage, setSyncMessage] = useState('');
   const [isSyncingCategories, setIsSyncingCategories] = useState(false);
   const [showFields, setShowFields] = useState<Record<string, boolean>>({});
+  const [selectedOrderDates, setSelectedOrderDates] = useState<string[]>([]);
+  const [customOrderDate, setCustomOrderDate] = useState('');
+  const [customOrderEndDate, setCustomOrderEndDate] = useState('');
 
   const toggleField = (field: string) => {
     setShowFields(prev => ({ ...prev, [field]: !prev[field] }));
@@ -155,7 +158,91 @@ export default function IntegrationDetailPage() {
     }
   };
 
+  const formatDateInput = (date: Date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  const getRelativeDate = (daysAgo: number) => {
+    const date = new Date();
+    date.setDate(date.getDate() - daysAgo);
+    return formatDateInput(date);
+  };
+
+  const addOrderDate = (date: string) => {
+    if (!date) return;
+    setSelectedOrderDates(prev => (
+      prev.includes(date) ? prev : [...prev, date].sort((a, b) => b.localeCompare(a))
+    ));
+  };
+
+  const addOrderDateRange = (startDate: string, endDate: string) => {
+    if (!startDate) return;
+
+    const start = new Date(`${startDate}T00:00:00+07:00`);
+    const end = new Date(`${(endDate || startDate)}T00:00:00+07:00`);
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return;
+
+    const from = start <= end ? start : end;
+    const to = start <= end ? end : start;
+    const dates: string[] = [];
+    const cursor = new Date(from);
+
+    while (cursor <= to && dates.length < 31) {
+      dates.push(formatDateInput(cursor));
+      cursor.setDate(cursor.getDate() + 1);
+    }
+
+    setSelectedOrderDates(prev => (
+      Array.from(new Set([...prev, ...dates])).sort((a, b) => b.localeCompare(a))
+    ));
+  };
+
+  const removeOrderDate = (date: string) => {
+    setSelectedOrderDates(prev => prev.filter(item => item !== date));
+  };
+
+  const formatSelectedDate = (date: string) => {
+    return new Intl.DateTimeFormat('vi-VN', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+    }).format(new Date(`${date}T00:00:00+07:00`));
+  };
+
   const syncPancakeOrders = async () => {
+    if (selectedOrderDates.length === 0) {
+      setSyncMessage('Vui lòng chọn ít nhất một ngày để đồng bộ đơn hàng Pancake');
+      setTimeout(() => setSyncMessage(''), 5000);
+      return;
+    }
+
+    if (!confirm(`Đồng bộ đơn hàng Pancake trong ${selectedOrderDates.length} ngày đã chọn?`)) {
+      return;
+    }
+
+    setIsSyncing(true);
+    setSyncMessage('Đang quét và đồng bộ đơn hàng theo ngày đã chọn...');
+
+    try {
+      const data = await apiClientClient.post<any>('/integrations/pancake/sync-all-orders', {
+        storeId: selectedStoreId,
+        dates: selectedOrderDates,
+      });
+
+      setSyncMessage(`Đã đồng bộ ${data.synced} đơn hàng từ ${data.total || 0} đơn Pancake. Tổng tiền: ${(data.totalAmount || 0).toLocaleString()}đ`);
+      setTimeout(() => setSyncMessage(''), 8000);
+    } catch (error: any) {
+      console.error(error);
+      setSyncMessage(error.response?.data?.message || 'Lỗi khi đồng bộ đơn hàng');
+      setTimeout(() => setSyncMessage(''), 5000);
+    } finally {
+      setIsSyncing(false);
+    }
+    /*
+
     if (!confirm('Đồng bộ tất cả đơn hàng từ Pancake? (Chỉ lấy các đơn chưa có trong hệ thống)')) {
       return;
     }
@@ -177,6 +264,9 @@ export default function IntegrationDetailPage() {
     } finally {
       setIsSyncing(false);
     }
+  };
+
+    */
   };
 
   if (!platformInfo) {
@@ -250,9 +340,70 @@ export default function IntegrationDetailPage() {
               <h3 className="font-semibold text-gray-800 text-base">Đồng bộ đơn hàng Pancake</h3>
               <p className="text-gray-500 text-sm mt-0.5">Kéo đơn hàng từ Pancake, tự động tạo khách hàng và tính doanh số.</p>
             </div>
+            <div className="w-full space-y-3 rounded-lg border border-gray-100 bg-gray-50 p-3 sm:order-last sm:basis-full">
+              <div className="flex flex-wrap gap-2">
+                {[
+                  { label: 'Hôm nay', date: getRelativeDate(0) },
+                  { label: 'Hôm qua', date: getRelativeDate(1) },
+                  { label: '3 ngày trước', date: getRelativeDate(3) },
+                  { label: '7 ngày trước', date: getRelativeDate(7) },
+                ].map(option => (
+                  <button
+                    key={option.label}
+                    type="button"
+                    onClick={() => addOrderDate(option.date)}
+                    className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-700 transition-colors hover:border-indigo-300 hover:text-indigo-700"
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <input
+                  type="date"
+                  value={customOrderDate}
+                  onChange={e => setCustomOrderDate(e.target.value)}
+                  className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+                <input
+                  type="date"
+                  value={customOrderEndDate}
+                  onChange={e => setCustomOrderEndDate(e.target.value)}
+                  className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    addOrderDateRange(customOrderDate, customOrderEndDate);
+                    setCustomOrderDate('');
+                    setCustomOrderEndDate('');
+                  }}
+                  className="rounded-lg bg-indigo-50 px-4 py-2 text-sm font-semibold text-indigo-700 transition-colors hover:bg-indigo-100"
+                >
+                  Thêm ngày
+                </button>
+              </div>
+
+              {selectedOrderDates.length > 0 && (
+                <div className="flex flex-wrap items-center gap-2">
+                  {selectedOrderDates.map(date => (
+                    <span key={date} className="inline-flex items-center gap-1 rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1 text-xs font-semibold text-indigo-700">
+                      {formatSelectedDate(date)}
+                      <button type="button" onClick={() => removeOrderDate(date)} className="text-indigo-400 hover:text-indigo-700">
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </span>
+                  ))}
+                  <button type="button" onClick={() => setSelectedOrderDates([])} className="text-xs font-semibold text-rose-600 hover:underline">
+                    Xóa tất cả
+                  </button>
+                </div>
+              )}
+            </div>
             <button 
               onClick={syncPancakeOrders} 
-              disabled={isSyncing} 
+              disabled={isSyncing || selectedOrderDates.length === 0}
               className="px-5 py-2.5 whitespace-nowrap bg-gray-900 hover:bg-gray-800 text-white border border-gray-900 rounded-lg text-sm font-semibold transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
             >
               {isSyncing ? (

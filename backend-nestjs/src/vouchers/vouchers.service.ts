@@ -54,7 +54,7 @@ export class VouchersService implements OnModuleInit {
     const vouchers = await this.prisma.voucher.findMany({
       where: {
         isActive: true,
-        campaignCategory: { not: 'GAMIFICATION' },
+        campaignCategory: { notIn: ['GAMIFICATION', 'REFERRAL'] },
         ...(storeId && { storeId }),
         OR: [
           { validTo: null },
@@ -429,6 +429,20 @@ export class VouchersService implements OnModuleInit {
         ...storeFilter,
         code: { startsWith: 'QR-ORDER-' },
       },
+      include: {
+        userVouchers: {
+          select: {
+            id: true,
+            isUsed: true,
+            userId: true,
+            expiresAt: true,
+            status: true,
+            appliedOrders: {
+              select: { discountApplied: true },
+            },
+          },
+        },
+      },
       orderBy: { createdAt: 'desc' },
     });
 
@@ -436,12 +450,12 @@ export class VouchersService implements OnModuleInit {
 
     const orderCodes = vouchers.map(v => v.code.replace('QR-ORDER-', ''));
     
-    // Search orders across orderCode and tracking metadata if needed, but normally orderCode is sufficient
     const orders = await this.prisma.order.findMany({
       where: { orderCode: { in: orderCodes } },
       select: {
         id: true,
         orderCode: true,
+        totalAmount: true,
         shippingPhone: true,
         user: { select: { phone: true } },
       },
@@ -452,11 +466,30 @@ export class VouchersService implements OnModuleInit {
     return vouchers.map(v => {
       const orderCode = v.code.replace('QR-ORDER-', '');
       const order = orderMap.get(orderCode);
+      const usedCount = v.userVouchers.filter(uv => uv.isUsed).length;
+      const claimedCount = v.userVouchers.length;
+      const totalDiscountUsed = v.userVouchers.reduce((sum, uv) => {
+        return sum + uv.appliedOrders.reduce((s, ao) => s + (ao.discountApplied || 0), 0);
+      }, 0);
+      // Compute voucher monetary value
+      const voucherMonetaryValue = v.type === 'PERCENT'
+        ? (order ? order.totalAmount * (v.value / 100) : 0)
+        : v.value;
+      const remainingValue = Math.max(0, voucherMonetaryValue - totalDiscountUsed);
+
+      const { userVouchers, ...voucherData } = v;
+
       return {
-        ...v,
+        ...voucherData,
         orderId: order?.id || null,
         orderCode,
         phone: order?.shippingPhone || order?.user?.phone || 'N/A',
+        orderTotalAmount: order?.totalAmount || 0,
+        usedCount,
+        claimedCount,
+        totalDiscountUsed,
+        voucherMonetaryValue,
+        remainingValue,
       };
     });
   }
@@ -704,6 +737,133 @@ export class VouchersService implements OnModuleInit {
 
     if (grantedCount > 0) {
       this.logger.log(`✅ Granted ${grantedCount} welcome vouchers to user ${userId}`);
+    }
+  }
+
+  /**
+   * Get all referral vouchers for admin management
+   */
+  async getReferralVouchersList(user?: any) {
+    let storeFilter: any = {};
+    if (user?.role === 'MODERATOR') {
+      const storeId = await this.getStoreIdForUser(user);
+      if (!storeId) return [];
+      storeFilter = { storeId };
+    }
+
+    return this.prisma.voucher.findMany({
+      where: {
+        ...storeFilter,
+        campaignCategory: 'REFERRAL',
+      },
+      include: {
+        _count: {
+          select: { userVouchers: true },
+        },
+        store: {
+          select: { name: true, slug: true },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  /**
+   * Create a referral voucher (force campaignCategory = REFERRAL)
+   */
+  async createReferralVoucher(data: any, user?: any) {
+    return this.create({ ...data, campaignCategory: 'REFERRAL' }, user);
+  }
+
+  /**
+   * Get referral reward config from SystemConfig
+   */
+  async getReferralRewardConfig() {
+    const config = await this.prisma.systemConfig.findUnique({
+      where: { key: 'referral_rewards' },
+    });
+    if (!config) {
+      return { tiers: [] };
+    }
+    return config.value as any;
+  }
+
+  /**
+   * Save referral reward config to SystemConfig
+   */
+  async saveReferralRewardConfig(data: { tiers: any[] }) {
+    return this.prisma.systemConfig.upsert({
+      where: { key: 'referral_rewards' },
+      create: {
+        key: 'referral_rewards',
+        value: data as any,
+      },
+      update: {
+        value: data as any,
+      },
+    });
+  }
+
+  /**
+   * Grant referral reward to referrer when a new user signs up.
+   * Checks the current number of referees and applies the matching reward tier.
+   */
+  async grantReferralReward(referrerId: string) {
+    try {
+      // Count how many direct referees this referrer has (depth=1 in closure)
+      const refereeCount = await this.prisma.user.count({
+        where: { referrerId },
+      });
+
+      // Get reward config
+      const config = await this.getReferralRewardConfig();
+      const tiers = config?.tiers || [];
+
+      if (tiers.length === 0) {
+        this.logger.log(`No referral reward config found. Skipping reward for referrer ${referrerId}`);
+        return;
+      }
+
+      // Find the tier matching this referral count (1-indexed)
+      const tier = tiers.find((t: any) => t.milestone === refereeCount);
+      if (!tier) {
+        this.logger.log(`No reward tier for milestone ${refereeCount}. Referrer: ${referrerId}`);
+        return;
+      }
+
+      if (tier.rewardType === 'SPIN') {
+        // Grant spin turns
+        const spins = tier.spinTurns || 1;
+        await this.prisma.user.update({
+          where: { id: referrerId },
+          data: { spinTurns: { increment: spins } },
+        });
+        this.logger.log(`🎰 Granted ${spins} spin turn(s) to referrer ${referrerId} for milestone ${refereeCount}`);
+      } else if (tier.rewardType === 'VOUCHER' && tier.voucherId) {
+        // Grant voucher
+        const voucher = await this.prisma.voucher.findUnique({
+          where: { id: tier.voucherId },
+        });
+
+        if (voucher) {
+          const expiresAt = voucher.durationDays
+            ? new Date(Date.now() + voucher.durationDays * 24 * 60 * 60 * 1000)
+            : voucher.validTo || new Date(Date.now() + 90 * 24 * 60 * 60 * 1000);
+
+          await this.prisma.userVoucher.create({
+            data: {
+              userId: referrerId,
+              voucherId: voucher.id,
+              expiresAt,
+              status: 'ACTIVE',
+              isUsed: false,
+            },
+          });
+          this.logger.log(`🎫 Granted voucher "${voucher.code}" to referrer ${referrerId} for milestone ${refereeCount}`);
+        }
+      }
+    } catch (error) {
+      this.logger.error(`Error granting referral reward to ${referrerId}:`, error);
     }
   }
 }

@@ -14,7 +14,7 @@ export default async function CheckoutPage(props: { searchParams: Promise<{ [key
 
   let detailedUser: any;
   try {
-    detailedUser = await apiClient.get<any>('/users/profile');
+    detailedUser = await apiClient.get<any>('/users/profile', { cache: 'no-store' });
   } catch (error) {
     redirect('/login');
   }

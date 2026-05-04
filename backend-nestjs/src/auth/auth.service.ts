@@ -68,6 +68,8 @@ export class AuthService {
     // Create referral closure entries
     if (referrerId) {
       await this.createReferralClosureEntries(user.id, referrerId);
+      // Grant referral reward to referrer
+      await this.vouchersService.grantReferralReward(referrerId);
     }
 
     // Grant welcome vouchers
@@ -229,9 +231,10 @@ export class AuthService {
         },
       });
 
-      // Create referral closure entries
       if (referrerId) {
         await this.createReferralClosureEntries(user.id, referrerId);
+        // Grant referral reward to referrer
+        await this.vouchersService.grantReferralReward(referrerId);
       }
 
       // Grant welcome vouchers
@@ -325,7 +328,7 @@ export class AuthService {
   }
 
   private async createReferralClosureEntries(userId: string, referrerId: string) {
-    // Self-reference (depth 0)
+    // Self-reference (depth 0) for the new user
     await this.prisma.referralClosure.create({
       data: {
         ancestorId: userId,
@@ -333,6 +336,20 @@ export class AuthService {
         depth: 0,
       },
     });
+
+    // Ensure the referrer also has a self-reference entry (may be missing for legacy users)
+    const referrerSelf = await this.prisma.referralClosure.findFirst({
+      where: { ancestorId: referrerId, descendantId: referrerId, depth: 0 },
+    });
+    if (!referrerSelf) {
+      await this.prisma.referralClosure.create({
+        data: {
+          ancestorId: referrerId,
+          descendantId: referrerId,
+          depth: 0,
+        },
+      });
+    }
 
     // Get all ancestors of the referrer
     const referrerAncestors = await this.prisma.referralClosure.findMany({

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useTransition } from 'react';
+import { useState, useEffect, useTransition, useRef } from 'react';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { claimQrRewardAction } from '@/actions/qrClaimActions';
 
@@ -8,25 +8,30 @@ export default function QrClaimModal() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
+  
   const [isOpen, setIsOpen] = useState(false);
   const [orderCode, setOrderCode] = useState('');
   const [phone, setPhone] = useState('');
+  const [otp, setOtp] = useState<string[]>(Array(6).fill(''));
+  const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
+  
   const [isPending, startTransition] = useTransition();
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [orderInfo, setOrderInfo] = useState<any>(null);
+  const [isLoadingOrder, setIsLoadingOrder] = useState(false);
 
   useEffect(() => {
-    // Check if URL has campaign=qr_claim parameter
     const campaign = searchParams.get('campaign');
     if (campaign === 'qr_claim') {
       setIsOpen(true);
       
-      // Auto-fill orderCode if provided in URL (from QR code scan)
       const urlOrderCode = searchParams.get('orderCode');
       if (urlOrderCode) {
-        setOrderCode(urlOrderCode.toUpperCase());
+        const cleanCode = urlOrderCode.toUpperCase();
+        setOrderCode(cleanCode);
+        fetchOrderInfo(cleanCode);
       }
       
-      // Clean URL without reload using Next.js router
       const params = new URLSearchParams(searchParams.toString());
       params.delete('campaign');
       params.delete('orderCode');
@@ -34,6 +39,39 @@ export default function QrClaimModal() {
       router.replace(newUrl, { scroll: false });
     }
   }, [searchParams, router, pathname]);
+
+  const fetchOrderInfo = async (code: string) => {
+    setIsLoadingOrder(true);
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api'}/orders/public/qr-summary/${code}`);
+      if (res.ok) {
+        const data = await res.json();
+        setOrderInfo(data);
+      }
+    } catch (error) {
+      console.error('Error fetching order info:', error);
+    } finally {
+      setIsLoadingOrder(false);
+    }
+  };
+
+  const handleOtpChange = (index: number, value: string) => {
+    if (!/^\d*$/.test(value)) return;
+    const newOtp = [...otp];
+    newOtp[index] = value.slice(-1); // Only keep last digit if pasted
+    setOtp(newOtp);
+    
+    // Focus next input
+    if (value && index < 5) {
+      otpRefs.current[index + 1]?.focus();
+    }
+  };
+
+  const handleOtpKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Backspace' && !otp[index] && index > 0) {
+      otpRefs.current[index - 1]?.focus();
+    }
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -49,19 +87,27 @@ export default function QrClaimModal() {
       return;
     }
 
+    const otpString = otp.join('');
+    if (otpString.length < 6) {
+      setMessage({ type: 'error', text: 'Vui lòng nhập đủ 6 số OTP' });
+      return;
+    }
+
     startTransition(async () => {
+      // NOTE: OTP validation could be added in backend. For now, it passes through.
       const result = await claimQrRewardAction(orderCode, phone);
       
       if (result.success) {
         setMessage({ type: 'success', text: result.message });
         setOrderCode('');
         setPhone('');
+        setOtp(Array(6).fill(''));
         
-        // Auto close after 5 seconds
         setTimeout(() => {
           setIsOpen(false);
           setMessage(null);
-          router.refresh(); // Refresh to update voucher list
+          setOrderInfo(null);
+          router.refresh(); 
         }, 5000);
       } else {
         setMessage({ type: 'error', text: result.message });
@@ -74,119 +120,144 @@ export default function QrClaimModal() {
       setIsOpen(false);
       setOrderCode('');
       setPhone('');
+      setOtp(Array(6).fill(''));
       setMessage(null);
+      setOrderInfo(null);
     }
   };
 
   if (!isOpen) return null;
 
+  // Format voucher amount based on order total or fallback
+  const voucherAmount = orderInfo ? new Intl.NumberFormat('vi-VN').format(orderInfo.totalAmount || orderInfo.discountAmount || 0) : '...';
+
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-gray-900/60 backdrop-blur-sm p-4 animate-fadeIn">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden animate-slideUp">
-        {/* Header */}
-        <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between">
-          <div>
-            <h2 className="text-xl font-bold text-gray-900">Nhận quà từ mã vận đơn</h2>
-            <p className="text-sm text-gray-500 mt-1">Nhập mã vận đơn và SĐT để nhận ưu đãi</p>
-          </div>
-          <button
-            onClick={handleClose}
-            disabled={isPending}
-            className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-50 text-gray-500 hover:bg-gray-100 transition-colors disabled:opacity-50"
-            aria-label="Đóng"
-          >
-            ✕
-          </button>
-        </div>
+      <div className="bg-[#fffcfc] rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-slideUp relative">
+        <button
+          onClick={handleClose}
+          disabled={isPending}
+          className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 text-gray-500 hover:bg-gray-200 transition-colors disabled:opacity-50 z-10"
+        >
+          ✕
+        </button>
 
-        {/* Body */}
-        <div className="p-6">
-          {/* Info Box */}
-          <div className="bg-gray-50 rounded-lg p-4 mb-6 border border-gray-100">
-            <h3 className="text-sm font-semibold text-gray-800 mb-2">Thông tin nhận quà:</h3>
-            <ul className="space-y-1.5 text-sm text-gray-600">
-              <li className="flex items-start gap-2">
-                <span className="text-gray-400 mt-0.5">•</span>
-                <span>Áp dụng cho đơn hàng mua từ các sàn TMĐT (Shopee, TikTok, Lazada...)</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-gray-400 mt-0.5">•</span>
-                <span>Voucher có giá trị giảm dần (50K → 10K) và giới hạn 5 lần/tài khoản.</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-gray-400 mt-0.5">•</span>
-                <span>Mỗi mã vận đơn chỉ được sử dụng 1 lần. Voucher kích hoạt sau 7 ngày.</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-amber-500 mt-0.5">⚠</span>
-                <span className="text-amber-700 font-medium">Đơn hàng phải ở trạng thái đã nhận/hoàn thành mới được nhận quà.</span>
-              </li>
-            </ul>
+        <div className="p-6 md:p-8 flex flex-col items-center text-center">
+          {/* Header Branding */}
+          <div className="mb-6 w-full">
+            <h2 className="text-sm text-gray-700 font-medium">
+              Công ty Cổ Phần Tập Đoàn
+              <br />
+              Thời trang Minh Châu
+            </h2>
+            <h1 className="text-lg font-bold text-gray-900 mt-2">
+              Hệ thống Thời trang Cao Cấp CHY
+            </h1>
+          </div>
+
+          {/* Order Info Skeleton or Content */}
+          {isLoadingOrder ? (
+            <div className="w-full h-32 bg-gray-100 animate-pulse rounded-xl mb-6"></div>
+          ) : orderInfo && orderInfo.items && orderInfo.items.length > 0 ? (
+            <div className="w-full flex items-start gap-4 mb-6 text-left">
+              <div className="w-24 h-32 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
+                {orderInfo.items[0].image ? (
+                  <img src={orderInfo.items[0].image} alt={orderInfo.items[0].name} className="w-full h-full object-cover" />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">No image</div>
+                )}
+              </div>
+              <div className="flex-1 text-[15px]">
+                <p className="text-gray-800 font-medium mb-2 leading-tight">Đơn hàng : {orderInfo.items[0].name}</p>
+                <p className="text-gray-700 mb-2">Số lượng : {orderInfo.items[0].quantity}</p>
+                <p className="text-gray-700 mb-2">
+                  Thanh toán : {new Intl.NumberFormat('vi-VN').format(orderInfo.totalAmount)}
+                </p>
+                <p className="text-[#ff3b3b] font-medium mt-4 text-sm">
+                  Đã thanh toán: {new Intl.NumberFormat('vi-VN').format(orderInfo.totalAmount)}
+                </p>
+              </div>
+            </div>
+          ) : (
+             <div className="w-full mb-6">
+               <p className="text-gray-800 font-medium text-left mb-2">Đơn hàng : {orderCode}</p>
+             </div>
+          )}
+
+          {/* Dynamic Voucher Text */}
+          <div className="mb-6">
+            <h3 className="text-base font-bold text-gray-900 mb-1">
+              Xác thực ngay để nhận Voucher {voucherAmount}
+            </h3>
           </div>
 
           {/* Message */}
           {message && (
             <div
-              className={`p-4 rounded-lg mb-6 text-sm flex items-start gap-3 ${
+              className={`w-full p-3 rounded-lg mb-4 text-sm flex items-start gap-2 text-left ${
                 message.type === 'success'
                   ? 'bg-green-50 text-green-800 border border-green-200'
                   : 'bg-red-50 text-red-800 border border-red-200'
               }`}
             >
-              <span className="font-bold">{message.type === 'success' ? '✓' : '!'}</span>
+              <span className="font-bold mt-0.5">{message.type === 'success' ? '✓' : '!'}</span>
               <p>{message.text}</p>
             </div>
           )}
 
           {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label htmlFor="orderCode" className="block text-sm font-medium text-gray-700 mb-2">
-                Mã vận đơn <span className="text-red-500">*</span>
-              </label>
-              <input
-                id="orderCode"
-                type="text"
-                value={orderCode}
-                onChange={(e) => setOrderCode(e.target.value.toUpperCase())}
-                placeholder="VD: SPX123456, TK789012..."
-                disabled={isPending}
-                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-500 transition-shadow"
-                maxLength={50}
-              />
-            </div>
+          <form onSubmit={handleSubmit} className="w-full flex flex-col items-center">
+            <label htmlFor="phone" className="block text-sm text-gray-800 mb-2">
+              Nhập số điện thoại mua hàng
+            </label>
+            <input
+              id="phone"
+              type="tel"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value.replace(/[^\d+]/g, ''))}
+              placeholder="0919900786"
+              disabled={isPending}
+              className="w-full max-w-[240px] text-center px-4 py-2 border border-gray-300 rounded-lg text-base text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#ff3b3b] focus:border-transparent disabled:bg-gray-50 mb-4"
+              maxLength={15}
+            />
 
-            <div>
-              <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-2">
-                Số điện thoại đặt hàng <span className="text-red-500">*</span>
-              </label>
-              <input
-                id="phone"
-                type="tel"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value.replace(/[^\d+]/g, ''))}
-                placeholder="VD: 0912345678"
-                disabled={isPending}
-                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-500 transition-shadow"
-                maxLength={15}
-              />
+            <label className="block text-sm text-gray-800 mb-2 mt-2">
+              Mã xác thực (SMS)
+            </label>
+            <div className="flex gap-2 justify-center mb-6 w-full">
+              {otp.map((digit, index) => (
+                <input
+                  key={index}
+                  ref={(el) => { otpRefs.current[index] = el; }}
+                  type="text"
+                  inputMode="numeric"
+                  value={digit}
+                  onChange={(e) => handleOtpChange(index, e.target.value)}
+                  onKeyDown={(e) => handleOtpKeyDown(index, e)}
+                  disabled={isPending}
+                  className="w-10 h-10 text-center text-lg font-bold border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#ff3b3b] focus:border-transparent disabled:bg-gray-50 text-gray-900"
+                  maxLength={1}
+                />
+              ))}
             </div>
 
             <button
               type="submit"
-              disabled={isPending || !orderCode.trim() || !phone.trim()}
-              className="w-full px-6 py-3 bg-gray-900 text-white font-medium rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              disabled={isPending || !orderCode.trim() || !phone.trim() || otp.join('').length < 6}
+              className="px-10 py-2.5 bg-[#ff3b3b] text-white font-medium rounded-lg hover:bg-red-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               {isPending ? (
-                <>
-                  <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  Đang xử lý...
-                </>
+                <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
               ) : (
-                'Xác nhận'
+                'Gửi'
               )}
             </button>
           </form>
+
+          {/* Footer */}
+          <div className="w-full text-left mt-10">
+            <p className="text-gray-800 text-[15px]">Hotline : 19001099</p>
+          </div>
         </div>
       </div>
 
@@ -205,24 +276,11 @@ export default function QrClaimModal() {
             transform: translateY(0);
           }
         }
-        @keyframes slideIn {
-          from {
-            opacity: 0;
-            transform: translateX(-10px);
-          }
-          to {
-            opacity: 1;
-            transform: translateX(0);
-          }
-        }
         .animate-fadeIn {
           animation: fadeIn 0.2s ease-out;
         }
         .animate-slideUp {
           animation: slideUp 0.3s ease-out;
-        }
-        .animate-slideIn {
-          animation: slideIn 0.3s ease-out;
         }
       `}</style>
     </div>

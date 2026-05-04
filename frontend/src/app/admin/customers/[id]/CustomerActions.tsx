@@ -22,6 +22,7 @@ export default function CustomerActions({
   const [showHardDeleteModal, setShowHardDeleteModal] = useState(false);
   const [loading, setLoading] = useState(false);
   const [confirmInput, setConfirmInput] = useState('');
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
   const isConfirmValid = confirmInput === customerName || confirmInput === customerPhone;
 
@@ -38,8 +39,12 @@ export default function CustomerActions({
       const data = await res.json();
 
       if (res.ok) {
-        router.push('/admin/customers');
-        router.refresh();
+        setShowSoftDeleteModal(false);
+        setToast({ message: `Đã ban khách hàng "${customerName}" thành công!`, type: 'success' });
+        setTimeout(() => {
+          router.push('/admin/customers');
+          router.refresh();
+        }, 800);
       } else {
         alert(data.error || data.message || 'Có lỗi xảy ra');
       }
@@ -47,7 +52,6 @@ export default function CustomerActions({
       alert('Không thể kết nối tới máy chủ');
     } finally {
       setLoading(false);
-      setShowSoftDeleteModal(false);
     }
   };
 
@@ -64,8 +68,12 @@ export default function CustomerActions({
       const data = await res.json();
 
       if (res.ok) {
-        router.push('/admin/customers');
-        router.refresh();
+        setShowHardDeleteModal(false);
+        setToast({ message: `Đã xóa vĩnh viễn khách hàng "${customerName}" thành công!`, type: 'success' });
+        setTimeout(() => {
+          router.push('/admin/customers');
+          router.refresh();
+        }, 1200);
       } else {
         alert(data.error || data.message || 'Có lỗi xảy ra');
       }
@@ -73,7 +81,6 @@ export default function CustomerActions({
       alert('Không thể kết nối tới máy chủ');
     } finally {
       setLoading(false);
-      setShowHardDeleteModal(false);
     }
   };
 
@@ -171,11 +178,10 @@ export default function CustomerActions({
               <button
                 onClick={handleSoftDelete}
                 disabled={loading || !isConfirmValid}
-                className={`flex-1 px-4 py-3 rounded-lg font-medium transition-all flex items-center justify-center gap-2 ${
-                  isConfirmValid
+                className={`flex-1 px-4 py-3 rounded-lg font-medium transition-all flex items-center justify-center gap-2 ${isConfirmValid
                     ? 'bg-orange-600 text-white hover:bg-orange-700'
                     : 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                }`}
+                  }`}
               >
                 {loading ? (
                   <>
@@ -253,11 +259,10 @@ export default function CustomerActions({
               <button
                 onClick={handleHardDelete}
                 disabled={loading || !isConfirmValid}
-                className={`flex-1 px-4 py-3 rounded-lg font-medium transition-all flex items-center justify-center gap-2 ${
-                  isConfirmValid
+                className={`flex-1 px-4 py-3 rounded-lg font-medium transition-all flex items-center justify-center gap-2 ${isConfirmValid
                     ? 'bg-red-600 text-white hover:bg-red-700'
                     : 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                }`}
+                  }`}
               >
                 {loading ? (
                   <>
@@ -272,6 +277,18 @@ export default function CustomerActions({
                 )}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+      {/* Toast */}
+      {toast && (
+        <div className="fixed bottom-6 right-6 z-[100] animate-slideIn">
+          <div className={`flex items-center gap-3 px-5 py-3 rounded-xl shadow-lg text-sm font-medium ${toast.type === 'success'
+              ? 'bg-green-600 text-white'
+              : 'bg-red-600 text-white'
+            }`}>
+            <span>{toast.type === 'success' ? '✅' : '❌'}</span>
+            <span>{toast.message}</span>
           </div>
         </div>
       )}

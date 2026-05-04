@@ -124,6 +124,103 @@ export class PancakeService {
     }
   }
 
+  private buildDateRange(date: string) {
+    const match = /^\d{4}-\d{2}-\d{2}$/.test(date);
+    if (!match) {
+      throw new Error(`Invalid date format: ${date}`);
+    }
+
+    const start = new Date(`${date}T00:00:00+07:00`);
+    const end = new Date(start);
+    end.setDate(end.getDate() + 1);
+
+    return { start, end };
+  }
+
+  private getPancakeOrderCreatedAt(order: any) {
+    const rawDate = order?.inserted_at || order?.created_at || order?.updated_at || null;
+    if (!rawDate) return null;
+    const parsed = new Date(rawDate);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }
+
+  private isOrderInDateRange(order: any, start: Date, end: Date) {
+    const createdAt = this.getPancakeOrderCreatedAt(order);
+    if (!createdAt) return true;
+    return createdAt >= start && createdAt < end;
+  }
+
+  private async fetchOrdersByDateRangeForIntegration(
+    integration: { storeId: string; shopId: string | null; apiKey: string | null },
+    start: Date,
+    end: Date,
+  ) {
+    if (!integration.shopId || !integration.apiKey) return [];
+
+    const orders = new Map<string, any>();
+    const pageSize = 100;
+    let page = 1;
+    let shouldContinue = true;
+
+    while (shouldContinue && page <= 100) {
+      const query = new URLSearchParams({
+        api_key: integration.apiKey,
+        page: String(page),
+        page_size: String(pageSize),
+        startDate: start.toISOString(),
+        endDate: end.toISOString(),
+        start_date: start.toISOString(),
+        end_date: end.toISOString(),
+        inserted_at_min: start.toISOString(),
+        inserted_at_max: end.toISOString(),
+      });
+
+      const url = `https://pos.pages.fm/api/v1/shops/${integration.shopId}/orders?${query.toString()}`;
+
+      try {
+        const response = await fetch(url, {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' },
+        });
+
+        if (!response.ok) {
+          this.logger.error(`[Pancake] Failed to fetch orders page ${page} by date. Status: ${response.status}`);
+          break;
+        }
+
+        const data = await response.json();
+        const pageOrders = Array.isArray(data.data) ? data.data : [];
+        if (pageOrders.length === 0) break;
+
+        let pageHadInRangeOrder = false;
+        let pageHadOlderOrder = false;
+
+        for (const order of pageOrders) {
+          const createdAt = this.getPancakeOrderCreatedAt(order);
+          if (createdAt && createdAt < start) {
+            pageHadOlderOrder = true;
+            continue;
+          }
+
+          if (this.isOrderInDateRange(order, start, end)) {
+            pageHadInRangeOrder = true;
+            orders.set(String(order.id), order);
+          }
+        }
+
+        const totalPages = data.total_pages || data.totalPages || 0;
+        const hasMoreByPagination = totalPages ? page < totalPages : pageOrders.length >= pageSize;
+        shouldContinue = hasMoreByPagination && (!pageHadOlderOrder || pageHadInRangeOrder);
+        page++;
+      } catch (error) {
+        this.logger.error('[Pancake] Error fetching orders by date:', error);
+        break;
+      }
+    }
+
+    return Array.from(orders.values());
+  }
+
   /**
    * Fetch single order detail
    */
@@ -551,6 +648,24 @@ export class PancakeService {
     let size = null;
     
     baseName = baseName.replace(/_+/g, ' ');
+
+    if (Array.isArray(itemFields)) {
+      const sizeField = itemFields.find((field: any) => {
+        const fieldName = String(field?.name || '').toLowerCase();
+        return fieldName.includes('size') || fieldName.includes('kich') || fieldName.includes('kích');
+      });
+      const colorField = itemFields.find((field: any) => {
+        const fieldName = String(field?.name || '').toLowerCase();
+        return fieldName.includes('color') || fieldName.includes('mau') || fieldName.includes('màu');
+      });
+
+      if (!size && sizeField?.value) {
+        size = String(sizeField.value).trim().toUpperCase();
+      }
+      if (!color && colorField?.value) {
+        color = String(colorField.value).trim();
+      }
+    }
     
     const sizeValuePattern = /\s+(?:Size|size|ize)\s+([X]{1,3}L|2XL|3XL|[LMS]|Freesize|Free\s*size)\b|\s+([X]{1,3}L|[LMS]|Freesize|Free\s*size)\b(?=\s*$)/gi;
     const sizeMatches = Array.from(baseName.matchAll(sizeValuePattern));
@@ -939,45 +1054,60 @@ export class PancakeService {
   /**
    * Sync all orders from Pancake
    */
-  async syncAllOrders(storeId?: string, startDate?: string, endDate?: string) {
-    this.logger.log('[Pancake] Starting user-targeted order sync...');
-    
-    // Get all users with phone numbers
-    const users = await this.prisma.user.findMany({
-      where: {
-        phone: { not: null },
-        role: 'CUSTOMER'
-      },
-      select: { id: true, phone: true }
-    });
+  async syncAllOrders(storeId?: string, startDate?: string, endDate?: string, dates?: string[]) {
+    this.logger.log('[Pancake] Starting date-based order sync...');
 
-    this.logger.log(`[Pancake] Found ${users.length} users with phone numbers to sync`);
+    const integrations = await this.getActivePancakeIntegrations(storeId);
+    if (integrations.length === 0) {
+      this.logger.warn('[Pancake] No active integration found for syncAllOrders');
+      return { synced: 0, errors: 0, total: 0, totalAmount: 0 };
+    }
+
+    const dateRanges = dates && dates.length > 0
+      ? Array.from(new Set(dates)).map(date => this.buildDateRange(date))
+      : startDate && endDate
+        ? [{ start: new Date(startDate), end: new Date(endDate) }]
+        : [this.buildDateRange(new Date().toISOString().slice(0, 10))];
 
     let totalSynced = 0;
     let totalErrors = 0;
     let totalAmount = 0;
+    let totalFetched = 0;
+    const processedOrders = new Set<string>();
 
-    for (const user of users) {
-      try {
-        const amount = await this.syncOrdersForUser(user.phone!, user.id, storeId);
-        if (amount > 0) {
-          totalAmount += amount;
-          totalSynced++;
+    for (const integration of integrations) {
+      for (const range of dateRanges) {
+        const orders = await this.fetchOrdersByDateRangeForIntegration(integration, range.start, range.end);
+        totalFetched += orders.length;
+
+        for (const order of orders) {
+          const dedupeKey = `${integration.storeId}:${order.id}`;
+          if (processedOrders.has(dedupeKey)) {
+            continue;
+          }
+          processedOrders.add(dedupeKey);
+
+          try {
+            const result = await this.syncSingleOrder(order, integration.storeId);
+            if (result.synced) {
+              totalAmount += result.amount;
+              totalSynced++;
+            }
+          } catch (error) {
+            this.logger.error(`[Pancake] Error syncing order ${order.id}:`, error);
+            totalErrors++;
+          }
+
+          await new Promise(resolve => setTimeout(resolve, 50));
         }
-      } catch (error) {
-        this.logger.error(`[Pancake] Error syncing for user ${user.id}:`, error);
-        totalErrors++;
       }
-      
-      // Small delay to avoid rate limits
-      await new Promise(resolve => setTimeout(resolve, 100));
     }
 
-    this.logger.log(`[Pancake] User-targeted sync completed. Users Synced: ${totalSynced}, Errors: ${totalErrors}, Total Amount: ${totalAmount}`);
+    this.logger.log(`[Pancake] Date-based sync completed. Fetched: ${totalFetched}, Synced: ${totalSynced}, Errors: ${totalErrors}, Total Amount: ${totalAmount}`);
     return { 
       synced: totalSynced, 
       errors: totalErrors, 
-      total: users.length,
+      total: totalFetched,
       totalAmount 
     };
   }
@@ -1073,19 +1203,28 @@ export class PancakeService {
       const itemName = item.variation_info?.name || item.name || '';
       const price = item.variation_info?.retail_price || item.price || 0;
       const quantity = item.quantity || 1;
+      const itemFields = item.variation_info?.fields || [];
+      const parsedProductInfo = this.extractProductInfo(itemName, itemFields);
+      const normalizedExternalId = parsedProductInfo.baseName.toLowerCase().replace(/\s+/g, '-');
 
       const baseName = itemName
         .replace(/\s+size\s+[smlxSMLX]+/gi, '')
         .replace(/\s+màu\s+\w+/gi, '')
         .replace(/\s+[smlxSMLX]$/gi, '')
         .trim();
+      const matchName = parsedProductInfo.baseName || baseName;
+      if (!matchName) {
+        continue;
+      }
 
       const matchingProduct = await this.prisma.product.findFirst({
         where: {
+          storeId,
           OR: [
+            { externalId: normalizedExternalId },
+            { name: matchName },
+            { name: { contains: matchName } },
             { name: { contains: baseName } },
-            { name: { contains: itemName } },
-            { externalId: { contains: String(item.product_id || '') } },
           ]
         }
       });
@@ -1096,8 +1235,8 @@ export class PancakeService {
           quantity,
           price,
           isGift: item.is_bonus_product || false,
-          size: null,
-          color: null,
+          size: parsedProductInfo.size || null,
+          color: parsedProductInfo.color || null,
         });
       }
     }

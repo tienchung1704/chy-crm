@@ -36,12 +36,18 @@ export default function PortalNavbar({ user }: Props) {
   const router = useRouter();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const handleLogout = async () => {
-    await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api'}/auth/logout`, { method: 'POST' });
-    router.push('/login');
-    router.refresh();
+    setLoggingOut(true);
+    try {
+      await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api'}/auth/logout`, { method: 'POST' });
+      router.push('/login');
+      router.refresh();
+    } catch {
+      setLoggingOut(false);
+    }
   };
 
   useEffect(() => {
@@ -176,10 +182,15 @@ export default function PortalNavbar({ user }: Props) {
                     👤 Hồ sơ cá nhân
                   </Link>
                   <button
-                    className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                    className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50"
                     onClick={handleLogout}
+                    disabled={loggingOut}
                   >
-                    🚪 Đăng xuất
+                    {loggingOut ? (
+                      <><span className="w-4 h-4 border-2 border-red-300 border-t-red-600 rounded-full animate-spin" /> Đang đăng xuất...</>
+                    ) : (
+                      '🚪 Đăng xuất'
+                    )}
                   </button>
                 </div>
               )}
@@ -225,10 +236,15 @@ export default function PortalNavbar({ user }: Props) {
                 👤 Hồ sơ cá nhân
               </Link>
               <button
-                className="w-full flex items-center gap-3 px-4 py-3 text-sm font-medium text-red-600 hover:bg-red-50"
+                className="w-full flex items-center gap-3 px-4 py-3 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-50"
                 onClick={handleLogout}
+                disabled={loggingOut}
               >
-                🚪 Đăng xuất
+                {loggingOut ? (
+                  <><span className="w-4 h-4 border-2 border-red-300 border-t-red-600 rounded-full animate-spin" /> Đang đăng xuất...</>
+                ) : (
+                  '🚪 Đăng xuất'
+                )}
               </button>
             </div>
           </>
