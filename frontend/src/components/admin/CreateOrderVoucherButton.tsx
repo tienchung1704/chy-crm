@@ -28,6 +28,7 @@ export default function CreateOrderVoucherButton({ orderId, orderCode }: Props) 
   const [customMinOrder, setCustomMinOrder] = useState('');
   const [customMaxDiscount, setCustomMaxDiscount] = useState('');
   const [customDurationDays, setCustomDurationDays] = useState('');
+  const [customUsageLimit, setCustomUsageLimit] = useState('');
 
   const defaultStackTiers = [
     { conditionType: 'products', minProducts: 1, minAmount: 0, discount: 200000, type: 'FIXED_AMOUNT', maxDiscount: 0 },
@@ -67,6 +68,7 @@ export default function CreateOrderVoucherButton({ orderId, orderCode }: Props) 
         body.minOrderValue = customMinOrder ? Number(customMinOrder) : 0;
         body.maxDiscount = customMaxDiscount ? Number(customMaxDiscount) : null;
         body.durationDays = customDurationDays ? Number(customDurationDays) : null;
+        body.perCustomerLimit = customUsageLimit ? Number(customUsageLimit) : null;
         if (customType === 'STACK') body.stackTiers = stackTiers;
 
         const res = await apiClientClient.patch<any>(`/vouchers/${existingVoucher.id}`, body);
@@ -81,6 +83,7 @@ export default function CreateOrderVoucherButton({ orderId, orderCode }: Props) 
         if (customMinOrder) body.minOrderValue = Number(customMinOrder);
         if (customMaxDiscount) body.maxDiscount = Number(customMaxDiscount);
         if (customDurationDays) body.durationDays = Number(customDurationDays);
+        if (customUsageLimit) body.perCustomerLimit = Number(customUsageLimit);
         if (customType === 'STACK') body.stackTiers = stackTiers;
         const res = await apiClientClient.post<any>('/vouchers/create-order-voucher', body);
         alert(res.message || 'Tạo voucher thành công!');
@@ -118,6 +121,7 @@ export default function CreateOrderVoucherButton({ orderId, orderCode }: Props) 
     setCustomMinOrder(existingVoucher.minOrderValue?.toString() || '');
     setCustomMaxDiscount(existingVoucher.maxDiscount?.toString() || '');
     setCustomDurationDays(existingVoucher.durationDays?.toString() || '');
+    setCustomUsageLimit(existingVoucher.perCustomerLimit?.toString() || '');
     if (existingVoucher.type === 'STACK' && existingVoucher.stackTiers?.length) {
       setStackTiers(existingVoucher.stackTiers);
     } else {
@@ -192,6 +196,12 @@ export default function CreateOrderVoucherButton({ orderId, orderCode }: Props) 
               <div className="flex justify-between">
                 <span className="text-gray-600">Hạn dùng:</span>
                 <span className="text-gray-700">{existingVoucher.durationDays} ngày</span>
+              </div>
+            )}
+            {existingVoucher.perCustomerLimit > 0 && (
+              <div className="flex justify-between">
+                <span className="text-gray-600">Giới hạn dùng/user:</span>
+                <span className="text-gray-700">{existingVoucher.perCustomerLimit} lần</span>
               </div>
             )}
           </div>
@@ -385,15 +395,28 @@ export default function CreateOrderVoucherButton({ orderId, orderCode }: Props) 
                 </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Số ngày hiệu lực</label>
-                <input
-                  type="number"
-                  value={customDurationDays}
-                  onChange={(e) => setCustomDurationDays(e.target.value)}
-                  placeholder="Để trống = Không giới hạn"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none"
-                />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Số ngày hiệu lực</label>
+                  <input
+                    type="number"
+                    value={customDurationDays}
+                    onChange={(e) => setCustomDurationDays(e.target.value)}
+                    placeholder="Không giới hạn"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Giới hạn số lượng dùng / user</label>
+                  <input
+                    type="number"
+                    value={customUsageLimit}
+                    onChange={(e) => setCustomUsageLimit(e.target.value)}
+                    placeholder="Không giới hạn"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none"
+                  />
+                </div>
               </div>
           </div>
 

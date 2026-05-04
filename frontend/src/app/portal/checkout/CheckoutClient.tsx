@@ -18,13 +18,13 @@ interface Voucher {
   value: number;
   maxDiscount?: number;
   minOrderValue: number;
-  stackTiers?: Array<{ 
-    conditionType?: string; 
-    minProducts?: number; 
-    minAmount?: number; 
-    discount: number; 
-    type?: string; 
-    maxDiscount?: number; 
+  stackTiers?: Array<{
+    conditionType?: string;
+    minProducts?: number;
+    minAmount?: number;
+    discount: number;
+    type?: string;
+    maxDiscount?: number;
   }>;
 }
 
@@ -46,14 +46,14 @@ interface CheckoutClientProps {
 
 export default function CheckoutClient({ user, items, store, cartMode }: CheckoutClientProps) {
   const router = useRouter();
-  
+
   // Form State
   const [name, setName] = useState(user.name || '');
   const [phone, setPhone] = useState(user.phone || '');
   const [street, setStreet] = useState(user.addressStreet || '');
   const [paymentMethod, setPaymentMethod] = useState('COD');
   const [note, setNote] = useState('');
-  
+
   // Address Dropdown states
   const [provinces, setProvinces] = useState<AddressOption[]>([]);
   const [wards, setWards] = useState<AddressOption[]>([]);
@@ -69,11 +69,11 @@ export default function CheckoutClient({ user, items, store, cartMode }: Checkou
   const [importingAddress, setImportingAddress] = useState(false);
   const [shippingFee, setShippingFee] = useState(0);
   const [isCalculatingFee, setIsCalculatingFee] = useState(false);
-  
+
   const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const totalWeight = items.reduce((sum, item) => sum + item.quantity * (item.product.weight || 500), 0);
   const distinctProductCount = new Set(items.map(item => item.product.id)).size;
-  
+
   const normalizeName = useCallback((name: string) => {
     return name
       .toLowerCase()
@@ -119,7 +119,7 @@ export default function CheckoutClient({ user, items, store, cartMode }: Checkou
           setWards(result.wards);
           setProvince(result.province.name);
         })
-        .catch(() => {});
+        .catch(() => { });
     }
   }, [provinces, province, loadWards, wards.length]);
 
@@ -287,8 +287,8 @@ export default function CheckoutClient({ user, items, store, cartMode }: Checkou
         });
 
         if (nextTier) {
-          stackTierInfo = { 
-            current: voucherDiscount, 
+          stackTierInfo = {
+            current: voucherDiscount,
             next: {
               threshold: nextTier.conditionType === 'amount' ? (nextTier.minAmount || 0) : (nextTier.minProducts || 0),
               discount: nextTier.discount,
@@ -384,8 +384,8 @@ export default function CheckoutClient({ user, items, store, cartMode }: Checkou
             <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
               <MapPin className="text-indigo-600" /> Thông tin giao hàng
             </h2>
-            <button 
-              type="button" 
+            <button
+              type="button"
               onClick={handleImportSavedAddress}
               disabled={importingAddress}
               className="text-sm font-semibold text-indigo-600 hover:text-indigo-700 bg-indigo-50 px-3 py-1.5 rounded-lg transition-colors border border-indigo-100 disabled:opacity-70 disabled:cursor-wait inline-flex items-center justify-center gap-2 min-w-[210px]"
@@ -400,15 +400,15 @@ export default function CheckoutClient({ user, items, store, cartMode }: Checkou
               )}
             </button>
           </div>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Họ và tên *</label>
-              <input type="text" className="w-full border border-gray-300 rounded-lg focus:ring-indigo-500 px-4 py-2.5 outline-none" value={name} onChange={e=>setName(e.target.value)} required />
+              <input type="text" className="w-full border border-gray-300 rounded-lg focus:ring-indigo-500 px-4 py-2.5 outline-none" value={name} onChange={e => setName(e.target.value)} required />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Số điện thoại *</label>
-              <input type="tel" className="w-full border border-gray-300 rounded-lg focus:ring-indigo-500 px-4 py-2.5 outline-none" value={phone} onChange={e=>setPhone(e.target.value)} required />
+              <input type="tel" className="w-full border border-gray-300 rounded-lg focus:ring-indigo-500 px-4 py-2.5 outline-none" value={phone} onChange={e => setPhone(e.target.value)} required />
             </div>
           </div>
 
@@ -424,7 +424,7 @@ export default function CheckoutClient({ user, items, store, cartMode }: Checkou
                   try {
                     const result = await loadWards(nextProvince);
                     if (result) setWards(result.wards);
-                  } catch {}
+                  } catch { }
                 }} required>
                   <option value="">Chọn Tỉnh/Thành</option>
                   {provinces.map(p => <option key={p.code} value={p.name}>{p.name}</option>)}
@@ -440,16 +440,16 @@ export default function CheckoutClient({ user, items, store, cartMode }: Checkou
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Số nhà, Tên đường *</label>
-              <input type="text" className="w-full border border-gray-300 rounded-lg focus:ring-indigo-500 px-4 py-2.5 outline-none" placeholder="Số nhà, đường phố..." value={street} onChange={e=>setStreet(e.target.value)} required />
+              <input type="text" className="w-full border border-gray-300 rounded-lg focus:ring-indigo-500 px-4 py-2.5 outline-none" placeholder="Số nhà, đường phố..." value={street} onChange={e => setStreet(e.target.value)} required />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Ghi chú đơn hàng (tùy chọn)</label>
-              <textarea 
-                className="w-full border border-gray-300 rounded-lg focus:ring-indigo-500 px-4 py-2.5 outline-none resize-none" 
+              <textarea
+                className="w-full border border-gray-300 rounded-lg focus:ring-indigo-500 px-4 py-2.5 outline-none resize-none"
                 placeholder="Ví dụ: Giao hàng giờ hành chính, gọi trước 15 phút..."
                 rows={3}
-                value={note} 
-                onChange={e=>setNote(e.target.value)}
+                value={note}
+                onChange={e => setNote(e.target.value)}
                 maxLength={500}
               />
               <div className="text-xs text-gray-500 mt-1 text-right">{note.length}/500 ký tự</div>
@@ -463,7 +463,7 @@ export default function CheckoutClient({ user, items, store, cartMode }: Checkou
       <div>
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 sticky top-10">
           <h2 className="text-lg font-bold text-gray-900 mb-4 pb-4">Thông tin đơn hàng ({items.length} sản phẩm)</h2>
-          
+
           {/* Items list */}
           <div className="space-y-4 mb-6 max-h-[300px] overflow-y-auto">
             {items.map((item, idx) => (
@@ -514,7 +514,7 @@ export default function CheckoutClient({ user, items, store, cartMode }: Checkou
                   <button onClick={() => setSelectedVoucherId('')} className="text-xs text-rose-500 font-medium hover:underline">Bỏ chọn</button>
                 )}
               </div>
-              
+
               {vouchers.length === 0 ? (
                 <div className="text-sm text-gray-500 bg-gray-50 p-3 rounded-xl border border-gray-100 text-center">Không có mã giảm giá phù hợp</div>
               ) : (
@@ -523,16 +523,15 @@ export default function CheckoutClient({ user, items, store, cartMode }: Checkou
                     {vouchers.map(v => {
                       const isSelected = selectedVoucherId === v.id;
                       return (
-                        <div 
-                          key={v.id} 
+                        <div
+                          key={v.id}
                           onClick={() => setSelectedVoucherId(v.id)}
-                          className={`flex-none w-[200px] p-3 rounded-xl border cursor-pointer transition-all ${
-                            isSelected 
-                              ? 'border-indigo-600 bg-indigo-50/30 ring-1 ring-indigo-600 shadow-sm' 
-                              : 'border-gray-200 hover:border-indigo-300 bg-white'
-                          }`}
+                          className={`flex-none w-[200px] p-3 rounded-xl border cursor-pointer transition-all ${isSelected
+                            ? 'bg-sky-50'
+                            : 'border-gray-200 hover:border-indigo-300 bg-white'
+                            }`}
                         >
-                          <div className="font-bold text-sm bg-indigo-600 text-white inline-block px-2 py-0.5 rounded text-[10px] mb-1.5 uppercase">{v.code}</div>
+                          <div className="font-bold text-sm bg-sky-500 text-white inline-block px-2 py-0.5 rounded text-[10px] mb-1.5 uppercase">{v.code}</div>
                           <div className="text-sm font-bold text-gray-900 mb-0.5">
                             {v.type === 'STACK' ? (
                               (() => {
@@ -556,24 +555,6 @@ export default function CheckoutClient({ user, items, store, cartMode }: Checkou
                       );
                     })}
                   </div>
-
-                  {/* Stack tier progress info */}
-                  {selectedVoucherId && stackTierInfo && (
-                    <div className="mt-3 p-3 bg-orange-50 border border-orange-200 rounded-xl text-sm">
-                      <div className="font-medium text-orange-800">
-                        📊 {stackTierInfo.next?.conditionType === 'amount' 
-                          ? `Đơn hàng ${formatPrice(subtotal)}` 
-                          : `Bạn có ${distinctProductCount} SP khác nhau`} → Giảm <strong>{formatPrice(stackTierInfo.current)}</strong>
-                      </div>
-                      {stackTierInfo.next && (
-                        <div className="text-xs text-orange-600 mt-1">
-                          💡 {stackTierInfo.next.conditionType === 'amount' 
-                            ? `Mua thêm ${formatPrice(stackTierInfo.next.threshold - subtotal)} nữa` 
-                            : `Thêm ${stackTierInfo.next.threshold - distinctProductCount} SP nữa`} → Giảm {stackTierInfo.next.type === 'PERCENT' ? `${stackTierInfo.next.discount}%` : formatPrice(stackTierInfo.next.discount)}!
-                        </div>
-                      )}
-                    </div>
-                  )}
                 </>
               )}
             </div>
@@ -587,8 +568,8 @@ export default function CheckoutClient({ user, items, store, cartMode }: Checkou
                     <div className="text-xs text-gray-500">Tối đa {formatPrice(maxPointsApplicable)}</div>
                   </div>
                   <label className="relative inline-flex items-center cursor-pointer">
-                    <input 
-                      type="checkbox" className="sr-only peer" 
+                    <input
+                      type="checkbox" className="sr-only peer"
                       checked={useCommissionPoints}
                       onChange={(e) => setUseCommissionPoints(e.target.checked)}
                       disabled={maxPointsApplicable <= 0 && !useCommissionPoints}
@@ -608,7 +589,7 @@ export default function CheckoutClient({ user, items, store, cartMode }: Checkou
             <div className="flex justify-between text-gray-600"><span>Tạm tính</span><span>{formatPrice(subtotal)}</span></div>
             <div className="flex justify-between text-gray-600">
               <span className="flex items-center">
-                Phí vận chuyển 
+                Phí vận chuyển
                 {isCalculatingFee && (
                   <svg className="animate-spin ml-2 h-4 w-4 text-indigo-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>

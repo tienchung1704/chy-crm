@@ -332,9 +332,10 @@ export class VouchersService implements OnModuleInit {
     maxDiscount?: number;
     minOrderValue?: number;
     durationDays?: number;
+    perCustomerLimit?: number;
     stackTiers?: any;
   }) {
-    const { orderId, name, type, value, maxDiscount, minOrderValue, durationDays, stackTiers } = data;
+    const { orderId, name, type, value, maxDiscount, minOrderValue, durationDays, perCustomerLimit, stackTiers } = data;
 
     // Find the order
     const order = await this.prisma.order.findUnique({
@@ -384,8 +385,8 @@ export class VouchersService implements OnModuleInit {
         minOrderValue: voucherMinOrder || 0,
         durationDays: durationDays || null,
         stackTiers: stackTiers || null,
-        perCustomerLimit: 1,
-        totalUsageLimit: 1,
+        perCustomerLimit: perCustomerLimit ?? 1,
+        totalUsageLimit: perCustomerLimit ?? 1,
         isActive: true,
         storeId: order.storeId || null,
       },

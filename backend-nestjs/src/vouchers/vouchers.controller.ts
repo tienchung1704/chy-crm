@@ -130,6 +130,7 @@ export class VouchersController {
       maxDiscount?: number;
       minOrderValue?: number;
       durationDays?: number;
+      perCustomerLimit?: number;
       stackTiers?: any;
     }
   ) {
