@@ -95,4 +95,14 @@ export class AdminNotificationsService {
 
     return { updated: result.count };
   }
+
+  /**
+   * Delete a single notification
+   */
+  async deleteNotification(id: string) {
+    await this.prisma.adminNotification.delete({
+      where: { id },
+    });
+    return { deleted: true };
+  }
 }

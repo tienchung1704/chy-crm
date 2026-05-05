@@ -16,9 +16,19 @@ export default function QrClaimModal() {
   const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
   
   const [isPending, startTransition] = useTransition();
+  const [isSendingOtp, setIsSendingOtp] = useState(false);
+  const [countdown, setCountdown] = useState(0);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [orderInfo, setOrderInfo] = useState<any>(null);
   const [isLoadingOrder, setIsLoadingOrder] = useState(false);
+
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (countdown > 0) {
+      timer = setTimeout(() => setCountdown(countdown - 1), 1000);
+    }
+    return () => clearTimeout(timer);
+  }, [countdown]);
 
   useEffect(() => {
     const campaign = searchParams.get('campaign');
@@ -73,6 +83,33 @@ export default function QrClaimModal() {
     }
   };
 
+  const handleSendOtp = async () => {
+    if (!phone.trim() || phone.trim().length < 9) {
+      setMessage({ type: 'error', text: 'Vui lòng nhập số điện thoại hợp lệ trước khi lấy mã' });
+      return;
+    }
+
+    setIsSendingOtp(true);
+    setMessage(null);
+
+    try {
+      // Must dynamically import to avoid circular dependencies if any, but regular import is fine.
+      const { sendOtpAction } = await import('@/actions/qrClaimActions');
+      const result = await sendOtpAction(phone);
+      
+      if (result.success) {
+        setMessage({ type: 'success', text: result.message });
+        setCountdown(60);
+      } else {
+        setMessage({ type: 'error', text: result.message });
+      }
+    } catch (error) {
+      setMessage({ type: 'error', text: 'Không thể gửi mã. Vui lòng thử lại.' });
+    } finally {
+      setIsSendingOtp(false);
+    }
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setMessage(null);
@@ -94,8 +131,7 @@ export default function QrClaimModal() {
     }
 
     startTransition(async () => {
-      // NOTE: OTP validation could be added in backend. For now, it passes through.
-      const result = await claimQrRewardAction(orderCode, phone);
+      const result = await claimQrRewardAction(orderCode, phone, otpString);
       
       if (result.success) {
         setMessage({ type: 'success', text: result.message });
@@ -210,16 +246,32 @@ export default function QrClaimModal() {
             <label htmlFor="phone" className="block text-sm text-gray-800 mb-2">
               Nhập số điện thoại mua hàng
             </label>
-            <input
-              id="phone"
-              type="tel"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value.replace(/[^\d+]/g, ''))}
-              placeholder="0919900786"
-              disabled={isPending}
-              className="w-full max-w-[240px] text-center px-4 py-2 border border-gray-300 rounded-lg text-base text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#ff3b3b] focus:border-transparent disabled:bg-gray-50 mb-4"
-              maxLength={15}
-            />
+            <div className="flex gap-2 items-center justify-center w-full max-w-[300px] mb-4">
+              <input
+                id="phone"
+                type="tel"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value.replace(/[^\d+]/g, ''))}
+                placeholder="0919900786"
+                disabled={isPending}
+                className="w-full text-center px-4 py-2 border border-gray-300 rounded-lg text-base text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#ff3b3b] focus:border-transparent disabled:bg-gray-50"
+                maxLength={15}
+              />
+              <button
+                type="button"
+                onClick={handleSendOtp}
+                disabled={isSendingOtp || countdown > 0 || phone.length < 9 || isPending}
+                className="flex-shrink-0 px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-800 text-sm font-medium rounded-lg transition-colors border border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed min-w-[90px]"
+              >
+                {isSendingOtp ? (
+                  <span className="w-4 h-4 border-2 border-gray-400 border-t-gray-800 rounded-full animate-spin inline-block" />
+                ) : countdown > 0 ? (
+                  `Gửi lại (${countdown}s)`
+                ) : (
+                  'Lấy mã'
+                )}
+              </button>
+            </div>
 
             <label className="block text-sm text-gray-800 mb-2 mt-2">
               Mã xác thực (SMS)

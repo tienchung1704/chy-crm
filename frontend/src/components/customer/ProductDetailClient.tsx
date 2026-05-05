@@ -53,7 +53,7 @@ interface Product {
   soldCount: number;
   imageUrl: string | null;
   isComboSet: boolean;
-  categories: { name: string }[];
+  categories: { id: string; name: string }[];
   variants: ProductVariant[];
   store?: { id: string; name: string; slug: string; logoUrl: string | null } | null;
 }
@@ -305,7 +305,12 @@ export default function ProductDetailClient({ product, relatedProducts = [], ini
           <span>/</span>
           {product.categories.length > 0 && (
             <>
-              <span className="text-gray-700">{product.categories[0].name}</span>
+              <button 
+                onClick={() => router.push(`/portal/products?category=${product.categories[0].id}`)} 
+                className="hover:text-indigo-600 transition-colors text-gray-700"
+              >
+                {product.categories[0].name}
+              </button>
               <span>/</span>
             </>
           )}
@@ -585,7 +590,7 @@ export default function ProductDetailClient({ product, relatedProducts = [], ini
             <h3 className="text-2xl font-bold text-gray-900 mb-8">
               Sản phẩm liên quan
             </h3>
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3 sm:gap-5">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-5">
               {relatedProducts.filter(rp => rp.stockQuantity > 0).map(rp => {
                 const finalPrice = rp.salePrice || rp.originalPrice;
                 const hasDiscount = rp.salePrice && rp.salePrice < rp.originalPrice;
@@ -601,15 +606,15 @@ export default function ProductDetailClient({ product, relatedProducts = [], ini
                     onClick={() => router.push(`/portal/products/${rp.slug}`)}
                   >
                     {/* Product Image */}
-                    <div className="relative aspect-square bg-gradient-to-br from-gray-50 to-gray-100 overflow-hidden">
+                    <div className="relative bg-gradient-to-br from-gray-50 to-gray-100 overflow-hidden" style={{ paddingBottom: '125%' }}>
                       {rp.imageUrl ? (
                         <img
                           src={rp.imageUrl}
                           alt={rp.name}
-                          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500 ease-out"
+                          className="absolute inset-0 w-full h-full object-cover group-hover:scale-110 transition-transform duration-500 ease-out"
                         />
                       ) : (
-                        <div className="w-full h-full flex items-center justify-center">
+                        <div className="absolute inset-0 w-full h-full flex items-center justify-center">
                           <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-100 to-purple-100 flex items-center justify-center">
                             <ShoppingBag className="w-8 h-8 text-blue-300" />
                           </div>

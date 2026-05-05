@@ -3,6 +3,7 @@ import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { PrismaService } from '../prisma/prisma.service';
 import { Cron, CronExpression } from '@nestjs/schedule';
+import { SmsService } from '../integrations/sms/sms.service';
 
 @Injectable()
 export class VouchersService implements OnModuleInit {
@@ -10,6 +11,7 @@ export class VouchersService implements OnModuleInit {
 
   constructor(
     private readonly prisma: PrismaService,
+    private readonly smsService: SmsService,
     @Optional() @InjectQueue('voucher-queue') private voucherQueue?: Queue,
   ) {}
 
@@ -113,7 +115,59 @@ export class VouchersService implements OnModuleInit {
     return voucher;
   }
 
-  async claimQRVoucher(userId: string, orderCode: string, phone: string, voucherId?: string) {
+  async sendOtp(phone: string) {
+    // Normalize phone
+    const normalizedPhone = phone.replace(/[\s\-]/g, '');
+    if (!normalizedPhone || normalizedPhone.length < 9) {
+      throw new BadRequestException('Số điện thoại không hợp lệ');
+    }
+
+    // Check if there's an existing unexpired OTP to prevent spam
+    const existingOtp = await this.prisma.otpRecord.findFirst({
+      where: {
+        phone: normalizedPhone,
+        isUsed: false,
+        expiresAt: { gt: new Date() },
+      },
+    });
+
+    if (existingOtp) {
+      // Check if it was created less than 60 seconds ago
+      const now = new Date();
+      const diffSecs = (now.getTime() - existingOtp.createdAt.getTime()) / 1000;
+      if (diffSecs < 60) {
+        throw new BadRequestException('Vui lòng đợi 60 giây trước khi yêu cầu mã mới.');
+      }
+    }
+
+    // Generate 6-digit OTP
+    const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+
+    // Expire in 5 minutes
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
+
+    // Save to DB
+    await this.prisma.otpRecord.create({
+      data: {
+        phone: normalizedPhone,
+        otpCode,
+        expiresAt,
+      },
+    });
+
+    // Send SMS
+    const isSent = await this.smsService.sendOtpSms(normalizedPhone, otpCode);
+    if (!isSent) {
+      throw new BadRequestException('Không thể gửi tin nhắn SMS lúc này. Vui lòng thử lại sau.');
+    }
+
+    return {
+      success: true,
+      message: 'Mã OTP đã được gửi đến số điện thoại của bạn.',
+    };
+  }
+
+  async claimQRVoucher(userId: string, orderCode: string, phone: string, voucherId?: string, otp?: string) {
     const MAX_QR_CLAIMS = 5;
     
     // Get lock duration from system config, fallback to 7 days
@@ -134,6 +188,30 @@ export class VouchersService implements OnModuleInit {
     if (existingClaim) {
       throw new BadRequestException('Mã đơn hàng này đã được sử dụng để nhận quà');
     }
+
+    if (!otp) {
+      throw new BadRequestException('Vui lòng nhập mã OTP');
+    }
+
+    // Verify OTP
+    const otpRecord = await this.prisma.otpRecord.findFirst({
+      where: {
+        phone: normalizedPhone,
+        otpCode: otp,
+        isUsed: false,
+        expiresAt: { gt: new Date() },
+      },
+    });
+
+    if (!otpRecord) {
+      throw new BadRequestException('Mã OTP không hợp lệ hoặc đã hết hạn');
+    }
+
+    // Mark OTP as used
+    await this.prisma.otpRecord.update({
+      where: { id: otpRecord.id },
+      data: { isUsed: true },
+    });
 
     // --- VERIFY ORDER EXISTS AND STATUS ---
     // Try to find order by orderCode (internal CRM orders)

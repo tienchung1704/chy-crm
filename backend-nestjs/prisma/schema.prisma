@@ -696,3 +696,15 @@ model AdminNotification {
   @@index([isRead, createdAt])
   @@map("admin_notifications")
 }
+
+model OtpRecord {
+  id        String   @id @default(uuid())
+  phone     String
+  otpCode   String   @map("otp_code")
+  isUsed    Boolean  @default(false) @map("is_used")
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([phone, isUsed, expiresAt])
+  @@map("otp_records")
+}

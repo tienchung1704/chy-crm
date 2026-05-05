@@ -94,6 +94,15 @@ export class VouchersController {
     return this.vouchersService.create(data, user);
   }
 
+  @Post('send-otp')
+  @Public()
+  @ApiOperation({ summary: 'Send SMS OTP for QR claim' })
+  async sendOtp(
+    @Body() dto: { phone: string }
+  ) {
+    return this.vouchersService.sendOtp(dto.phone);
+  }
+
   @Post('claim-qr')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Claim a QR voucher' })
@@ -106,6 +115,7 @@ export class VouchersController {
       dto.orderCode,
       dto.phone,
       dto.voucherId,
+      dto.otp,
     );
   }
 

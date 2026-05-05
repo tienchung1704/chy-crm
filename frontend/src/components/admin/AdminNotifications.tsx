@@ -101,6 +101,18 @@ export default function AdminNotifications() {
     }
   };
 
+  const deleteNotification = async (id: string, wasUnread: boolean) => {
+    try {
+      await apiClientClient.delete(`/admin/notifications/${id}`);
+      setNotifications(prev => prev.filter(n => n.id !== id));
+      if (wasUnread) {
+        setUnreadCount(prev => Math.max(0, prev - 1));
+      }
+    } catch (error) {
+      console.error('Failed to delete notification:', error);
+    }
+  };
+
   const filteredNotifications = notifications.filter(n => n.type === activeTab);
 
   return (
@@ -168,12 +180,24 @@ export default function AdminNotifications() {
                 {filteredNotifications.map((notification) => (
                   <div 
                     key={notification.id} 
-                    className={`p-4 hover:bg-gray-50 transition-colors ${!notification.isRead ? 'bg-indigo-50/30' : ''}`}
+                    className={`relative group/notif p-4 hover:bg-gray-50 transition-colors ${!notification.isRead ? 'bg-indigo-50/30' : ''}`}
                     onClick={() => {
                       if (!notification.isRead) markAsRead(notification.id);
                       setIsOpen(false);
                     }}
                   >
+                    {/* Delete button */}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        deleteNotification(notification.id, !notification.isRead);
+                      }}
+                      className="absolute top-2 right-2 w-5 h-5 flex items-center justify-center rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-200 opacity-0 group-hover/notif:opacity-100 transition-opacity z-10"
+                      title="Xóa thông báo"
+                    >
+                      <X size={12} />
+                    </button>
+
                     {notification.link ? (
                       <Link href={notification.link} className="block">
                         <div className="flex gap-3">

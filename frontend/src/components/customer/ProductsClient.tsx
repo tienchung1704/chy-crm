@@ -267,15 +267,23 @@ export default function ProductsClient({
 
   const [searchQuery, setSearchQuery] = useState(initialQuery);
 
-  // Sync searchQuery with URL changes
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>(
+    searchParams.get('category') ? [searchParams.get('category') as string] : []
+  );
+
+  // Sync searchQuery and category with URL changes
   useEffect(() => {
     const q = searchParams.get('q') || '';
     if (q !== searchQuery) {
       setSearchQuery(q);
     }
+    const cat = searchParams.get('category');
+    if (cat && !selectedCategoryIds.includes(cat)) {
+      setSelectedCategoryIds([cat]);
+    } else if (!cat && searchParams.has('q') === false && selectedCategoryIds.length === 1 && searchParams.toString() !== '') {
+      // Just let it be unless specifically cleared by other means
+    }
   }, [searchParams]);
-
-  const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
   const [selectedProvinceId, setSelectedProvinceId] = useState<string | null>(null);
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
@@ -771,7 +779,7 @@ export default function ProductsClient({
             </div>
           ) : (
             <>
-              <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3 sm:gap-4">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:gap-5 gap-3 sm:gap-4">
                 {currentProducts.map((product, index) => {
                   const finalPrices = [product.salePrice || product.originalPrice];
                   const originalPrices = [product.originalPrice];
@@ -813,7 +821,7 @@ export default function ProductsClient({
                       onClick={() => router.push(`/portal/products/${product.slug}`)}
                     >
                       {/* Product Image */}
-                      <div className="relative bg-gray-50 overflow-hidden" style={{ paddingBottom: '110%' }}>
+                      <div className="relative bg-gray-50 overflow-hidden" style={{ paddingBottom: '125%' }}>
                         {product.imageUrl ? (
                           <img
                             src={product.imageUrl}

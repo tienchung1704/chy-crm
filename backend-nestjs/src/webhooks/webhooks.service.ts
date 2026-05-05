@@ -5,6 +5,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { ViettelPostWebhookDto } from './dto/viettelpost-webhook.dto';
 import * as crypto from 'crypto';
 import { AdminNotificationsService } from '../modules/admin-notifications/admin-notifications.service';
+import { PancakeService } from '../integrations/pancake/pancake.service';
 
 @Injectable()
 export class WebhooksService {
@@ -14,6 +15,7 @@ export class WebhooksService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly adminNotificationsService: AdminNotificationsService,
+    private readonly pancakeService: PancakeService,
     @Optional() @InjectQueue('voucher-queue') private voucherQueue?: Queue,
   ) {}
 
@@ -148,8 +150,39 @@ export class WebhooksService {
     });
 
     if (orders.length === 0) {
-      this.logger.warn(`⚠️ No order found for tracking code ${ORDER_NUMBER}. Skipping order update.`);
-      return;
+      this.logger.warn(`⚠️ No order found for tracking code ${ORDER_NUMBER}. Attempting Pancake sync...`);
+
+      // Try to find and sync order from Pancake by tracking code
+      const synced = await this.tryPancakeSyncByTrackingCode(ORDER_NUMBER);
+      if (synced) {
+        // Re-query after sync
+        const retryOrders = await this.prisma.order.findMany({
+          where: {
+            OR: [
+              { orderCode: ORDER_NUMBER },
+              { metadata: { path: '$.partner.trackingCode', equals: ORDER_NUMBER } },
+            ],
+          },
+        });
+        if (retryOrders.length > 0) {
+          this.logger.log(`✅ Found order after Pancake sync, continuing webhook processing.`);
+          // Process with found orders - fall through to the for loop below
+          orders.push(...retryOrders);
+        }
+      }
+
+      // Still no order after Pancake sync attempt
+      if (orders.length === 0) {
+        // Still fire notification so admin knows a webhook came in
+        await this.adminNotificationsService.createNotification({
+          type: 'ORDER',
+          title: `Cập nhật vận chuyển: ${ORDER_NUMBER}`,
+          message: `${STATUS_NAME || `VTP-${ORDER_STATUS}`} (không tìm thấy đơn hàng liên kết)`,
+          link: '/admin/orders',
+          metadata: { trackingCode: ORDER_NUMBER, status: ORDER_STATUS, statusName: STATUS_NAME },
+        });
+        return;
+      }
     }
 
     for (const order of orders) {
@@ -207,13 +240,32 @@ export class WebhooksService {
         `✅ Order ${order.orderCode} updated: status → ${newOrderStatus || '(unchanged)'}, courier update added`,
       );
 
+      // Build meaningful notification message
+      const previousStatus = order.status;
+      const statusChanged = newOrderStatus && newOrderStatus !== previousStatus;
+      const statusLabelMap: Record<string, string> = {
+        PENDING: 'Chờ xác nhận', CONFIRMED: 'Đã xác nhận', WAITING_FOR_GOODS: 'Chờ hàng',
+        PACKAGING: 'Đang đóng gói', WAITING_FOR_SHIPPING: 'Chờ vận chuyển', SHIPPED: 'Đang giao hàng',
+        DELIVERED: 'Đã nhận hàng', PAYMENT_COLLECTED: 'Đã thu tiền', COMPLETED: 'Hoàn thành',
+        CANCELLED: 'Đã hủy', REFUNDED: 'Hoàn trả', RETURNING: 'Đang hoàn',
+      };
+
+      let nMessage: string;
+      if (statusChanged) {
+        const oldLabel = statusLabelMap[previousStatus] || previousStatus;
+        const newLabel = statusLabelMap[newOrderStatus] || newOrderStatus;
+        nMessage = `${oldLabel} → ${newLabel}`;
+      } else {
+        nMessage = STATUS_NAME || `VTP-${ORDER_STATUS}`;
+      }
+
       // Trigger admin notification
       await this.adminNotificationsService.createNotification({
         type: 'ORDER',
-        title: `Đơn hàng ${order.orderCode} có cập nhật`,
-        message: `Trạng thái vận chuyển: ${STATUS_NAME || newOrderStatus || 'Có cập nhật mới'}`,
+        title: `Đơn hàng ${order.orderCode} cập nhật vận chuyển`,
+        message: nMessage,
         link: `/admin/orders/${order.id}`,
-        metadata: { orderId: order.id, orderCode: order.orderCode, status: newOrderStatus },
+        metadata: { orderId: order.id, orderCode: order.orderCode, status: newOrderStatus, previousStatus, trackingCode: ORDER_NUMBER },
       });
     }
   }
@@ -424,6 +476,57 @@ export class WebhooksService {
     } catch (error) {
       this.logger.error(`❌ Failed to activate voucher: ${error.message}`);
       throw error;
+    }
+  }
+
+  /**
+   * Try to find an order on Pancake by ViettelPost tracking code and sync it
+   */
+  private async tryPancakeSyncByTrackingCode(trackingCode: string): Promise<boolean> {
+    try {
+      // Get any active Pancake integration
+      const integration = await this.prisma.storeIntegration.findFirst({
+        where: { platform: 'PANCAKE', isActive: true },
+        include: { store: true },
+      });
+
+      if (!integration || !integration.store) {
+        this.logger.warn('[VTP→Pancake] No active Pancake integration found');
+        return false;
+      }
+
+      // Search Pancake orders by tracking code
+      const pancakeOrders = await this.pancakeService.fetchOrdersByPhone(trackingCode, integration.storeId);
+      
+      if (!pancakeOrders || pancakeOrders.length === 0) {
+        this.logger.log(`[VTP→Pancake] No Pancake orders found for tracking code: ${trackingCode}`);
+        return false;
+      }
+
+      // Find the order whose partner.extend_code matches the tracking code
+      const matchingOrder = pancakeOrders.find((o: any) => {
+        const partnerCode = o.partner?.extend_code || o.extend_code;
+        return partnerCode === trackingCode;
+      });
+
+      if (!matchingOrder) {
+        this.logger.log(`[VTP→Pancake] No matching extend_code in ${pancakeOrders.length} results for: ${trackingCode}`);
+        return false;
+      }
+
+      this.logger.log(`[VTP→Pancake] Found Pancake order ${matchingOrder.id} with tracking code ${trackingCode}. Syncing...`);
+      
+      const result = await this.pancakeService.syncSingleOrder(matchingOrder, integration.storeId);
+      
+      if (result.synced) {
+        this.logger.log(`[VTP→Pancake] Successfully synced order PCK-${matchingOrder.id}`);
+        return true;
+      }
+
+      return false;
+    } catch (error) {
+      this.logger.error(`[VTP→Pancake] Error attempting Pancake sync: ${error.message}`);
+      return false;
     }
   }
 }

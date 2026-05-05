@@ -10,10 +10,31 @@ interface ClaimResult {
   claimCount?: number;
 }
 
-export async function claimQrRewardAction(orderCode: string, phone: string): Promise<ClaimResult> {
+export async function sendOtpAction(phone: string): Promise<{ success: boolean; message: string }> {
+  try {
+    const trimmedPhone = phone.trim();
+    if (!trimmedPhone || trimmedPhone.length < 9) {
+      return { success: false, message: 'Số điện thoại không hợp lệ' };
+    }
+
+    const result = await apiClient.post<any>('/vouchers/send-otp', { phone: trimmedPhone });
+    return {
+      success: true,
+      message: result.message || 'Đã gửi mã OTP',
+    };
+  } catch (error: any) {
+    return {
+      success: false,
+      message: error.response?.data?.message || 'Không thể gửi OTP lúc này',
+    };
+  }
+}
+
+export async function claimQrRewardAction(orderCode: string, phone: string, otp: string): Promise<ClaimResult> {
   try {
     const trimmedOrderCode = orderCode.trim().toUpperCase();
     const trimmedPhone = phone.trim();
+    const trimmedOtp = otp.trim();
 
     if (!trimmedOrderCode || trimmedOrderCode.length < 5) {
       return {
@@ -29,9 +50,17 @@ export async function claimQrRewardAction(orderCode: string, phone: string): Pro
       };
     }
 
+    if (!trimmedOtp || trimmedOtp.length < 6) {
+      return {
+        success: false,
+        message: 'Vui lòng nhập đủ 6 số OTP',
+      };
+    }
+
     const result = await apiClient.post<any>('/vouchers/claim-qr', {
       orderCode: trimmedOrderCode,
       phone: trimmedPhone,
+      otp: trimmedOtp,
     });
 
     if (result.success) {

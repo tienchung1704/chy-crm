@@ -12,4 +12,8 @@ export class ClaimQRVoucherDto {
   @IsUUID()
   @IsOptional()
   voucherId?: string;
+
+  @IsString()
+  @IsNotEmpty()
+  otp: string;
 }

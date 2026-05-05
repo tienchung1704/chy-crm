@@ -449,13 +449,22 @@ export class PancakeService {
   }
 
   /**
-   * Update user rank and spent
+   * Recalculate user totalSpent from actual completed/delivered orders and update rank
    */
-  private async updateUserRankAndSpent(userId: string, addedSpent: number) {
+  private async updateUserRankAndSpent(userId: string, _addedSpent?: number) {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) return;
 
-    const newTotalSpent = user.totalSpent + addedSpent;
+    // Recalculate totalSpent from actual orders in creditable statuses
+    const result = await this.prisma.order.aggregate({
+      where: {
+        userId,
+        status: { in: ['COMPLETED', 'DELIVERED', 'PAYMENT_COLLECTED'] },
+      },
+      _sum: { totalAmount: true },
+    });
+
+    const newTotalSpent = result._sum.totalAmount || 0;
 
     await this.prisma.user.update({
       where: { id: userId },
@@ -463,7 +472,7 @@ export class PancakeService {
     });
 
     await this.usersService.updateUserRank(userId);
-    this.logger.log(`[Pancake] User ${userId} updated. New Total Spent: ${newTotalSpent}`);
+    this.logger.log(`[Pancake] User ${userId} totalSpent recalculated: ${newTotalSpent}`);
   }
 
   /**
