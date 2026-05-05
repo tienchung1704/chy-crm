@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { apiClientClient } from '@/lib/apiClientClient';
+import Select from '@/components/ui/Select';
 
 export default function SpinPrizeActions() {
   const [showModal, setShowModal] = useState(false);
@@ -169,16 +170,12 @@ export default function SpinPrizeActions() {
                         <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="prize-color">
                           Màu sắc
                         </label>
-                        <select 
-                          id="prize-color" 
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                          value={form.color} 
-                          onChange={e => update('color', e.target.value)}
-                        >
-                          {colorOptions.map(opt => (
-                            <option key={opt.value} value={opt.value}>{opt.label}</option>
-                          ))}
-                        </select>
+                        <Select
+                          value={form.color}
+                          onChange={(val) => update('color', val)}
+                          className="w-full"
+                          options={colorOptions}
+                        />
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="prize-prob">
@@ -249,16 +246,16 @@ export default function SpinPrizeActions() {
                       <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="v-type">
                         Loại giảm giá
                       </label>
-                      <select 
-                        id="v-type" 
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        value={form.voucherType} 
-                        onChange={e => update('voucherType', e.target.value)}
-                      >
-                        <option value="PERCENT">Giảm %</option>
-                        <option value="FIXED_AMOUNT">Giảm tiền mặt</option>
-                        <option value="FREESHIP">Free ship</option>
-                      </select>
+                      <Select
+                        value={form.voucherType}
+                        onChange={(val) => update('voucherType', val)}
+                        className="w-full"
+                        options={[
+                          { value: 'PERCENT', label: 'Giảm %' },
+                          { value: 'FIXED_AMOUNT', label: 'Giảm tiền mặt' },
+                          { value: 'FREESHIP', label: 'Free ship' }
+                        ]}
+                      />
                     </div>
 
                     <div className="grid grid-cols-3 gap-4">

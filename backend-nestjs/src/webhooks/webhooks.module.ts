@@ -7,6 +7,7 @@ import { CassoController } from './casso.controller';
 import { CassoService } from './casso.service';
 import { OrdersModule } from '../orders/orders.module';
 import { CommissionsModule } from '../commissions/commissions.module';
+import { AdminNotificationsModule } from '../admin-notifications/admin-notifications.module';
 
 const logger = new Logger('WebhooksModule');
 
@@ -33,6 +34,7 @@ function getQueueImports(): any[] {
     PrismaModule,
     OrdersModule,
     CommissionsModule,
+    AdminNotificationsModule,
     ...getQueueImports(), // Conditionally load queue modules
   ],
   controllers: [WebhooksController, CassoController],

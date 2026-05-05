@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { apiClientClient } from '@/lib/apiClientClient';
+import Select from '@/components/ui/Select';
 
 interface OrderStatusManagerProps {
   orderId: string;
@@ -91,34 +92,24 @@ export default function OrderStatusManager({
           <label className="block text-sm font-semibold text-gray-700 mb-2">
             Trạng thái đơn hàng
           </label>
-          <select
+          <Select
             value={status}
-            onChange={(e) => setStatus(e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          >
-            {statusOptions.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
+            onChange={(val) => setStatus(val)}
+            options={statusOptions}
+            className="w-full"
+          />
         </div>
 
         <div>
           <label className="block text-sm font-semibold text-gray-700 mb-2">
             Trạng thái thanh toán
           </label>
-          <select
+          <Select
             value={paymentStatus}
-            onChange={(e) => setPaymentStatus(e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          >
-            {paymentStatusOptions.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
+            onChange={(val) => setPaymentStatus(val)}
+            options={paymentStatusOptions}
+            className="w-full"
+          />
         </div>
 
         <button

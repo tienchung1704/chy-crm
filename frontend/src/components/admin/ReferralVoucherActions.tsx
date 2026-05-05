@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { apiClientClient } from '@/lib/apiClientClient';
+import Select from '@/components/ui/Select';
 
 export default function ReferralVoucherActions() {
   const [showModal, setShowModal] = useState(false);
@@ -137,16 +138,16 @@ export default function ReferralVoucherActions() {
                     <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="rv-type">
                       Loại giảm giá
                     </label>
-                    <select
-                      id="rv-type"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    <Select
                       value={form.type}
-                      onChange={e => update('type', e.target.value)}
-                    >
-                      <option value="PERCENT">Giảm %</option>
-                      <option value="FIXED_AMOUNT">Giảm tiền mặt</option>
-                      <option value="FREESHIP">Free ship</option>
-                    </select>
+                      onChange={(val) => update('type', val)}
+                      className="w-full"
+                      options={[
+                        { value: 'PERCENT', label: 'Giảm %' },
+                        { value: 'FIXED_AMOUNT', label: 'Giảm tiền mặt' },
+                        { value: 'FREESHIP', label: 'Free ship' }
+                      ]}
+                    />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="rv-value">

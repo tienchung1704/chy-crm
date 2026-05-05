@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { apiClientClient } from '@/lib/apiClientClient';
+import Select from '@/components/ui/Select';
 
 interface VoucherData {
   id: string;
@@ -132,32 +133,34 @@ export default function EditVoucherModal({ voucher, onSaved, onClose }: Props) {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Chiến dịch</label>
-                <select
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                <Select
                   value={form.campaignCategory}
-                  onChange={e => update('campaignCategory', e.target.value)}
-                >
-                  <option value="WELCOME">🎉 Welcome</option>
-                  <option value="VIP">👑 VIP</option>
-                  <option value="BUNDLE">📦 Bundle</option>
-                  <option value="FREESHIP">🚚 Freeship</option>
-                  <option value="GAMIFICATION">🎰 Vòng quay</option>
-                  <option value="REFERRAL">🔗 Referral</option>
-                  <option value="BIRTHDAY">🎂 Sinh nhật</option>
-                </select>
+                  onChange={(val) => update('campaignCategory', val)}
+                  className="w-full"
+                  options={[
+                    { value: 'WELCOME', label: '🎉 Welcome' },
+                    { value: 'VIP', label: '👑 VIP' },
+                    { value: 'BUNDLE', label: '📦 Bundle' },
+                    { value: 'FREESHIP', label: '🚚 Freeship' },
+                    { value: 'GAMIFICATION', label: '🎰 Vòng quay' },
+                    { value: 'REFERRAL', label: '🔗 Referral' },
+                    { value: 'BIRTHDAY', label: '🎂 Sinh nhật' }
+                  ]}
+                />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Loại giảm giá</label>
-                <select
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                <Select
                   value={form.type}
-                  onChange={e => update('type', e.target.value)}
-                >
-                  <option value="PERCENT">Giảm %</option>
-                  <option value="FIXED_AMOUNT">Giảm tiền mặt</option>
-                  <option value="FREESHIP">Free ship</option>
-                  <option value="STACK">📊 Stack (theo SP)</option>
-                </select>
+                  onChange={(val) => update('type', val)}
+                  className="w-full"
+                  options={[
+                    { value: 'PERCENT', label: 'Giảm %' },
+                    { value: 'FIXED_AMOUNT', label: 'Giảm tiền mặt' },
+                    { value: 'FREESHIP', label: 'Free ship' },
+                    { value: 'STACK', label: '📊 Stack (theo SP)' }
+                  ]}
+                />
               </div>
             </div>
 
@@ -224,18 +227,20 @@ export default function EditVoucherModal({ voucher, onSaved, onClose }: Props) {
                     </div>
                   {stackTiers.map((tier, idx) => (
                     <div key={idx} className="grid grid-cols-[140px_90px_1fr_100px_120px_32px] gap-3 items-center">
-                      <select
-                        className="w-full px-1.5 py-1.5 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                      <Select
+                        size="xs"
+                        className="w-full"
                         value={tier.conditionType || 'products'}
-                        onChange={e => {
+                        onChange={(val) => {
                           const updated = [...stackTiers];
-                          updated[idx] = { ...updated[idx], conditionType: e.target.value };
+                          updated[idx] = { ...updated[idx], conditionType: val };
                           setStackTiers(updated);
                         }}
-                      >
-                        <option value="products">Số lượng SP</option>
-                        <option value="amount">Mốc tiền</option>
-                      </select>
+                        options={[
+                          { value: 'products', label: 'Số lượng SP' },
+                          { value: 'amount', label: 'Mốc tiền' }
+                        ]}
+                      />
                       <input
                         type="number"
                         min={tier.conditionType === 'amount' ? 0 : 1}
@@ -264,18 +269,20 @@ export default function EditVoucherModal({ voucher, onSaved, onClose }: Props) {
                         }}
                         placeholder={tier.type === 'PERCENT' ? '10' : '200000'}
                       />
-                      <select
-                        className="w-full px-1.5 py-1.5 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                      <Select
+                        size="xs"
+                        className="w-full"
                         value={tier.type}
-                        onChange={e => {
+                        onChange={(val) => {
                           const updated = [...stackTiers];
-                          updated[idx] = { ...updated[idx], type: e.target.value };
+                          updated[idx] = { ...updated[idx], type: val };
                           setStackTiers(updated);
                         }}
-                      >
-                        <option value="FIXED_AMOUNT">VNĐ</option>
-                        <option value="PERCENT">%</option>
-                      </select>
+                        options={[
+                          { value: 'FIXED_AMOUNT', label: 'VNĐ' },
+                          { value: 'PERCENT', label: '%' }
+                        ]}
+                      />
                       <input
                         type="number"
                         min={0}

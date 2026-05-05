@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { apiClientClient } from '@/lib/apiClientClient';
 import { Pencil, Trash2 } from 'lucide-react';
+import Select from '@/components/ui/Select';
 
 interface Props {
   orderId: string;
@@ -237,19 +238,20 @@ export default function CreateOrderVoucherButton({ orderId, orderCode }: Props) 
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-medium text-gray-600 mb-1">Loại giảm giá</label>
-                  <select
+                  <Select
                     value={customType}
-                    onChange={(e) => {
-                      setCustomType(e.target.value);
-                      if (e.target.value === 'STACK') setStackTiers([...defaultStackTiers]);
+                    onChange={(val) => {
+                      setCustomType(val);
+                      if (val === 'STACK') setStackTiers([...defaultStackTiers]);
                     }}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-amber-500 focus:border-transparent outline-none bg-white"
-                  >
-                    <option value="FIXED_AMOUNT">Giảm tiền (VNĐ)</option>
-                    <option value="PERCENT">Giảm phần trăm (%)</option>
-                    <option value="FREESHIP">Miễn phí vận chuyển</option>
-                    <option value="STACK">📊 Stack (theo SP)</option>
-                  </select>
+                    className="w-full bg-white"
+                    options={[
+                      { value: 'FIXED_AMOUNT', label: 'Giảm tiền (VNĐ)' },
+                      { value: 'PERCENT', label: 'Giảm phần trăm (%)' },
+                      { value: 'FREESHIP', label: 'Miễn phí vận chuyển' },
+                      { value: 'STACK', label: '📊 Stack (theo SP)' }
+                    ]}
+                  />
                 </div>
                 {customType !== 'FREESHIP' && customType !== 'STACK' && (
                   <div>
@@ -289,18 +291,20 @@ export default function CreateOrderVoucherButton({ orderId, orderCode }: Props) 
                     </div>
                     {stackTiers.map((tier, idx) => (
                       <div key={idx} className="grid grid-cols-[120px_80px_1fr_80px_90px_24px] gap-2 items-center">
-                        <select
-                          className="w-full px-1 py-1 border border-gray-300 rounded text-[10px] focus:ring-1 focus:ring-amber-500 focus:border-transparent bg-white"
+                        <Select
+                          size="xs"
+                          className="w-full bg-white"
                           value={tier.conditionType || 'products'}
-                          onChange={e => {
+                          onChange={(val) => {
                             const updated = [...stackTiers];
-                            updated[idx] = { ...updated[idx], conditionType: e.target.value };
+                            updated[idx] = { ...updated[idx], conditionType: val };
                             setStackTiers(updated);
                           }}
-                        >
-                          <option value="products">Số SP</option>
-                          <option value="amount">Tiền</option>
-                        </select>
+                          options={[
+                            { value: 'products', label: 'Số SP' },
+                            { value: 'amount', label: 'Tiền' }
+                          ]}
+                        />
                         <input
                           type="number"
                           min={tier.conditionType === 'amount' ? 0 : 1}
@@ -328,18 +332,20 @@ export default function CreateOrderVoucherButton({ orderId, orderCode }: Props) 
                           }}
                           placeholder={tier.type === 'PERCENT' ? '10' : '50000'}
                         />
-                        <select
-                          className="w-full px-0.5 py-1 border border-gray-300 rounded text-[10px] focus:ring-1 focus:ring-amber-500 focus:border-transparent bg-white"
+                        <Select
+                          size="xs"
+                          className="w-full bg-white"
                           value={tier.type}
-                          onChange={e => {
+                          onChange={(val) => {
                             const updated = [...stackTiers];
-                            updated[idx] = { ...updated[idx], type: e.target.value };
+                            updated[idx] = { ...updated[idx], type: val };
                             setStackTiers(updated);
                           }}
-                        >
-                          <option value="FIXED_AMOUNT">VNĐ</option>
-                          <option value="PERCENT">%</option>
-                        </select>
+                          options={[
+                            { value: 'FIXED_AMOUNT', label: 'VNĐ' },
+                            { value: 'PERCENT', label: '%' }
+                          ]}
+                        />
                         <input
                           type="number"
                           min={0}

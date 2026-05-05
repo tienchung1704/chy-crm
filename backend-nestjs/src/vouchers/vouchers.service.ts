@@ -150,6 +150,7 @@ export class VouchersService implements OnModuleInit {
         status: true,
         shippingPhone: true,
         userId: true,
+        updatedAt: true,
         user: {
           select: { phone: true },
         },
@@ -167,6 +168,7 @@ export class VouchersService implements OnModuleInit {
           status: true,
           shippingPhone: true,
           userId: true,
+          updatedAt: true,
           user: {
             select: { phone: true },
           },
@@ -283,6 +285,36 @@ export class VouchersService implements OnModuleInit {
       throw new NotFoundException('Voucher không tồn tại hoặc đã hết hạn');
     }
 
+    let isImmediatelyActive = false;
+
+    if (voucher.code.startsWith('QR-ORDER-')) {
+      let resolvedStatus = voucher.status || 'AUTO';
+      if (resolvedStatus === 'AUTO') {
+        const isDelivered = order.status === 'DELIVERED' || order.status === 'PAYMENT_COLLECTED' || order.status === 'COMPLETED';
+        if (isDelivered && order.updatedAt) {
+          const deliveredDate = new Date(order.updatedAt);
+          const now = new Date();
+          const diffTime = Math.abs(now.getTime() - deliveredDate.getTime());
+          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+          if (diffDays >= 7) {
+            resolvedStatus = 'ACTIVE';
+          } else {
+            resolvedStatus = 'PENDING';
+          }
+        } else if (order.status === 'CANCELLED' || order.status === 'REFUNDED' || order.status === 'RETURNING') {
+          resolvedStatus = 'LOCKED';
+        } else {
+          resolvedStatus = 'PENDING';
+        }
+      }
+
+      if (resolvedStatus === 'LOCKED') {
+        throw new BadRequestException('Voucher của đơn hàng này đã bị tạm khoá.');
+      } else if (resolvedStatus === 'ACTIVE') {
+        isImmediatelyActive = true;
+      }
+    }
+
     if (voucher.totalUsageLimit !== null && voucher._count.userVouchers >= voucher.totalUsageLimit) {
       throw new BadRequestException('Voucher này đã hết số lượng phát hành');
     }
@@ -300,9 +332,9 @@ export class VouchersService implements OnModuleInit {
         userId,
         voucherId: finalVoucherId,
         sourceOrderCode: orderCode,
-        unlockAt,
+        unlockAt: isImmediatelyActive ? new Date() : unlockAt,
         expiresAt,
-        status: 'PENDING',
+        status: isImmediatelyActive ? 'ACTIVE' : 'PENDING',
         isUsed: false,
       },
       include: {
@@ -311,12 +343,14 @@ export class VouchersService implements OnModuleInit {
     });
 
     this.logger.log(
-      `🎫 User ${userId} claimed voucher ${finalVoucherId} with order ${orderCode}. Status: PENDING, unlock at: ${unlockAt}`,
+      `🎫 User ${userId} claimed voucher ${finalVoucherId} with order ${orderCode}. Status: ${isImmediatelyActive ? 'ACTIVE' : 'PENDING'}, unlock at: ${isImmediatelyActive ? new Date() : unlockAt}`,
     );
 
     return {
       success: true,
-      message: `Chúc mừng! Bạn đã nhận được voucher ${voucher.value.toLocaleString('vi-VN')}đ. Voucher sẽ khả dụng sau ${LOCK_DURATION_DAYS} ngày.`,
+      message: isImmediatelyActive 
+        ? `Chúc mừng! Bạn đã nhận được voucher ${voucher.value.toLocaleString('vi-VN')}đ. Voucher đã có thể sử dụng ngay.`
+        : `Chúc mừng! Bạn đã nhận được voucher ${voucher.value.toLocaleString('vi-VN')}đ. Voucher sẽ khả dụng sau ${LOCK_DURATION_DAYS} ngày.`,
       userVoucher,
     };
   }
@@ -458,6 +492,8 @@ export class VouchersService implements OnModuleInit {
         orderCode: true,
         totalAmount: true,
         shippingPhone: true,
+        status: true,
+        updatedAt: true,
         user: { select: { phone: true } },
       },
     });
@@ -480,8 +516,37 @@ export class VouchersService implements OnModuleInit {
 
       const { userVouchers, ...voucherData } = v;
 
+      let resolvedStatus = voucherData.status || 'AUTO';
+      if (resolvedStatus === 'AUTO') {
+        if (!order) {
+          resolvedStatus = 'PENDING';
+        } else {
+          const isDelivered = order.status === 'DELIVERED' || order.status === 'PAYMENT_COLLECTED' || order.status === 'COMPLETED';
+          if (isDelivered) {
+            if (order.updatedAt) {
+              const deliveredDate = new Date(order.updatedAt);
+              const now = new Date();
+              const diffTime = Math.abs(now.getTime() - deliveredDate.getTime());
+              const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+              if (diffDays >= 7) {
+                resolvedStatus = 'ACTIVE';
+              } else {
+                resolvedStatus = 'PENDING';
+              }
+            } else {
+              resolvedStatus = 'PENDING';
+            }
+          } else if (order.status === 'CANCELLED' || order.status === 'REFUNDED' || order.status === 'RETURNING') {
+            resolvedStatus = 'LOCKED';
+          } else {
+            resolvedStatus = 'PENDING';
+          }
+        }
+      }
+
       return {
         ...voucherData,
+        resolvedStatus,
         orderId: order?.id || null,
         orderCode,
         phone: order?.shippingPhone || order?.user?.phone || 'N/A',

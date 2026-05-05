@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { apiClientClient } from '@/lib/apiClientClient';
+import Select from '@/components/ui/Select';
 
 interface Props {
   storeId: string;
@@ -58,38 +59,21 @@ export default function StoreStatusManager({ storeId, storeName, isActive, isBan
       <h2 className="text-xl font-bold text-gray-800 mb-4">Quản lý trạng thái</h2>
       {/* Action Dropdown */}
       <div className="relative group">
-        <select
+        <Select
           disabled={loading}
           value={isBanned ? 'BANNED' : isActive ? 'ACTIVE' : 'PENDING'}
-          onChange={(e) => {
-            const val = e.target.value;
+          onChange={(val) => {
             if (val === 'ACTIVE') updateStore({ isActive: true, isBanned: false });
             else if (val === 'PENDING') updateStore({ isActive: false, isBanned: false });
             else if (val === 'BANNED') setShowBanModal(true);
           }}
-          className={`
-            w-full appearance-none py-3.5 pl-5 pr-12 rounded-2xl font-bold text-sm
-            border-2 transition-all cursor-pointer outline-none focus:ring-4
-            ${isBanned
-              ? 'bg-red-50 border-red-200 text-red-700 focus:ring-red-100'
-              : isActive
-                ? 'bg-emerald-50 border-emerald-200 text-emerald-700 focus:ring-emerald-100'
-                : 'bg-amber-50 border-amber-200 text-amber-700 focus:ring-amber-100'
-            }
-            disabled:opacity-50 disabled:cursor-not-allowed
-          `}
-        >
-          <option value="ACTIVE">Đang hoạt động</option>
-          <option value="PENDING">Tạm ngưng hoạt động</option>
-          <option value="BANNED">Bị khoá</option>
-        </select>
-
-        {/* Custom Chevron Icon */}
-        <div className="absolute right-5 top-1/2 -translate-y-1/2 pointer-events-none text-current opacity-40 group-hover:opacity-70 transition-opacity">
-          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <path d="m6 9 6 6 6-6" />
-          </svg>
-        </div>
+          options={[
+            { value: 'ACTIVE', label: 'Đang hoạt động' },
+            { value: 'PENDING', label: 'Tạm ngưng hoạt động' },
+            { value: 'BANNED', label: 'Bị khoá' }
+          ]}
+          className="w-full"
+        />
       </div>
 
       {isBanned && bannedReason && (

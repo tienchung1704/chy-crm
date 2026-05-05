@@ -11,10 +11,11 @@ export default function TrackingButton() {
     <>
       <button
         onClick={() => setIsModalOpen(true)}
-        className="px-5 py-2.5 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-semibold flex items-center gap-2 shadow-sm"
+        className="group relative px-6 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl font-medium flex items-center gap-2 shadow-lg shadow-indigo-200 hover:shadow-indigo-300 hover:-translate-y-0.5 transition-all duration-300 overflow-hidden border border-indigo-500/30"
       >
-        <Package className="w-5 h-5 text-yellow-400" />
-        Tra cứu vận chuyển
+        <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 -translate-x-full group-hover:translate-x-full transition-transform duration-700 ease-in-out"></div>
+        <Package className="w-5 h-5 relative z-10 group-hover:scale-110 transition-transform duration-300" />
+        <span className="relative z-10 tracking-wide">Tra cứu vận chuyển</span>
       </button>
 
       <TrackingModal 

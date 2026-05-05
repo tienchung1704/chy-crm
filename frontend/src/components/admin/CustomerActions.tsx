@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { apiClientClient } from '@/lib/apiClientClient';
+import Select from '@/components/ui/Select';
 
 export default function CustomerActions() {
   const [showModal, setShowModal] = useState(false);
@@ -50,7 +51,7 @@ export default function CustomerActions() {
         onClick={() => setShowModal(true)}
         id="add-customer-btn"
       >
-        + Them khach hang
+        + Tạo mới
       </button>
 
       {showModal && (
@@ -130,17 +131,17 @@ export default function CustomerActions() {
                     <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="new-gender">
                       Gioi tinh
                     </label>
-                    <select
-                      id="new-gender"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    <Select
                       value={form.gender}
-                      onChange={(e) => setForm({ ...form, gender: e.target.value })}
-                    >
-                      <option value="">Chon</option>
-                      <option value="MALE">Nam</option>
-                      <option value="FEMALE">Nu</option>
-                      <option value="OTHER">Khac</option>
-                    </select>
+                      onChange={(value) => setForm({ ...form, gender: value })}
+                      options={[
+                        { value: '', label: 'Chọn' },
+                        { value: 'MALE', label: 'Nam' },
+                        { value: 'FEMALE', label: 'Nữ' },
+                        { value: 'OTHER', label: 'Khác' }
+                      ]}
+                      placeholder="Chọn giới tính"
+                    />
                   </div>
 
                   <div>
@@ -167,7 +168,7 @@ export default function CustomerActions() {
                     rows={2}
                     value={form.address}
                     onChange={(e) => setForm({ ...form, address: e.target.value })}
-                    placeholder="So nha, duong, quan huyen, tinh thanh"
+                    placeholder="số nhà, đường, xã, tỉnh"
                   />
                 </div>
               </div>

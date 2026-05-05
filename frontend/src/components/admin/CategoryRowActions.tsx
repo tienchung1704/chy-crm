@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Trash2 } from 'lucide-react';
 import { apiClientClient } from '@/lib/apiClientClient';
+import Select from '@/components/ui/Select';
 
 interface Category {
   id: string;
@@ -184,17 +185,17 @@ export default function CategoryRowActions({ category, allCategories }: Category
                     <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="edit-level">
                       Cấp độ *
                     </label>
-                    <select 
-                      id="edit-level" 
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      value={form.level} 
-                      onChange={e => update('level', e.target.value)}
-                    >
-                      <option value="1">Cấp 1 (Root - Cao nhất)</option>
-                      <option value="2">Cấp 2</option>
-                      <option value="3">Cấp 3</option>
-                      <option value="4">Cấp 4</option>
-                    </select>
+                    <Select
+                      value={form.level}
+                      onChange={(val) => update('level', val)}
+                      className="w-full"
+                      options={[
+                        { value: '1', label: 'Cấp 1 (Root - Cao nhất)' },
+                        { value: '2', label: 'Cấp 2' },
+                        { value: '3', label: 'Cấp 3' },
+                        { value: '4', label: 'Cấp 4' }
+                      ]}
+                    />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="edit-parent">
@@ -208,17 +209,16 @@ export default function CategoryRowActions({ category, allCategories }: Category
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-500"
                       />
                     ) : (
-                      <select 
-                        id="edit-parent" 
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        value={form.parentId} 
-                        onChange={e => update('parentId', e.target.value)}
-                      >
-                        <option value="">-- Chọn danh mục cha --</option>
-                        {getAvailableParents().map(cat => (
-                          <option key={cat.id} value={cat.id}>{cat.name}</option>
-                        ))}
-                      </select>
+                      <Select
+                        value={form.parentId}
+                        onChange={(val) => update('parentId', val)}
+                        className="w-full"
+                        placeholder="-- Chọn danh mục cha --"
+                        options={getAvailableParents().map(cat => ({
+                          value: cat.id,
+                          label: cat.name
+                        }))}
+                      />
                     )}
                   </div>
                 </div>

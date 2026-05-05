@@ -1,6 +1,7 @@
 'use client';
 
 import { Menu } from 'lucide-react';
+import AdminNotifications from './AdminNotifications';
 
 interface AdminHeaderProps {
   user: {
@@ -25,7 +26,7 @@ export default function AdminHeader({ onToggleSidebar }: AdminHeaderProps) {
       </div>
 
       <div className="flex items-center gap-4">
-        {/* Placeholder for other header actions if needed */}
+        <AdminNotifications />
       </div>
     </header>
   );

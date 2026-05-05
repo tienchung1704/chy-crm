@@ -299,6 +299,7 @@ model Voucher {
   isStackable        Boolean          @default(false) @map("is_stackable")
   stackTiers         Json?            @map("stack_tiers")
   isActive           Boolean          @default(true) @map("is_active")
+  status             String           @default("AUTO")
   createdAt          DateTime         @default(now())
   updatedAt          DateTime         @updatedAt
   promotionRules     PromotionRule[]  @relation("CashbackVoucher")
@@ -680,4 +681,18 @@ model SystemConfig {
   updatedAt DateTime @updatedAt
 
   @@map("system_configs")
+}
+
+model AdminNotification {
+  id        String   @id @default(uuid())
+  type      String   // 'ORDER' or 'CUSTOMER'
+  title     String
+  message   String
+  isRead    Boolean  @default(false) @map("is_read")
+  link      String?
+  metadata  Json?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([isRead, createdAt])
+  @@map("admin_notifications")
 }

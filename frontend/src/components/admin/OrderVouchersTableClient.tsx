@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { apiClientClient } from '@/lib/apiClientClient';
 import { Pencil, Trash2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import Select from '@/components/ui/Select';
 
 function fmtVND(amount: number) {
   return new Intl.NumberFormat('vi-VN').format(amount || 0) + ' VND';
@@ -57,6 +58,15 @@ export default function OrderVouchersTableClient() {
     return list;
   }, [vouchers, searchOrderCode, searchPhone, searchStatus]);
 
+  const handleStatusChange = async (id: string, newStatus: string) => {
+    try {
+      await apiClientClient.patch(`/vouchers/${id}`, { status: newStatus });
+      fetchVouchers();
+    } catch (err: any) {
+      alert(err.message || 'Lỗi cập nhật trạng thái');
+    }
+  };
+
   const handleDelete = async (id: string, code: string) => {
     if (!confirm(`Xoá voucher "${code}"?\nHành động không thể hoàn tác.`)) return;
     try {
@@ -79,10 +89,17 @@ export default function OrderVouchersTableClient() {
     if (v.totalUsageLimit && v.usedCount >= v.totalUsageLimit) {
       return { label: 'Đã sử dụng', cls: 'text-gray-500' };
     }
-    if (!v.isActive) {
-      return { label: 'Tắt', cls: 'text-red-600' };
+    
+    switch (v.resolvedStatus) {
+      case 'LOCKED':
+        return { label: 'Bị tạm khoá', cls: 'text-red-600 font-medium' };
+      case 'ACTIVE':
+        return { label: 'Còn hiệu lực', cls: 'text-green-600 font-semibold' };
+      case 'PENDING':
+        return { label: 'Đang chờ', cls: 'text-orange-500 font-semibold' };
+      default:
+        return { label: 'Tắt', cls: 'text-gray-600' };
     }
-    return { label: 'Còn hiệu lực', cls: 'text-green-600 font-semibold' };
   }
 
   return (
@@ -105,15 +122,16 @@ export default function OrderVouchersTableClient() {
             value={searchPhone}
             onChange={e => setSearchPhone(e.target.value)}
           />
-          <select
-            className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent w-40"
+          <Select
+            className="w-40"
             value={searchStatus}
-            onChange={e => setSearchStatus(e.target.value)}
-          >
-            <option value="">Trạng Thái</option>
-            <option value="active">Còn hiệu lực</option>
-            <option value="used">Đã sử dụng</option>
-          </select>
+            onChange={(val) => setSearchStatus(val)}
+            options={[
+              { value: '', label: 'Trạng Thái' },
+              { value: 'active', label: 'Còn hiệu lực' },
+              { value: 'used', label: 'Đã sử dụng' }
+            ]}
+          />
           <button
             className="px-5 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
             onClick={() => {
@@ -188,7 +206,21 @@ export default function OrderVouchersTableClient() {
                       {durationLabel}
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap">
-                      <span className={status.cls}>{status.label}</span>
+                      {v.totalUsageLimit && v.usedCount >= v.totalUsageLimit ? (
+                        <span className={status.cls}>{status.label}</span>
+                      ) : (
+                        <Select
+                          value={v.status || 'AUTO'}
+                          onChange={(val) => handleStatusChange(v.id, val)}
+                          className="w-40"
+                          options={[
+                            { value: 'AUTO', label: `Tự động (${status.label})` },
+                            { value: 'ACTIVE', label: 'Còn hiệu lực' },
+                            { value: 'PENDING', label: 'Đang chờ' },
+                            { value: 'LOCKED', label: 'Bị tạm khoá' }
+                          ]}
+                        />
+                      )}
                     </td>
                     <td className="px-4 py-3 text-gray-700 whitespace-nowrap">
                       {v.usedCount}/{v.totalUsageLimit || '∞'}

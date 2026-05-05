@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { apiClientClient } from '@/lib/apiClientClient';
+import Select from '@/components/ui/Select';
 
 interface ZaloZnsModalProps {
   isOpen: boolean;
@@ -49,8 +50,8 @@ export default function ZaloZnsModal({ isOpen, onClose, selectedUserIds, totalCu
     }
   };
 
-  const handleTemplateChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setSelectedTemplateId(e.target.value);
+  const handleTemplateChange = (val: string) => {
+    setSelectedTemplateId(val);
     setTemplateData({}); // reset data when changing template
   };
 
@@ -110,19 +111,16 @@ export default function ZaloZnsModal({ isOpen, onClose, selectedUserIds, totalCu
             {fetchingTemplates ? (
               <div className="text-sm text-gray-500">Đang tải danh sách mẫu...</div>
             ) : (
-              <select
-                className="w-full border border-gray-300 rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+              <Select
+                className="w-full"
                 value={selectedTemplateId}
                 onChange={handleTemplateChange}
-                required
-              >
-                <option value="" disabled>-- Chọn mẫu tin nhắn --</option>
-                {templates.map(t => (
-                  <option key={t.id} value={t.id}>
-                    {t.name} {t.zaloStatus !== 'ENABLE' ? '(Chưa duyệt)' : ''}
-                  </option>
-                ))}
-              </select>
+                placeholder="-- Chọn mẫu tin nhắn --"
+                options={templates.map(t => ({
+                  value: t.id,
+                  label: `${t.name} ${t.zaloStatus !== 'ENABLE' ? '(Chưa duyệt)' : ''}`
+                }))}
+              />
             )}
             {templates.length === 0 && !fetchingTemplates && (
               <p className="text-xs text-red-500 mt-1">Chưa có mẫu tin nhắn nào được Zalo duyệt. Vui lòng tạo tại trang Kết nối Zalo.</p>

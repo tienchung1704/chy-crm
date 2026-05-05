@@ -362,27 +362,11 @@ export default function CheckoutClient({ user, items, store, cartMode }: Checkou
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
       {/* LEFT COLUMN */}
       <div className="lg:col-span-2 space-y-6">
-
-        {/* Store Info */}
-        {store && (
-          <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-4 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold">
-              {store.name.charAt(0).toUpperCase()}
-            </div>
-            <div>
-              <div className="text-sm font-semibold text-indigo-800">Đơn hàng từ: {store.name}</div>
-              {store.addressProvince && (
-                <div className="text-xs text-indigo-600">{store.addressStreet}, {store.addressWard}, {store.addressProvince}</div>
-              )}
-            </div>
-          </div>
-        )}
-
         {/* Address Card */}
         <div className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-gray-100">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4">
             <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-              <MapPin className="text-indigo-600" /> Thông tin giao hàng
+              <MapPin className="text-blue-600" /> Thông tin giao hàng
             </h2>
             <button
               type="button"
@@ -396,7 +380,7 @@ export default function CheckoutClient({ user, items, store, cartMode }: Checkou
                   <span className="h-4 w-32 rounded bg-indigo-200/80 animate-pulse" aria-label="Dang ap dung dia chi" />
                 </>
               ) : (
-                '📥 Sử dụng địa chỉ mặc định'
+                'Sử dụng địa chỉ mặc định'
               )}
             </button>
           </div>

@@ -7,6 +7,7 @@ import { UsersService } from '../users/users.service';
 import { VouchersService } from '../vouchers/vouchers.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
+import { AdminNotificationsService } from '../admin-notifications/admin-notifications.service';
 
 @Injectable()
 export class AuthService {
@@ -16,6 +17,7 @@ export class AuthService {
     private configService: ConfigService,
     private usersService: UsersService,
     private vouchersService: VouchersService,
+    private adminNotificationsService: AdminNotificationsService,
   ) {}
 
   async register(registerDto: RegisterDto) {
@@ -63,6 +65,15 @@ export class AuthService {
         referrerId,
         role: 'CUSTOMER',
       },
+    });
+
+    // Notify admins about new customer
+    await this.adminNotificationsService.createNotification({
+      type: 'CUSTOMER',
+      title: 'Khách hàng mới đăng ký',
+      message: `${name} (${phone || email}) vừa tạo tài khoản`,
+      link: `/admin/customers?search=${phone || email || ''}`,
+      metadata: { userId: user.id, name, phone, email },
     });
 
     // Create referral closure entries
@@ -229,6 +240,15 @@ export class AuthService {
           role: 'CUSTOMER',
           avatarUrl: photos?.[0]?.value,
         },
+      });
+
+      // Notify admins about new customer
+      await this.adminNotificationsService.createNotification({
+        type: 'CUSTOMER',
+        title: 'Khách hàng mới đăng ký (Google)',
+        message: `${displayName || 'User'} (${email}) vừa tạo tài khoản qua Google`,
+        link: `/admin/customers?search=${email}`,
+        metadata: { userId: user.id, name: displayName, email },
       });
 
       if (referrerId) {

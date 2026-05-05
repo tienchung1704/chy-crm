@@ -4,6 +4,7 @@ import { Queue } from 'bullmq';
 import { PrismaService } from '../prisma/prisma.service';
 import { ViettelPostWebhookDto } from './dto/viettelpost-webhook.dto';
 import * as crypto from 'crypto';
+import { AdminNotificationsService } from '../admin-notifications/admin-notifications.service';
 
 @Injectable()
 export class WebhooksService {
@@ -12,6 +13,7 @@ export class WebhooksService {
 
   constructor(
     private readonly prisma: PrismaService,
+    private readonly adminNotificationsService: AdminNotificationsService,
     @Optional() @InjectQueue('voucher-queue') private voucherQueue?: Queue,
   ) {}
 
@@ -204,6 +206,15 @@ export class WebhooksService {
       this.logger.log(
         `✅ Order ${order.orderCode} updated: status → ${newOrderStatus || '(unchanged)'}, courier update added`,
       );
+
+      // Trigger admin notification
+      await this.adminNotificationsService.createNotification({
+        type: 'ORDER',
+        title: `Đơn hàng ${order.orderCode} có cập nhật`,
+        message: `Trạng thái vận chuyển: ${STATUS_NAME || newOrderStatus || 'Có cập nhật mới'}`,
+        link: `/admin/orders?search=${order.orderCode}`,
+        metadata: { orderCode: order.orderCode, status: newOrderStatus },
+      });
     }
   }
 

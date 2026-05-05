@@ -179,7 +179,7 @@ export default function PortalNavbar({ user }: Props) {
                   <div className="border-t border-gray-100 my-1" />
 
                   <Link href="/portal/profile" className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
-                    👤 Hồ sơ cá nhân
+                    Hồ sơ cá nhân
                   </Link>
                   <button
                     className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50"
@@ -189,7 +189,7 @@ export default function PortalNavbar({ user }: Props) {
                     {loggingOut ? (
                       <><span className="w-4 h-4 border-2 border-red-300 border-t-red-600 rounded-full animate-spin" /> Đang đăng xuất...</>
                     ) : (
-                      '🚪 Đăng xuất'
+                      'Đăng xuất'
                     )}
                   </button>
                 </div>
@@ -212,11 +212,11 @@ export default function PortalNavbar({ user }: Props) {
         {mobileMenuOpen && (
           <>
             {/* Backdrop overlay */}
-            <div 
+            <div
               className="md:hidden fixed inset-0 top-16 bg-black/20 backdrop-blur-sm z-40"
               onClick={() => setMobileMenuOpen(false)}
             />
-            
+
             {/* Dropdown panel */}
             <div className="md:hidden absolute top-16 left-0 w-full bg-white border-t border-gray-200 py-2 shadow-xl z-50">
               {navItems.map(item => (
@@ -232,8 +232,8 @@ export default function PortalNavbar({ user }: Props) {
                 </Link>
               ))}
               <div className="border-t border-gray-200 my-2" />
-              <Link href="/portal/profile" className="flex items-center gap-3 px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50">
-                👤 Hồ sơ cá nhân
+              <Link href="/portal/profile" className="flex items-center gap-3 px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-200">
+                Hồ sơ cá nhân
               </Link>
               <button
                 className="w-full flex items-center gap-3 px-4 py-3 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-50"
@@ -243,7 +243,7 @@ export default function PortalNavbar({ user }: Props) {
                 {loggingOut ? (
                   <><span className="w-4 h-4 border-2 border-red-300 border-t-red-600 rounded-full animate-spin" /> Đang đăng xuất...</>
                 ) : (
-                  '🚪 Đăng xuất'
+                  'Đăng xuất'
                 )}
               </button>
             </div>

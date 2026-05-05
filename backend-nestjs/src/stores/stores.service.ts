@@ -3,12 +3,14 @@ import * as bcrypt from 'bcryptjs';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { MailService } from '../mail/mail.service';
+import { AdminNotificationsService } from '../admin-notifications/admin-notifications.service';
 
 @Injectable()
 export class StoresService implements OnModuleInit {
   constructor(
     private prisma: PrismaService,
     private mailService: MailService,
+    private adminNotificationsService: AdminNotificationsService,
   ) {}
 
   async onModuleInit() {
@@ -176,7 +178,7 @@ export class StoresService implements OnModuleInit {
       allowCOD, bankName, bankAccountNo, bankOwnerName
     } = data;
 
-    return this.prisma.store.create({
+    const store = await this.prisma.store.create({
       data: {
         ownerId: userId,
         name,
@@ -192,10 +194,20 @@ export class StoresService implements OnModuleInit {
         allowCOD: allowCOD !== undefined ? allowCOD : true,
         bankName: bankName || null,
         bankAccountNo: bankAccountNo || null,
-        bankOwnerName: bankOwnerName || null,
         isActive: false, // Default to false, wait for admin approval
       },
     });
+
+    // Notify admins about new store
+    await this.adminNotificationsService.createNotification({
+      type: 'CUSTOMER',
+      title: 'Cửa hàng mới đăng ký',
+      message: `Cửa hàng ${store.name} vừa đăng ký, đang chờ duyệt`,
+      link: `/admin/stores?search=${store.slug}`,
+      metadata: { storeId: store.id, ownerId: userId, name: store.name },
+    });
+
+    return store;
   }
 
   /**

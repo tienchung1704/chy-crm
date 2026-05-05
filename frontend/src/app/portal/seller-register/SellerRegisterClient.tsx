@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import Select from '@/components/ui/Select';
 
 interface AddressOption {
   code: string;
@@ -216,25 +217,23 @@ export default function SellerRegisterClient() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Tỉnh / Thành phố</label>
-              <select
+              <Select
                 value={province}
-                onChange={e => { setProvince(e.target.value); setWard(''); fetchWards(e.target.value); }}
-                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
-              >
-                <option value="">Chọn tỉnh/thành</option>
-                {provinces.map(p => <option key={p.code} value={p.name}>{p.name}</option>)}
-              </select>
+                onChange={val => { setProvince(val); setWard(''); fetchWards(val); }}
+                className="w-full"
+                placeholder="Chọn tỉnh/thành"
+                options={provinces.map(p => ({ value: p.name, label: p.name }))}
+              />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Phường / Xã</label>
-              <select
+              <Select
                 value={ward}
-                onChange={e => setWard(e.target.value)}
-                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
-              >
-                <option value="">Chọn phường/xã</option>
-                {wards.map(w => <option key={w.code} value={w.name}>{w.name}</option>)}
-              </select>
+                onChange={val => setWard(val)}
+                className="w-full"
+                placeholder="Chọn phường/xã"
+                options={wards.map(w => ({ value: w.name, label: w.name }))}
+              />
             </div>
             <div className="md:col-span-2">
               <label className="block text-sm font-medium text-gray-700 mb-1">Địa chỉ chi tiết</label>
@@ -278,14 +277,13 @@ export default function SellerRegisterClient() {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Ngân hàng *</label>
-              <select
-                required value={bankName}
-                onChange={e => setBankName(e.target.value)}
-                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
-              >
-                <option value="">Chọn ngân hàng</option>
-                {banks.map(b => <option key={b} value={b}>{b}</option>)}
-              </select>
+              <Select
+                value={bankName}
+                onChange={val => setBankName(val)}
+                className="w-full"
+                placeholder="Chọn ngân hàng"
+                options={banks.map(b => ({ value: b, label: b }))}
+              />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Số tài khoản *</label>

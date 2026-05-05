@@ -10,12 +10,14 @@ import { GoogleStrategy } from './strategies/google.strategy';
 import { UsersModule } from '../users/users.module';
 import { VouchersModule } from '../vouchers/vouchers.module';
 import { IntegrationsModule } from '../integrations/integrations.module';
+import { AdminNotificationsModule } from '../admin-notifications/admin-notifications.module';
 
 @Module({
   imports: [
     UsersModule,
     VouchersModule,
     IntegrationsModule,
+    AdminNotificationsModule,
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.registerAsync({
       imports: [ConfigModule],

@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Plus, Search, Trash2, X } from 'lucide-react';
 import { apiClientClient } from '@/lib/apiClientClient';
+import Select from '@/components/ui/Select';
 
 interface ProductVariant {
   id: string;
@@ -422,44 +423,38 @@ export default function CreateOrderModal({
                                   {sizes.length > 0 && (
                                     <div>
                                       <label className="block text-xs font-medium text-gray-600 mb-1">Size</label>
-                                      <select
+                                      <Select
                                         value={item.size || ''}
-                                        onChange={(e) =>
+                                        onChange={(val) =>
                                           updateOrderItem(index, {
-                                            size: e.target.value || null,
+                                            size: val || null,
                                           })
                                         }
-                                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                      >
-                                        <option value="">Chọn size</option>
-                                        {sizes.map((size) => (
-                                          <option key={size} value={size}>
-                                            {size}
-                                          </option>
-                                        ))}
-                                      </select>
+                                        className="w-full"
+                                        options={[
+                                          { value: '', label: 'Chọn size' },
+                                          ...sizes.map((size) => ({ value: size, label: size }))
+                                        ]}
+                                      />
                                     </div>
                                   )}
 
                                   {colors.length > 0 && (
                                     <div>
                                       <label className="block text-xs font-medium text-gray-600 mb-1">Màu</label>
-                                      <select
+                                      <Select
                                         value={item.color || ''}
-                                        onChange={(e) =>
+                                        onChange={(val) =>
                                           updateOrderItem(index, {
-                                            color: e.target.value || null,
+                                            color: val || null,
                                           })
                                         }
-                                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                      >
-                                        <option value="">Chon mau</option>
-                                        {colors.map((color) => (
-                                          <option key={color} value={color}>
-                                            {color}
-                                          </option>
-                                        ))}
-                                      </select>
+                                        className="w-full"
+                                        options={[
+                                          { value: '', label: 'Chọn màu' },
+                                          ...colors.map((color) => ({ value: color, label: color }))
+                                        ]}
+                                      />
                                     </div>
                                   )}
                                 </div>

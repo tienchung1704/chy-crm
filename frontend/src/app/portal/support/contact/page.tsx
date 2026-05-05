@@ -1,4 +1,5 @@
 import { Metadata } from 'next';
+import ContactFormClient from './ContactFormClient';
 
 export const metadata: Metadata = {
   title: 'Liên hệ hỗ trợ | Customer CRM',
@@ -7,9 +8,9 @@ export const metadata: Metadata = {
 
 export default function ContactPage() {
   return (
-    <div className="min-h-screen bg-gray-50 py-12">
-      <div className="w-[80%] mx-auto">
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 md:p-12">
+    <div className="min-h-screen bg-white md:bg-gray-50 py-6 md:py-12">
+      <div className="w-full px-4 md:px-0 md:w-[80%] mx-auto">
+        <div className="bg-white md:rounded-lg md:shadow-sm md:border md:border-gray-200 p-0 sm:p-6 md:p-12">
           {/* Header */}
           <div className="mb-8 pb-6 border-b border-gray-200">
             <h1 className="text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-purple-600 mb-4">
@@ -135,7 +136,7 @@ export default function ContactPage() {
                       </p>
                       <p className="flex items-start gap-2">
                         <span className="font-semibold min-w-[80px]">Giờ làm việc:</span>
-                        <span>8:00 - 18:00 (Thứ 2 - Thứ 6)<br/>8:00 - 12:00 (Thứ 7)</span>
+                        <span>8:00 - 18:00 (Thứ 2 - Thứ 6)<br />8:00 - 12:00 (Thứ 7)</span>
                       </p>
                     </div>
                   </div>
@@ -155,8 +156,8 @@ export default function ContactPage() {
                 </div>
 
                 {/* Map placeholder */}
-                <div className="mt-6 bg-gray-200 rounded-xl h-64 flex items-center justify-center">
-                  <p className="text-gray-500">🗺️ Bản đồ Google Maps</p>
+                <div className="mt-6 bg-gray-200 rounded-xl h-64 flex items-center justify-center overflow-hidden">
+                  <iframe src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3723.866530836074!2d105.79111937614863!3d21.038025787458512!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3135ab3829364ab7%3A0x3034d069a38bef5b!2zNzIgVHLhuqduIMSQxINuZyBOaW5oLCBMw6BuZyBRdeG7kWMgdOG6vyBUaMSDbmcgTG9uZywgTmdoxKlhIMSQw7QsIEjDoCBO4buZaSAxMDAwMDAsIFZp4buHdCBOYW0!5e0!3m2!1svi!2s!4v1777887097433!5m2!1svi!2s" width="100%" height="100%" style={{ border: 0 }} allowFullScreen={true} loading="lazy" referrerPolicy="no-referrer-when-downgrade"></iframe>
                 </div>
               </div>
             </section>
@@ -221,84 +222,7 @@ export default function ContactPage() {
                 <span className="w-2 h-8 bg-gradient-to-b from-indigo-600 to-purple-600 rounded-full mr-3"></span>
                 Gửi tin nhắn cho chúng tôi
               </h2>
-              <div className="bg-gray-50 p-8 rounded-xl border border-gray-200">
-                <form className="space-y-6">
-                  <div className="grid md:grid-cols-2 gap-6">
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-900 mb-2">
-                        Họ và tên <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-colors"
-                        placeholder="Nhập họ và tên"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-900 mb-2">
-                        Email <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="email"
-                        className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-colors"
-                        placeholder="email@example.com"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid md:grid-cols-2 gap-6">
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-900 mb-2">
-                        Số điện thoại <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="tel"
-                        className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-colors"
-                        placeholder="0987 654 321"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-900 mb-2">
-                        Chủ đề
-                      </label>
-                      <select className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-colors">
-                        <option>Hỗ trợ đơn hàng</option>
-                        <option>Hỏi về sản phẩm</option>
-                        <option>Khiếu nại</option>
-                        <option>Góp ý</option>
-                        <option>Khác</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-900 mb-2">
-                      Nội dung <span className="text-red-500">*</span>
-                    </label>
-                    <textarea
-                      rows={6}
-                      className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-colors resize-none"
-                      placeholder="Nhập nội dung tin nhắn của bạn..."
-                    ></textarea>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <input type="checkbox" id="agree" className="w-4 h-4" />
-                    <label htmlFor="agree" className="text-sm text-gray-700">
-                      Tôi đồng ý với <a href="/portal/policies/privacy" className="text-indigo-600 hover:underline">chính sách bảo mật</a>
-                    </label>
-                  </div>
-
-                  <button
-                    type="submit"
-                    className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white py-4 rounded-lg font-semibold hover:from-indigo-700 hover:to-purple-700 transition-colors"
-                  >
-                    Gửi tin nhắn
-                  </button>
-                </form>
-              </div>
+              <ContactFormClient />
             </section></div>
         </div>
       </div>

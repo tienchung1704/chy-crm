@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Star, X, Upload } from 'lucide-react';
 import { UploadButton } from '@/lib/uploadthing';
+import Select from '@/components/ui/Select';
 
 interface ReviewFormProps {
   productId: string;
@@ -90,17 +91,15 @@ export default function ReviewForm({
           <label className="block text-sm font-semibold text-gray-900 mb-2">
             Chọn đơn hàng
           </label>
-          <select
+          <Select
             value={selectedOrder}
-            onChange={(e) => setSelectedOrder(e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-transparent"
-          >
-            {completedOrders.map((order) => (
-              <option key={order.orderId} value={order.orderId}>
-                Đơn hàng - {order.size || 'Không có size'} - {order.color || 'Không có màu'}
-              </option>
-            ))}
-          </select>
+            onChange={(val) => setSelectedOrder(val)}
+            className="w-full"
+            options={completedOrders.map((order) => ({
+              value: order.orderId,
+              label: `Đơn hàng - ${order.size || 'Không có size'} - ${order.color || 'Không có màu'}`
+            }))}
+          />
         </div>
       )}
 

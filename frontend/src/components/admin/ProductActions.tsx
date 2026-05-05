@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import ImageUpload from './ImageUpload';
 import { apiClientClient } from '@/lib/apiClientClient';
+import Select from '@/components/ui/Select';
 
 interface Category {
   id: string;
@@ -367,64 +368,64 @@ export default function ProductActions({ categories = [] }: ProductActionsProps)
                       {/* Level 1 */}
                       <div>
                         <label className="block text-xs text-gray-600 mb-1">Cấp 1 (Root)</label>
-                        <select
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                        <Select
+                          className="w-full"
                           value={form.categoryLevel1}
-                          onChange={e => update('categoryLevel1', e.target.value)}
-                        >
-                          <option value="">-- Chọn danh mục --</option>
-                          {getLevel1Categories().map(cat => (
-                            <option key={cat.id} value={cat.id}>📁 {cat.name}</option>
-                          ))}
-                        </select>
+                          onChange={(val) => update('categoryLevel1', val)}
+                          placeholder="-- Chọn danh mục --"
+                          options={getLevel1Categories().map(cat => ({
+                            value: cat.id,
+                            label: `📁 ${cat.name}`
+                          }))}
+                        />
                       </div>
 
                       {/* Level 2 */}
                       <div>
                         <label className="block text-xs text-gray-600 mb-1">Cấp 2</label>
-                        <select
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm disabled:bg-gray-100"
+                        <Select
+                          className="w-full"
                           value={form.categoryLevel2}
-                          onChange={e => update('categoryLevel2', e.target.value)}
+                          onChange={(val) => update('categoryLevel2', val)}
                           disabled={!form.categoryLevel1}
-                        >
-                          <option value="">-- Không chọn --</option>
-                          {getLevel2Categories().map(cat => (
-                            <option key={cat.id} value={cat.id}>📄 {cat.name}</option>
-                          ))}
-                        </select>
+                          placeholder="-- Không chọn --"
+                          options={getLevel2Categories().map(cat => ({
+                            value: cat.id,
+                            label: `📄 ${cat.name}`
+                          }))}
+                        />
                       </div>
 
                       {/* Level 3 */}
                       <div>
                         <label className="block text-xs text-gray-600 mb-1">Cấp 3</label>
-                        <select
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm disabled:bg-gray-100"
+                        <Select
+                          className="w-full"
                           value={form.categoryLevel3}
-                          onChange={e => update('categoryLevel3', e.target.value)}
+                          onChange={(val) => update('categoryLevel3', val)}
                           disabled={!form.categoryLevel2}
-                        >
-                          <option value="">-- Không chọn --</option>
-                          {getLevel3Categories().map(cat => (
-                            <option key={cat.id} value={cat.id}>📄 {cat.name}</option>
-                          ))}
-                        </select>
+                          placeholder="-- Không chọn --"
+                          options={getLevel3Categories().map(cat => ({
+                            value: cat.id,
+                            label: `📄 ${cat.name}`
+                          }))}
+                        />
                       </div>
 
                       {/* Level 4 */}
                       <div>
                         <label className="block text-xs text-gray-600 mb-1">Cấp 4</label>
-                        <select
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm disabled:bg-gray-100"
+                        <Select
+                          className="w-full"
                           value={form.categoryLevel4}
-                          onChange={e => update('categoryLevel4', e.target.value)}
+                          onChange={(val) => update('categoryLevel4', val)}
                           disabled={!form.categoryLevel3}
-                        >
-                          <option value="">-- Không chọn --</option>
-                          {getLevel4Categories().map(cat => (
-                            <option key={cat.id} value={cat.id}>📄 {cat.name}</option>
-                          ))}
-                        </select>
+                          placeholder="-- Không chọn --"
+                          options={getLevel4Categories().map(cat => ({
+                            value: cat.id,
+                            label: `📄 ${cat.name}`
+                          }))}
+                        />
                       </div>
                     </div>
                   </div>
@@ -455,16 +456,10 @@ export default function ProductActions({ categories = [] }: ProductActionsProps)
                           {form.variants.map(v => (
                             <tr key={v.id} className="hover:bg-gray-50 transition-colors">
                               <td className="p-2">
-                                <select className="w-full border border-gray-300 rounded-lg px-2 py-1.5 focus:ring-2 focus:ring-blue-500" value={v.sizeId} onChange={(e) => updateVariant(v.id, 'sizeId', e.target.value)}>
-                                  <option value="">-- Cỡ chung --</option>
-                                  {sizes.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                                </select>
+                                <Select className="w-full" size="xs" value={v.sizeId} onChange={(val) => updateVariant(v.id, 'sizeId', val)} placeholder="-- Cỡ chung --" options={sizes.map(s => ({ value: s.id, label: s.name }))} />
                               </td>
                               <td className="p-2">
-                                <select className="w-full border border-gray-300 rounded-lg px-2 py-1.5 focus:ring-2 focus:ring-blue-500" value={v.colorId} onChange={(e) => updateVariant(v.id, 'colorId', e.target.value)}>
-                                  <option value="">-- Màu chung --</option>
-                                  {colors.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                                </select>
+                                <Select className="w-full" size="xs" value={v.colorId} onChange={(val) => updateVariant(v.id, 'colorId', val)} placeholder="-- Màu chung --" options={colors.map(c => ({ value: c.id, label: c.name }))} />
                               </td>
                               <td className="p-2">
                                 <input type="number" placeholder="Bạc định lấy giá gốc" className="w-full border border-gray-300 rounded-lg px-2 py-1.5 focus:ring-2 focus:ring-blue-500" value={v.price} onChange={(e) => updateVariant(v.id, 'price', e.target.value)} />

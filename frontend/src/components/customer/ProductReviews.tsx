@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Star, User, Check, Image as ImageIcon, ChevronDown } from 'lucide-react';
 import ReviewForm from './ReviewForm';
+import Select from '@/components/ui/Select';
 
 interface Review {
   id: string;
@@ -242,14 +243,15 @@ export default function ProductReviews({ productId, productName, userCompletedOr
 
         <div className="flex items-center gap-2 ml-auto">
           <span className="text-sm text-gray-600">Sắp xếp:</span>
-          <select
+          <Select
             value={sortBy}
-            onChange={(e) => setSortBy(e.target.value)}
-            className="px-3 py-1.5 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 border-none focus:ring-2 focus:ring-indigo-600"
-          >
-            <option value="newest">Mới nhất</option>
-            <option value="oldest">Cũ nhất</option>
-          </select>
+            onChange={(val) => setSortBy(val)}
+            className="w-40"
+            options={[
+              { value: 'newest', label: 'Mới nhất' },
+              { value: 'oldest', label: 'Cũ nhất' }
+            ]}
+          />
         </div>
       </div>
 

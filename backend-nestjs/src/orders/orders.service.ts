@@ -143,6 +143,37 @@ export class OrdersService {
         && (!targetVoucher.storeId || targetVoucher.storeId === (orderStoreId || null));
 
       if (targetVoucher && targetVoucher.isActive && isVoucherInDateRange && hasVoucherStock && isVoucherForOrderStore) {
+        if (targetVoucher.code.startsWith('QR-ORDER-')) {
+          let resolvedStatus = (targetVoucher as any).status || 'AUTO';
+          if (resolvedStatus === 'AUTO') {
+            const orderCode = targetVoucher.code.replace('QR-ORDER-', '');
+            const sourceOrder = await this.prisma.order.findUnique({ where: { orderCode }, select: { status: true, updatedAt: true } });
+            if (!sourceOrder) {
+              resolvedStatus = 'PENDING';
+            } else {
+              const isDelivered = sourceOrder.status === 'DELIVERED' || sourceOrder.status === 'PAYMENT_COLLECTED' || sourceOrder.status === 'COMPLETED';
+              if (isDelivered && sourceOrder.updatedAt) {
+                const deliveredDate = new Date(sourceOrder.updatedAt);
+                const diffTime = Math.abs(now.getTime() - deliveredDate.getTime());
+                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                if (diffDays >= 7) {
+                  resolvedStatus = 'ACTIVE';
+                } else {
+                  resolvedStatus = 'PENDING';
+                }
+              } else if (sourceOrder.status === 'CANCELLED' || sourceOrder.status === 'REFUNDED' || sourceOrder.status === 'RETURNING') {
+                resolvedStatus = 'LOCKED';
+              } else {
+                resolvedStatus = 'PENDING';
+              }
+            }
+          }
+
+          if (resolvedStatus !== 'ACTIVE') {
+            throw new BadRequestException('Voucher chưa đủ điều kiện sử dụng hoặc đã bị tạm khoá.');
+          }
+        }
+
         const userUsedCount = await this.prisma.userVoucher.count({
           where: { userId, voucherId, isUsed: true },
         });

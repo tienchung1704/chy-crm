@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { Heart, ShoppingCart, Eye, Star, Search, Share2, ChevronLeft, ChevronRight, Filter, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import CategoryFilter from './CategoryFilter';
+import Select from '@/components/ui/Select';
 import tinhData from '@/data/tinh_tp.json';
 
 const provinces = Object.values(tinhData as Record<string, { code: string; name: string; type: string }>).map(p => ({
@@ -637,16 +638,16 @@ export default function ProductsClient({ products, categories, initialWishlistId
                     ))}
                   </div>
                   <div className="mt-3">
-                    <select
+                    <Select
                       value={selectedProvinceId || ''}
-                      onChange={(e) => setSelectedProvinceId(e.target.value || null)}
-                      className="w-full bg-white border border-gray-200 text-gray-700 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2.5"
-                    >
-                      <option value="">Chọn tỉnh thành khác...</option>
-                      {provinces.filter(p => !p.isMajor).map(prov => (
-                        <option key={prov.id} value={prov.id}>{prov.name}</option>
-                      ))}
-                    </select>
+                      onChange={(val) => setSelectedProvinceId(val || null)}
+                      className="w-full"
+                      placeholder="Chọn tỉnh thành khác..."
+                      options={provinces.filter(p => !p.isMajor).map(prov => ({
+                        value: prov.id,
+                        label: prov.name
+                      }))}
+                    />
                   </div>
                 </div>
               </div>
