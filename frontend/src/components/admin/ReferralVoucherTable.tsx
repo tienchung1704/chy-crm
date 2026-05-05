@@ -42,26 +42,26 @@ export default function ReferralVoucherTable({ vouchers }: { vouchers: any[] }) 
 
   return (
     <>
-      <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
         <div className="flex justify-between items-center p-6 border-b border-gray-100">
           <span className="text-lg font-bold text-gray-800">Danh sách Voucher Referral</span>
           <span className="text-sm text-gray-500">{vouchers.length} voucher</span>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Code</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Tên</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Loại</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Giá trị</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Đơn tối thiểu</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Đã dùng</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Trạng thái</th>
-                <th className="px-6 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">Thao tác</th>
+          <table className="w-full text-left border-collapse text-sm">
+            <thead>
+              <tr className="border-b border-gray-100 bg-gray-50/60">
+                <th className="px-4 py-3 text-xs font-semibold text-gray-500 whitespace-nowrap">Code</th>
+                <th className="px-4 py-3 text-xs font-semibold text-gray-500 whitespace-nowrap">Tên</th>
+                <th className="px-4 py-3 text-xs font-semibold text-gray-500 whitespace-nowrap">Loại</th>
+                <th className="px-4 py-3 text-xs font-semibold text-gray-500 whitespace-nowrap">Giá trị</th>
+                <th className="px-4 py-3 text-xs font-semibold text-gray-500 whitespace-nowrap">Đơn tối thiểu</th>
+                <th className="px-4 py-3 text-xs font-semibold text-gray-500 whitespace-nowrap">Đã dùng</th>
+                <th className="px-4 py-3 text-xs font-semibold text-gray-500 whitespace-nowrap">Trạng thái</th>
+                <th className="px-4 py-3 text-xs font-semibold text-gray-500 whitespace-nowrap text-right">Thao tác</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody className="divide-y divide-gray-50">
               {vouchers.length === 0 ? (
                 <tr>
                   <td colSpan={8}>
@@ -76,35 +76,35 @@ export default function ReferralVoucherTable({ vouchers }: { vouchers: any[] }) 
                 const isDeleting = deletingId === voucher.id;
 
                 return (
-                  <tr key={voucher.id} className={`hover:bg-gray-50 transition-colors ${isDeleting ? 'opacity-50' : ''}`}>
-                    <td className="px-6 py-4">
+                  <tr key={voucher.id} className={`hover:bg-gray-50/50 transition-colors ${isDeleting ? 'opacity-50' : ''}`}>
+                    <td className="px-4 py-3 whitespace-nowrap">
                       <span className="font-mono font-bold text-sm bg-gray-100 px-2 py-1 rounded">
                         {voucher.code}
                       </span>
                     </td>
-                    <td className="px-6 py-4 font-semibold text-gray-800">{voucher.name}</td>
-                    <td className="px-6 py-4">
-                      <span className={`px-3 py-1 rounded-full text-xs font-semibold ${typeInfo.bg}`}>
+                    <td className="px-4 py-3 whitespace-nowrap font-medium text-gray-800">{voucher.name}</td>
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${typeInfo.bg}`}>
                         {typeInfo.label}
                       </span>
                     </td>
-                    <td className="px-6 py-4 font-semibold text-gray-800">
+                    <td className="px-4 py-3 whitespace-nowrap font-medium text-gray-800">
                       {voucher.type === 'PERCENT'
                         ? `${voucher.value}%`
                         : formatCurrency(voucher.value)}
                     </td>
-                    <td className="px-6 py-4 text-gray-700">{formatCurrency(voucher.minOrderValue)}</td>
-                    <td className="px-6 py-4 text-gray-700">
+                    <td className="px-4 py-3 whitespace-nowrap text-gray-700">{formatCurrency(voucher.minOrderValue)}</td>
+                    <td className="px-4 py-3 whitespace-nowrap text-gray-700">
                       {voucher._count?.userVouchers || voucher.usedCount || 0}
                       {voucher.totalUsageLimit ? `/${voucher.totalUsageLimit}` : ''}
                     </td>
-                    <td className="px-6 py-4">
-                      <span className={`px-3 py-1 rounded-full text-xs font-semibold ${voucher.isActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${voucher.isActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
                         }`}>
                         {voucher.isActive ? 'Hoạt động' : 'Tắt'}
                       </span>
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="px-4 py-3 whitespace-nowrap">
                       <div className="flex items-center justify-end gap-2">
                         <button
                           onClick={() => setEditVoucher(voucher)}

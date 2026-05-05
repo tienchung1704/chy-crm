@@ -171,7 +171,7 @@ export class AuthController {
 
     // Redirect to frontend with returnTo from state
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
-    const returnTo = req.user.returnTo || '/portal';
+    const returnTo = req.user.returnTo || '/portal/products';
     const needsOnboarding = result.user.role === 'CUSTOMER' && !result.user.onboardingComplete;
 
     let redirect = returnTo;

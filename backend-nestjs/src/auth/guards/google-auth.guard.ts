@@ -5,7 +5,7 @@ import { AuthGuard } from '@nestjs/passport';
 export class GoogleAuthGuard extends AuthGuard('google') {
   getAuthenticateOptions(context: ExecutionContext) {
     const request = context.switchToHttp().getRequest();
-    const returnTo = request.query.returnTo || '/portal';
+    const returnTo = request.query.returnTo || '/portal/products';
     
     return {
       state: returnTo,

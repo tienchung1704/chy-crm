@@ -117,34 +117,45 @@ export default function AdminNotifications() {
 
       {isOpen && (
         <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden z-50">
-          <div className="p-4 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
+          <div className="p-4 border-b border-gray-100 bg-gray-50/50">
             <h3 className="font-bold text-gray-800">Thông báo</h3>
-            <button 
-              onClick={markAllAsRead}
-              className="text-xs text-indigo-600 hover:text-indigo-800 font-medium flex items-center gap-1"
-            >
-              <Check size={14} /> Đánh dấu đã đọc
-            </button>
           </div>
 
           <div className="flex border-b border-gray-100">
-            <button
-              onClick={() => setActiveTab('ORDER')}
-              className={`flex-1 py-3 text-sm font-semibold flex items-center justify-center gap-2 transition-colors ${
-                activeTab === 'ORDER' ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-gray-500 hover:bg-gray-50'
-              }`}
-            >
-              <ShoppingBag size={16} /> Đơn hàng
-            </button>
-            <button
-              onClick={() => setActiveTab('CUSTOMER')}
-              className={`flex-1 py-3 text-sm font-semibold flex items-center justify-center gap-2 transition-colors ${
-                activeTab === 'CUSTOMER' ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-gray-500 hover:bg-gray-50'
-              }`}
-            >
-              <Users size={16} /> Khách hàng
-            </button>
+            {(['ORDER', 'CUSTOMER'] as const).map((tab) => {
+              const tabUnread = notifications.filter(n => n.type === tab && !n.isRead).length;
+              const isActive = activeTab === tab;
+              return (
+                <button
+                  key={tab}
+                  onClick={() => setActiveTab(tab)}
+                  className={`flex-1 py-3 text-sm font-semibold flex items-center justify-center gap-2 transition-colors ${
+                    isActive ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-gray-500 hover:bg-gray-50'
+                  }`}
+                >
+                  {tab === 'ORDER' ? <ShoppingBag size={16} /> : <Users size={16} />}
+                  {tab === 'ORDER' ? 'Đơn hàng' : 'Khách hàng'}
+                  {tabUnread > 0 && (
+                    <span className="min-w-[18px] h-[18px] flex items-center justify-center bg-red-500 text-white text-[10px] font-bold rounded-full px-1">
+                      {tabUnread > 99 ? '99+' : tabUnread}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
           </div>
+
+          {/* Mark all read - only for current tab, only when there are unread */}
+          {notifications.filter(n => n.type === activeTab && !n.isRead).length > 0 && (
+            <div className="px-4 py-2 border-b border-gray-100 flex justify-end">
+              <button 
+                onClick={markAllAsRead}
+                className="text-xs text-indigo-600 hover:text-indigo-800 font-medium flex items-center gap-1"
+              >
+                <Check size={14} /> Đã đọc tất cả {activeTab === 'ORDER' ? 'đơn hàng' : 'khách hàng'}
+              </button>
+            </div>
+          )}
 
           <div className="max-h-96 overflow-y-auto">
             {filteredNotifications.length === 0 ? (

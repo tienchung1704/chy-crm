@@ -6,8 +6,8 @@ import {
   SubscribeMessage,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
-import { UseGuards, Logger } from '@nestjs/common';
-import { WsJwtAuthGuard } from '../../auth/guards/ws-jwt-auth.guard'; // Assume this exists or I will create it. Or for simplicity, we don't strictly guard WS connection, but only send events if admin. Wait, we need a guard.
+import { Logger } from '@nestjs/common';
+
 
 @WebSocketGateway({
   cors: {

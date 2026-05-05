@@ -26,7 +26,7 @@ import { ColorsModule } from './colors/colors.module';
 import { SizesModule } from './sizes/sizes.module';
 import { CommissionConfigModule } from './commission-config/commission-config.module';
 import { AdminModule } from './admin/admin.module';
-import { AdminNotificationsModule } from './admin-notifications/admin-notifications.module';
+import { AdminNotificationsModule } from './modules/admin-notifications/admin-notifications.module';
 
 const logger = new Logger('AppModule');
 

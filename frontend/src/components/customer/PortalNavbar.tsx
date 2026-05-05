@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useState, useRef, useEffect } from 'react';
+import PortalNavbarSearch from './PortalNavbarSearch';
 interface Props {
   user: {
     name: string;
@@ -79,6 +80,11 @@ export default function PortalNavbar({ user }: Props) {
             <span style={{ fontSize: '28px', fontWeight: 800, color: '#1e3a5f', letterSpacing: '-1px' }}>CHY</span>
             <span style={{ fontSize: '10px', fontWeight: 700, color: '#3b82f6', marginLeft: '1px' }}>.vn</span>
           </Link>
+
+          {/* Search Bar */}
+          <div className="hidden sm:block flex-1 max-w-xl px-4">
+            <PortalNavbarSearch />
+          </div>
 
           {/* Desktop Nav Links */}
           <div className="hidden md:flex items-center gap-1">
@@ -219,6 +225,9 @@ export default function PortalNavbar({ user }: Props) {
 
             {/* Dropdown panel */}
             <div className="md:hidden absolute top-16 left-0 w-full bg-white border-t border-gray-200 py-2 shadow-xl z-50">
+              <div className="px-4 py-3 sm:hidden border-b border-gray-100">
+                <PortalNavbarSearch />
+              </div>
               {navItems.map(item => (
                 <Link
                   key={item.href}

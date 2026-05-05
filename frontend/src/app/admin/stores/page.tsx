@@ -109,19 +109,19 @@ export default async function StoresPage() {
           <h3 className="font-bold text-gray-800">Cửa hàng đang hoạt động</h3>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Cửa hàng</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Chủ sở hữu</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Sản phẩm</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Đơn hàng</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Ngày tạo</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Trạng thái</th>
-                <th className="px-6 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">Thao tác</th>
+          <table className="w-full text-left border-collapse text-sm">
+            <thead>
+              <tr className="border-b border-gray-100 bg-gray-50/60">
+                <th className="px-4 py-3 text-xs font-semibold text-gray-500 whitespace-nowrap">Cửa hàng</th>
+                <th className="px-4 py-3 text-xs font-semibold text-gray-500 whitespace-nowrap">Chủ sở hữu</th>
+                <th className="px-4 py-3 text-xs font-semibold text-gray-500 whitespace-nowrap">Sản phẩm</th>
+                <th className="px-4 py-3 text-xs font-semibold text-gray-500 whitespace-nowrap">Đơn hàng</th>
+                <th className="px-4 py-3 text-xs font-semibold text-gray-500 whitespace-nowrap">Ngày tạo</th>
+                <th className="px-4 py-3 text-xs font-semibold text-gray-500 whitespace-nowrap">Trạng thái</th>
+                <th className="px-4 py-3 text-xs font-semibold text-gray-500 whitespace-nowrap text-center">Thao tác</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody className="divide-y divide-gray-50">
               {stores.filter(s => s.isActive && !s.isBanned).length === 0 ? (
                 <tr>
                   <td colSpan={7}>
@@ -132,8 +132,8 @@ export default async function StoresPage() {
                 </tr>
               ) : (
                 stores.filter(s => s.isActive && !s.isBanned).map((store) => (
-                  <tr key={store.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4">
+                  <tr key={store.id} className="hover:bg-gray-50/50 transition-colors">
+                    <td className="px-4 py-3 whitespace-nowrap">
                       <div className="flex items-center gap-3">
                         {store.logoUrl ? (
                           <img src={store.logoUrl} alt={store.name} className="w-10 h-10 rounded-full object-cover border border-gray-200" />
@@ -148,23 +148,23 @@ export default async function StoresPage() {
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="px-4 py-3 whitespace-nowrap">
                       <div className="text-gray-800 font-medium">{store.owner.name}</div>
                       <div className="text-xs text-gray-500">{store.owner.email || '—'}</div>
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="px-4 py-3 whitespace-nowrap">
                       <span className="font-medium text-gray-700">{store._count.products}</span>
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="px-4 py-3 whitespace-nowrap">
                       <span className="font-medium text-gray-700">{store._count.orders}</span>
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-600">{fmtDate(store.createdAt)}</td>
-                    <td className="px-6 py-4">
-                      <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-xs font-semibold">
+                    <td className="px-4 py-3 whitespace-nowrap text-gray-600">{fmtDate(store.createdAt)}</td>
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      <span className="px-2.5 py-1 bg-green-100 text-green-800 rounded-full text-xs font-medium">
                         Hoạt động
                       </span>
                     </td>
-                    <td className="px-6 py-4 text-center">
+                    <td className="px-4 py-3 whitespace-nowrap text-center">
                       <Link
                         href={`/admin/stores/${store.id}`}
                         className="inline-flex items-center gap-1.5 px-4 py-2 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded-lg text-sm font-semibold transition-colors"
@@ -187,20 +187,20 @@ export default async function StoresPage() {
             <h3 className="font-bold text-red-800 mb-1">Cửa hàng bị cấm ({bannedCount})</h3>
             <p className="text-sm text-red-700">Các cửa hàng dưới đây đã bị vô hiệu hóa do vi phạm chính sách.</p>
           </div>
-          <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Cửa hàng</th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Lý do</th>
-                    <th className="px-6 py-3 text-center text-xs font-semibold text-gray-600 uppercase">Thao tác</th>
+              <table className="w-full text-left border-collapse text-sm">
+                <thead>
+                  <tr className="border-b border-gray-100 bg-gray-50/60">
+                    <th className="px-4 py-3 text-xs font-semibold text-gray-500 whitespace-nowrap">Cửa hàng</th>
+                    <th className="px-4 py-3 text-xs font-semibold text-gray-500 whitespace-nowrap">Lý do</th>
+                    <th className="px-4 py-3 text-xs font-semibold text-gray-500 whitespace-nowrap text-center">Thao tác</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-100">
+                <tbody className="divide-y divide-gray-50">
                   {stores.filter(s => s.isBanned).map(store => (
-                    <tr key={store.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4">
+                    <tr key={store.id} className="hover:bg-gray-50/50 transition-colors">
+                      <td className="px-4 py-3 whitespace-nowrap">
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 rounded-full bg-gradient-to-br from-red-400 to-red-600 flex items-center justify-center text-white font-bold">
                             {store.name.charAt(0).toUpperCase()}
@@ -211,8 +211,8 @@ export default async function StoresPage() {
                           </div>
                         </div>
                       </td>
-                      <td className="px-6 py-4 text-sm text-red-700">{store.bannedReason || '—'}</td>
-                      <td className="px-6 py-4 text-center">
+                      <td className="px-4 py-3 whitespace-nowrap text-red-700">{store.bannedReason || '—'}</td>
+                      <td className="px-4 py-3 whitespace-nowrap text-center">
                         <Link
                           href={`/admin/stores/${store.id}`}
                           className="inline-flex items-center gap-1.5 px-4 py-2 bg-gray-100 text-gray-700 hover:bg-gray-200 rounded-lg text-sm font-semibold transition-colors"

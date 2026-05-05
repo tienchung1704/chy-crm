@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../prisma/prisma.service';
 import { UsersService } from '../../users/users.service';
+import { AdminNotificationsService } from '../../modules/admin-notifications/admin-notifications.service';
 import { OrderStatus } from '@prisma/client';
 
 @Injectable()
@@ -12,6 +13,7 @@ export class PancakeService {
     private prisma: PrismaService,
     private configService: ConfigService,
     private usersService: UsersService,
+    private adminNotificationsService: AdminNotificationsService,
   ) {}
 
   private normalizePhone(phone: string) {
@@ -822,6 +824,18 @@ export class PancakeService {
     }
 
     this.logger.log(`[Pancake] Product sync completed. Total synced: ${totalSynced}, Errors: ${totalErrors}`);
+
+    // Fire admin notification for product sync
+    if (totalSynced > 0) {
+      await this.adminNotificationsService.createNotification({
+        type: 'ORDER',
+        title: `Đồng bộ sản phẩm từ Pancake`,
+        message: `Đã đồng bộ ${totalSynced} sản phẩm thành công${totalErrors > 0 ? `, ${totalErrors} lỗi` : ''}`,
+        link: '/admin/products',
+        metadata: { synced: totalSynced, errors: totalErrors, total: productMap.size },
+      });
+    }
+
     return { synced: totalSynced, errors: totalErrors, total: productMap.size };
   }
 
@@ -1104,6 +1118,18 @@ export class PancakeService {
     }
 
     this.logger.log(`[Pancake] Date-based sync completed. Fetched: ${totalFetched}, Synced: ${totalSynced}, Errors: ${totalErrors}, Total Amount: ${totalAmount}`);
+
+    // Fire admin notification for order sync
+    if (totalSynced > 0) {
+      await this.adminNotificationsService.createNotification({
+        type: 'ORDER',
+        title: `Đồng bộ đơn hàng từ Pancake`,
+        message: `Đã đồng bộ ${totalSynced}/${totalFetched} đơn hàng, tổng ${new Intl.NumberFormat('vi-VN').format(totalAmount)} VND${totalErrors > 0 ? ` (${totalErrors} lỗi)` : ''}`,
+        link: '/admin/orders',
+        metadata: { synced: totalSynced, errors: totalErrors, total: totalFetched, totalAmount },
+      });
+    }
+
     return { 
       synced: totalSynced, 
       errors: totalErrors, 
@@ -1565,6 +1591,19 @@ export class PancakeService {
       }
 
       const result = await this.syncSingleOrder(orderData, integration.store.id);
+
+      // Fire admin notification for new/updated order from Pancake webhook
+      if (result.synced) {
+        const orderCode = `PCK-${orderData.id}`;
+        const existingOrder = await this.prisma.order.findFirst({ where: { orderCode } });
+        await this.adminNotificationsService.createNotification({
+          type: 'ORDER',
+          title: `Đơn hàng ${orderCode} ${result.isUpdate ? 'cập nhật' : 'mới'} từ Pancake`,
+          message: `Giá trị: ${new Intl.NumberFormat('vi-VN').format(result.amount || 0)} VND`,
+          link: existingOrder ? `/admin/orders/${existingOrder.id}` : '/admin/orders',
+          metadata: { orderCode, amount: result.amount, action: result.isUpdate ? 'updated' : 'created' },
+        });
+      }
 
       return {
         processed: true,

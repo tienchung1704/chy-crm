@@ -154,10 +154,10 @@ export default function OrdersTableClient({ orders, statusCounts }: OrdersTableC
 
         {/* Desktop View */}
         <div className="hidden md:block overflow-x-auto">
-          <table className="w-full text-left border-collapse">
+          <table className="w-full text-left border-collapse text-sm">
             <thead>
-              <tr className="border-b border-gray-50 bg-gray-50/50">
-                <th className="px-4 py-4 w-12">
+              <tr className="border-b border-gray-100 bg-gray-50/60">
+                <th className="px-4 py-3 text-xs font-semibold text-gray-500 whitespace-nowrap w-12">
                   <input
                     type="checkbox"
                     checked={allSelected}
@@ -165,13 +165,13 @@ export default function OrdersTableClient({ orders, statusCounts }: OrdersTableC
                     className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
                   />
                 </th>
-                <th className="px-6 py-4 text-[13px] font-bold text-gray-400 uppercase tracking-wider">Mã đơn</th>
-                <th className="px-6 py-4 text-[13px] font-bold text-gray-400 uppercase tracking-wider">Khách hàng</th>
-                <th className="px-6 py-4 text-[13px] font-bold text-gray-400 uppercase tracking-wider">Nguồn</th>
-                <th className="px-6 py-4 text-[13px] font-bold text-gray-400 uppercase tracking-wider">Sản phẩm</th>
-                <th className="px-6 py-4 text-[13px] font-bold text-gray-400 uppercase tracking-wider">Trạng thái</th>
-                <th className="px-6 py-4 text-[13px] font-bold text-gray-400 uppercase tracking-wider">Ngày tạo</th>
-                <th className="px-6 py-4"></th>
+                <th className="px-4 py-3 text-xs font-semibold text-gray-500 whitespace-nowrap">Mã đơn</th>
+                <th className="px-4 py-3 text-xs font-semibold text-gray-500 whitespace-nowrap">Khách hàng</th>
+                <th className="px-4 py-3 text-xs font-semibold text-gray-500 whitespace-nowrap">Nguồn</th>
+                <th className="px-4 py-3 text-xs font-semibold text-gray-500 whitespace-nowrap">Sản phẩm</th>
+                <th className="px-4 py-3 text-xs font-semibold text-gray-500 whitespace-nowrap">Trạng thái</th>
+                <th className="px-4 py-3 text-xs font-semibold text-gray-500 whitespace-nowrap">Ngày tạo</th>
+                <th className="px-4 py-3 text-xs font-semibold text-gray-500 whitespace-nowrap"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
@@ -203,9 +203,9 @@ export default function OrdersTableClient({ orders, statusCounts }: OrdersTableC
                 return (
                   <tr
                     key={order.id}
-                    className={`transition-all duration-200 hover:bg-black/[0.01] ${isUnread ? 'bg-gray-100/60' : 'bg-white'} ${isChecked ? '!bg-indigo-50/60' : ''}`}
+                    className={`transition-colors hover:bg-gray-50/50 ${isUnread ? 'bg-indigo-50/30' : ''} ${isChecked ? '!bg-indigo-50/60' : ''}`}
                   >
-                    <td className="px-4 py-5">
+                    <td className="px-4 py-3">
                       <input
                         type="checkbox"
                         checked={isChecked}
@@ -213,47 +213,41 @@ export default function OrdersTableClient({ orders, statusCounts }: OrdersTableC
                         className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
                       />
                     </td>
-                    <td className="px-6 py-5">
+                    <td className="px-4 py-3 whitespace-nowrap">
                       <div className="flex items-center gap-2">
-                        {isUnread && <span className="w-2 h-2 rounded-full bg-blue-600 animate-pulse flex-shrink-0" title="Đơn hàng chưa đọc" />}
-                        <span className={`font-mono text-sm font-bold ${isUnread ? 'text-blue-700' : 'text-gray-900'}`}>
-                          #{order.orderCode}
+                        {isUnread && <span className="w-2 h-2 rounded-full bg-indigo-500 flex-shrink-0" title="Đơn hàng chưa đọc" />}
+                        <span className={`font-mono font-medium ${isUnread ? 'text-gray-900 font-bold' : 'text-gray-800'}`}>
+                          {order.orderCode}
                         </span>
                       </div>
                     </td>
-                    <td className="px-6 py-4">
-                      <div className={`text-sm font-bold ${isUnread ? 'text-gray-900 font-bold' : 'text-gray-700 font-bold'}`}>
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      <div className={`font-medium ${isUnread ? 'text-gray-900 font-bold' : 'text-gray-800'}`}>
                         {order.shippingName || order.user?.name || order.user?.phone || 'Khách lạ'}
                       </div>
-                      <div className="text-[11px] text-gray-400 font-medium">
+                      <div className="text-xs text-gray-500">
                         {order.shippingPhone || order.user?.phone || ''}
                       </div>
                     </td>
-                    <td className="px-6 py-5">
-                      <span className="px-2.5 py-1 rounded-md text-[10px] font-bold bg-gray-100 text-gray-400 uppercase tracking-wider">
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      <span className="text-gray-700">
                         {order.source === 'PORTAL_DIRECT' || !order.source ? 'WEBSITE' : order.source}
                       </span>
                     </td>
-                    <td className="px-6 py-5">
+                    <td className="px-4 py-3 whitespace-nowrap">
                       <div className="flex items-center gap-2 max-w-[200px]">
-                        <span className={`text-sm truncate ${isUnread ? 'font-bold text-gray-900 font-bold' : 'text-gray-600 font-medium'}`} title={firstItemDisplay}>
+                        <span className={`truncate text-gray-800 ${isUnread ? 'font-bold text-gray-900' : ''}`} title={firstItemDisplay}>
                           {firstItemDisplay}
                         </span>
                       </div>
                     </td>
-                    <td className="px-6 py-4">
-                      <span className={`px-3 py-1.5 rounded-full text-[12px] font-bold shadow-sm transition-all ${st.cls === 'badge-warning' ? 'bg-orange-100 text-orange-700 shadow-orange-100' :
-                        st.cls === 'badge-purple' ? 'bg-purple-100 text-purple-700 shadow-purple-100' :
-                          st.cls === 'badge-info' ? 'bg-cyan-100 text-cyan-700 shadow-cyan-100' :
-                            st.cls === 'badge-success' ? 'bg-green-100 text-green-700 shadow-green-100' :
-                              st.cls === 'badge-blue' ? 'bg-blue-100 text-blue-700 shadow-blue-100' :
-                                'bg-gray-100 text-gray-700'
-                        }`}>
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      <span className={`${st.cls}`}>
                         {st.label}
                       </span>
                     </td>
-                    <td className="px-6 py-5 text-[13px] font-medium text-gray-400">{fmtDate(order.createdAt)}</td>
-                    <td className="px-6 py-4 text-right">
+                    <td className="px-4 py-3 whitespace-nowrap text-gray-700">{fmtDate(order.createdAt)}</td>
+                    <td className="px-4 py-3 whitespace-nowrap text-right">
                       <Link
                         href={`/admin/orders/${order.id}`}
                         className="inline-flex items-center px-4 py-2 text-sm text-blue-600 hover:bg-white rounded-xl font-bold transition-all shadow-sm hover:shadow-md border border-transparent hover:border-gray-100"

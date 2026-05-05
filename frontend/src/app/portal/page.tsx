@@ -38,7 +38,7 @@ export default async function PortalDashboard() {
   // Calculate effective UI rank based on current spending
   let effectiveRank: string = user.rank;
   let progress = rankProgress[effectiveRank];
-  
+
   // Virtually upgrade if spending meets the next rank's target
   while (progress && progress.target > 0 && spentInLast30Days >= progress.target) {
     if (progress.next !== 'MAX') {
@@ -55,7 +55,7 @@ export default async function PortalDashboard() {
     <>
       <div className="mb-6">
         <h1 className="text-3xl font-bold text-gray-800 mb-1">
-          Xin chào, {session.name}! 👋
+          Xin chào, {session.name}!
         </h1>
         <p className="text-gray-600 text-sm">
           Chào mừng bạn quay lại
@@ -68,22 +68,22 @@ export default async function PortalDashboard() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
         <div className="bg-white p-6 rounded-xl shadow-sm">
-          <div className="text-sm text-gray-600 mb-2">🎫 Voucher chưa dùng</div>
+          <div className="text-sm text-gray-600 mb-2">Voucher của bạn</div>
           <div className="text-3xl font-bold text-gray-800 mb-2">{voucherCount}</div>
           <Link href="/portal/vouchers" className="text-xs text-blue-500 hover:text-blue-600">Xem voucher →</Link>
         </div>
         <div className="bg-white p-6 rounded-xl shadow-sm">
-          <div className="text-sm text-gray-600 mb-2">📦 Đơn hàng</div>
+          <div className="text-sm text-gray-600 mb-2">Đơn hàng của bạn</div>
           <div className="text-3xl font-bold text-gray-800 mb-2">{orderCount}</div>
           <Link href="/portal/orders" className="text-xs text-blue-500 hover:text-blue-600">Xem đơn →</Link>
         </div>
         <div className="bg-white p-6 rounded-xl shadow-sm">
-          <div className="text-sm text-gray-600 mb-2">🔗 Bạn bè đã mời</div>
+          <div className="text-sm text-gray-600 mb-2">Bạn bè đã mời</div>
           <div className="text-3xl font-bold text-gray-800 mb-2">{refereeCount}</div>
-          <Link href="/portal/referral" className="text-xs text-blue-500 hover:text-blue-600">Mời thêm →</Link>
+          <Link href="/portal/referral" className="text-xs text-blue-500 hover:text-blue-600">Xem ngay →</Link>
         </div>
         <div className="bg-white p-6 rounded-xl shadow-sm">
-          <div className="text-sm text-gray-600 mb-2">💰 Số dư hoa hồng</div>
+          <div className="text-sm text-gray-600 mb-2">Số dư hoa hồng</div>
           <div className="text-2xl font-bold text-gray-800 mb-2">{fmt(user.commissionBalance)}</div>
         </div>
       </div>
@@ -91,14 +91,13 @@ export default async function PortalDashboard() {
       {/* Rank Progress */}
       <div className="bg-white p-6 rounded-xl shadow-sm mt-6">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-bold">🏆 Tiến trình hạng thành viên</h3>
-          <span className={`px-3.5 py-1 rounded-full text-sm font-semibold shadow-sm border ${
-            effectiveRank === 'MEMBER' ? 'bg-gray-50 text-gray-700 border-gray-200' :
+          <h3 className="text-lg font-bold">Tiến trình hạng thành viên</h3>
+          <span className={`px-3.5 py-1 rounded-full text-sm font-semibold shadow-sm border ${effectiveRank === 'MEMBER' ? 'bg-gray-50 text-gray-700 border-gray-200' :
             effectiveRank === 'SILVER' ? 'bg-gray-100 text-gray-800 border-gray-300' :
-            effectiveRank === 'GOLD' ? 'bg-amber-50 text-amber-700 border-amber-200' :
-            effectiveRank === 'DIAMOND' ? 'bg-blue-50 text-blue-700 border-blue-200' :
-            'bg-purple-50 text-purple-700 border-purple-200'
-          }`}>
+              effectiveRank === 'GOLD' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                effectiveRank === 'DIAMOND' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                  'bg-purple-50 text-purple-700 border-purple-200'
+            }`}>
             {effectiveRank}
           </span>
         </div>
@@ -108,7 +107,7 @@ export default async function PortalDashboard() {
             {progress.target > 0 && <span>{fmt(progress.target)} → {progress.next}</span>}
           </div>
           <div className="h-2.5 bg-gray-100 rounded-full overflow-hidden shadow-inner">
-            <div 
+            <div
               className="h-full bg-gradient-to-r from-blue-500 to-indigo-600 rounded-full transition-all duration-1000"
               style={{ width: `${pct}%` }}
             />
@@ -128,17 +127,14 @@ export default async function PortalDashboard() {
       {/* Quick Actions */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
         <Link href="/portal/spin" className="bg-white p-6 rounded-xl shadow-sm text-center hover:shadow-md transition-shadow border border-indigo-100 bg-gradient-to-br from-indigo-50/50 to-purple-50/50">
-          <div className="text-4xl mb-3">🎰</div>
           <div className="font-bold text-gray-800">Vòng quay may mắn</div>
           <div className="text-xs text-gray-600 mt-2">Quay ngay để nhận quà</div>
         </Link>
         <Link href="/portal/referral" className="bg-white p-6 rounded-xl shadow-sm text-center hover:shadow-md transition-shadow border border-green-100 bg-gradient-to-br from-green-50/50 to-emerald-50/50">
-          <div className="text-4xl mb-3">🔗</div>
           <div className="font-bold text-gray-800">Giới thiệu bạn bè</div>
           <div className="text-xs text-gray-600 mt-2">Nhận hoa hồng {user.referralCode}</div>
         </Link>
         <Link href="/portal/vouchers" className="bg-white p-6 rounded-xl shadow-sm text-center hover:shadow-md transition-shadow border border-orange-100 bg-gradient-to-br from-orange-50/50 to-red-50/50">
-          <div className="text-4xl mb-3">🎫</div>
           <div className="font-bold text-gray-800">Voucher của tôi</div>
           <div className="text-xs text-gray-600 mt-2">{voucherCount} voucher khả dụng</div>
         </Link>
@@ -157,11 +153,10 @@ export default async function PortalDashboard() {
               <div key={o.id} className="p-4 flex flex-col gap-2">
                 <div className="flex justify-between items-center">
                   <span className="text-sm font-bold text-gray-800">{o.orderCode}</span>
-                  <span className={`px-2 py-1 rounded-full text-[10px] font-bold ${
-                    o.status === 'COMPLETED' ? 'bg-green-100 text-green-700' :
+                  <span className={`px-2 py-1 rounded-full text-[10px] font-bold ${o.status === 'COMPLETED' ? 'bg-green-100 text-green-700' :
                     o.status === 'PENDING' ? 'bg-yellow-100 text-yellow-700' :
-                    'bg-blue-100 text-blue-700'
-                  }`}>
+                      'bg-blue-100 text-blue-700'
+                    }`}>
                     {o.status}
                   </span>
                 </div>
@@ -174,7 +169,7 @@ export default async function PortalDashboard() {
           </div>
 
           {/* Desktop View */}
-          <div className="hidden md:block overflow-x-auto">
+          <div className="hidden md:block overflow-x-auto mb-6">
             <table className="w-full">
               <thead className="bg-gray-50">
                 <tr>
@@ -190,11 +185,10 @@ export default async function PortalDashboard() {
                     <td className="px-6 py-4 text-xs font-mono text-gray-800">{o.orderCode}</td>
                     <td className="px-6 py-4 font-semibold text-rose-600">{fmt(o.totalAmount)}</td>
                     <td className="px-6 py-4">
-                      <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                        o.status === 'COMPLETED' ? 'bg-green-100 text-green-700' :
+                      <span className={`px-3 py-1 rounded-full text-xs font-semibold ${o.status === 'COMPLETED' ? 'bg-green-100 text-green-700' :
                         o.status === 'PENDING' ? 'bg-yellow-100 text-yellow-700' :
-                        'bg-blue-100 text-blue-700'
-                      }`}>
+                          'bg-blue-100 text-blue-700'
+                        }`}>
                         {o.status}
                       </span>
                     </td>

@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
-import { Heart, ShoppingCart, Eye, Star, Search, Share2, ChevronLeft, ChevronRight, Filter, X } from 'lucide-react';
-import { useRouter } from 'next/navigation';
+import { useState, useCallback, useEffect, useMemo } from 'react';
+import { Heart, ShoppingCart, Eye, Star, Search, Share2, ChevronLeft, ChevronRight, Filter, X, Minus, Plus, Check } from 'lucide-react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import CategoryFilter from './CategoryFilter';
 import Select from '@/components/ui/Select';
 import tinhData from '@/data/tinh_tp.json';
@@ -55,12 +55,229 @@ function formatCurrency(amount: number) {
   }).format(amount);
 }
 
-export default function ProductsClient({ products, categories, initialWishlistIds, userReferralCode }: ProductsClientProps) {
+/* ── Price Filter Accordion ─────────────────────────────── */
+function PriceFilterAccordion({
+  priceRange,
+  setPriceRange,
+  minPrice,
+  maxPrice,
+}: {
+  priceRange: [number, number];
+  setPriceRange: (v: [number, number]) => void;
+  minPrice: number;
+  maxPrice: number;
+  formatCurrency: (n: number) => string;
+}) {
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  const fmtShort = (n: number) =>
+    new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 0 }).format(n);
+
+  const range = maxPrice - minPrice || 1;
+  const minPct = ((priceRange[0] - minPrice) / range) * 100;
+  const maxPct = ((priceRange[1] - minPrice) / range) * 100;
+
+  return (
+    <div className="border-b border-gray-200 pb-1">
+      <button
+        type="button"
+        onClick={() => setIsExpanded(!isExpanded)}
+        className="flex w-full items-center justify-between py-4 text-left"
+      >
+        <h3 className="text-[15px] font-bold text-gray-900 tracking-tight">Khoảng giá</h3>
+        <span className="text-gray-400 hover:text-gray-600 transition-colors">
+          {isExpanded ? <Minus className="w-5 h-5" /> : <Plus className="w-5 h-5" />}
+        </span>
+      </button>
+
+      <div
+        className={`overflow-hidden transition-all duration-300 ease-in-out ${isExpanded ? 'max-h-[200px] opacity-100 pb-4' : 'max-h-0 opacity-0'
+          }`}
+      >
+        {/* Dual Range Slider */}
+        <div className="relative mt-2 mb-1 h-10 flex items-center">
+          <div className="absolute left-0 right-0 h-[2px] bg-gray-200 rounded-full" />
+          <div
+            className="absolute h-[2px] bg-sky-500 rounded-full"
+            style={{ left: `${minPct}%`, right: `${100 - maxPct}%` }}
+          />
+          <input
+            type="range"
+            min={minPrice}
+            max={maxPrice}
+            step={10000}
+            value={priceRange[0]}
+            onChange={(e) => {
+              const v = parseInt(e.target.value);
+              if (v <= priceRange[1]) setPriceRange([v, priceRange[1]]);
+            }}
+            className="price-range-slider absolute w-full"
+            style={{ zIndex: priceRange[0] > maxPrice - 10000 ? 5 : 3 }}
+          />
+          <input
+            type="range"
+            min={minPrice}
+            max={maxPrice}
+            step={10000}
+            value={priceRange[1]}
+            onChange={(e) => {
+              const v = parseInt(e.target.value);
+              if (v >= priceRange[0]) setPriceRange([priceRange[0], v]);
+            }}
+            className="price-range-slider absolute w-full"
+            style={{ zIndex: 4 }}
+          />
+        </div>
+
+        <div className="flex items-center justify-between mt-1">
+          <span className="text-xs text-black font-medium">{fmtShort(priceRange[0])}</span>
+          <span className="text-xs text-black font-medium">{fmtShort(priceRange[1])}</span>
+        </div>
+
+        <style jsx>{`
+          .price-range-slider {
+            -webkit-appearance: none;
+            appearance: none;
+            height: 2px;
+            background: transparent;
+            pointer-events: none;
+            outline: none;
+          }
+          .price-range-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: white;
+            border: 2px solid #e5e7eb;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+            cursor: pointer;
+            pointer-events: auto;
+            transition: border-color 0.15s, box-shadow 0.15s;
+          }
+          .price-range-slider::-webkit-slider-thumb:hover {
+            border-color: #ef4444;
+            box-shadow: 0 0 0 4px rgba(239,68,68,0.1);
+          }
+          .price-range-slider::-moz-range-thumb {
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: white;
+            border: 2px solid #e5e7eb;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+            cursor: pointer;
+            pointer-events: auto;
+          }
+          .price-range-slider::-moz-range-thumb:hover {
+            border-color: #ef4444;
+          }
+        `}</style>
+      </div>
+    </div>
+  );
+}
+
+/* ── Region Filter Accordion ────────────────────────────── */
+function RegionFilterAccordion({
+  selectedProvinceId,
+  setSelectedProvinceId,
+  provinces,
+}: {
+  selectedProvinceId: string | null;
+  setSelectedProvinceId: (id: string | null) => void;
+  provinces: { id: string; name: string; isMajor: boolean }[];
+}) {
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  return (
+    <div className="pb-1">
+      <button
+        type="button"
+        onClick={() => setIsExpanded(!isExpanded)}
+        className="flex w-full items-center justify-between py-4 text-left"
+      >
+        <h3 className="text-[15px] font-bold text-gray-900 tracking-tight">Khu vực</h3>
+        <span className="text-gray-400 hover:text-gray-600 transition-colors">
+          {isExpanded ? <Minus className="w-5 h-5" /> : <Plus className="w-5 h-5" />}
+        </span>
+      </button>
+
+      <div
+        className={`overflow-hidden transition-all duration-300 ease-in-out ${isExpanded ? 'max-h-[350px] opacity-100 pb-3' : 'max-h-0 opacity-0'
+          }`}
+      >
+        <div className="max-h-[280px] overflow-y-auto pr-1 space-y-0 custom-scrollbar">
+          {/* All regions */}
+          <button
+            onClick={() => setSelectedProvinceId(null)}
+            className="group flex w-full items-center gap-3 py-2.5 text-left text-sm transition-colors hover:text-gray-900"
+          >
+            <div
+              className={`w-[18px] h-[18px] rounded border-2 flex items-center justify-center shrink-0 transition-all duration-200 ${!selectedProvinceId
+                ? 'bg-gray-900 border-gray-900'
+                : 'border-gray-300 group-hover:border-gray-400'
+                }`}
+            >
+              {!selectedProvinceId && <Check className="w-3 h-3 text-white stroke-[3]" />}
+            </div>
+            <span className={!selectedProvinceId ? 'font-semibold text-gray-900' : 'text-gray-600'}>
+              Tất cả khu vực
+            </span>
+          </button>
+
+          {provinces.map((prov) => {
+            const active = selectedProvinceId === prov.id;
+            return (
+              <button
+                key={prov.id}
+                onClick={() => setSelectedProvinceId(active ? null : prov.id)}
+                className="group flex w-full items-center gap-3 py-2.5 text-left text-sm transition-colors hover:text-gray-900"
+              >
+                <div
+                  className={`w-[18px] h-[18px] rounded border-2 flex items-center justify-center shrink-0 transition-all duration-200 ${active
+                    ? 'bg-gray-900 border-gray-900'
+                    : 'border-gray-300 group-hover:border-gray-400'
+                    }`}
+                >
+                  {active && <Check className="w-3 h-3 text-white stroke-[3]" />}
+                </div>
+                <span className={active ? 'font-semibold text-gray-900' : 'text-gray-600'}>
+                  {prov.name}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default function ProductsClient({
+  products,
+  categories,
+  initialWishlistIds,
+  userReferralCode,
+}: ProductsClientProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const initialQuery = searchParams.get('q') || '';
+
+  const [searchQuery, setSearchQuery] = useState(initialQuery);
+
+  // Sync searchQuery with URL changes
+  useEffect(() => {
+    const q = searchParams.get('q') || '';
+    if (q !== searchQuery) {
+      setSearchQuery(q);
+    }
+  }, [searchParams]);
+
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
   const [selectedProvinceId, setSelectedProvinceId] = useState<string | null>(null);
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
 
@@ -346,113 +563,68 @@ export default function ProductsClient({ products, categories, initialWishlistId
       `}</style>
 
       <div className="mx-auto px-4">
-        {/* Page Header */}
-        <div className="mb-8 flex flex-col justify-between gap-4 md:flex-row md:items-center">
-          <div className="flex items-center gap-3">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">Sản phẩm</h1>
-              <p className="text-sm text-gray-500">Khám phá bộ sưu tập của chúng tôi</p>
+
+        <div className="hidden sm:flex flex-wrap items-center justify-end gap-2">
+          {totalPages > 1 && (
+            <div className="inline-flex h-9 items-center rounded-full border border-gray-200 bg-white px-3 text-sm text-gray-500 shadow-sm">
+              Trang <span className="ml-1 font-semibold text-gray-900">{currentPage}</span>
+              <span className="mx-1 text-gray-300">/</span>
+              <span>{totalPages}</span>
             </div>
-          </div>
-
-          <div className="flex w-full flex-col gap-3 lg:w-auto lg:min-w-[540px]">
-            {/* Desktop Layout */}
-            <div className="hidden sm:flex flex-col gap-3 rounded-2xl border border-gray-200 bg-white p-3 shadow-sm sm:flex-row sm:items-center">
-              <div className="relative flex-1">
-                <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="Tìm sản phẩm..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="h-11 w-full rounded-xl border border-gray-200 bg-white pl-11 pr-4 text-sm text-gray-800 outline-none transition focus:border-gray-900"
-                />
-              </div>
-
-              <div className="inline-flex h-11 min-w-[150px] items-center justify-between gap-3 rounded-xl border border-gray-200 bg-gradient-to-r from-gray-50 to-white px-4">
-                <span className="text-sm font-medium text-gray-500">Kết quả</span>
-                <div className="flex items-baseline gap-1 whitespace-nowrap">
-                  <span className="text-base font-semibold text-gray-900">{filteredProducts.length}</span>
-                  <span className="text-sm text-gray-500">sản phẩm</span>
-                </div>
-              </div>
-              <div className="inline-flex h-9 items-center gap-1.5 rounded-full bg-rose-50 px-3 text-sm font-medium text-rose-600">
-                <Heart className="h-4 w-4 fill-rose-500" />
-                {wishlistIds.size}
-              </div>
-            </div>
-
-            <div className="hidden sm:flex flex-wrap items-center justify-end gap-2">
-              {totalPages > 1 && (
-                <div className="inline-flex h-9 items-center rounded-full border border-gray-200 bg-white px-3 text-sm text-gray-500 shadow-sm">
-                  Trang <span className="ml-1 font-semibold text-gray-900">{currentPage}</span>
-                  <span className="mx-1 text-gray-300">/</span>
-                  <span>{totalPages}</span>
-                </div>
-              )}
-            </div>
-
-            {/* Mobile Layout */}
-            <div className="flex sm:hidden flex-col gap-3">
-              <div className="relative w-full">
-                <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="Tìm sản phẩm..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="h-11 w-full rounded-xl border border-gray-200 bg-white pl-11 pr-4 text-sm text-gray-800 outline-none transition focus:border-gray-900"
-                />
-              </div>
-
-              {/* Mobile Category Buttons */}
-              <div className="w-full overflow-x-auto pb-1 custom-scrollbar">
-                <div className={`grid gap-2 auto-cols-max grid-flow-col ${categories.length > 15 ? 'grid-rows-3' : categories.length > 10 ? 'grid-rows-2' : 'grid-rows-1'}`}>
-                  {categories.filter(c => !c.parentId).map(cat => (
-                    <button
-                      key={cat.id}
-                      onClick={() => {
-                        if (selectedCategoryIds.includes(cat.id)) {
-                          setSelectedCategoryIds(prev => prev.filter(id => id !== cat.id));
-                        } else {
-                          setSelectedCategoryIds(prev => [...prev, cat.id]);
-                        }
-                      }}
-                      className={`px-4 py-1.5 rounded-full text-sm font-medium border whitespace-nowrap transition-colors ${selectedCategoryIds.includes(cat.id) ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
-                        }`}
-                    >
-                      {cat.name}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-3 gap-2">
-                <button
-                  onClick={() => setIsFilterModalOpen(true)}
-                  className="flex items-center justify-center gap-1.5 h-11 bg-white border border-gray-200 rounded-xl text-gray-700 font-medium active:scale-95 transition-transform"
-                >
-                  <Filter className="w-4 h-4" />
-                  <span className="text-sm text-gray-700 font-semibold">Lọc</span>
-                </button>
-                <div className="flex flex-col items-center justify-center h-11 bg-white border border-gray-200 rounded-xl px-2">
-                  <span className="text-[10px] text-gray-500 uppercase font-bold tracking-wider leading-none mb-0.5">Kết quả</span>
-                  <span className="text-sm font-bold text-gray-900 leading-none">{filteredProducts.length} SP</span>
-                </div>
-                <button
-                  className="flex items-center justify-center gap-1.5 h-11 bg-rose-50 border border-rose-100 rounded-xl text-rose-600 font-medium"
-                >
-                  <Heart className="w-4 h-4 fill-rose-500" />
-                  <span className="text-sm font-bold">{wishlistIds.size}</span>
-                </button>
-              </div>
-            </div>
-          </div>
+          )}
         </div>
 
-        <div className="flex flex-col md:flex-row gap-6">
-          {/* Left Sidebar - Filters (Desktop Only) */}
-          <div className="hidden md:block w-full md:w-64 flex-shrink-0 space-y-4">
+        {/* Mobile Layout */}
+        <div className="flex sm:hidden flex-col gap-3 mt-4">
+
+          {/* Mobile Category Buttons */}
+          <div className="w-full overflow-x-auto pb-1 custom-scrollbar">
+            <div className={`grid gap-2 auto-cols-max grid-flow-col ${categories.length > 15 ? 'grid-rows-3' : categories.length > 10 ? 'grid-rows-2' : 'grid-rows-1'}`}>
+              {categories.filter(c => !c.parentId).map(cat => (
+                <button
+                  key={cat.id}
+                  onClick={() => {
+                    if (selectedCategoryIds.includes(cat.id)) {
+                      setSelectedCategoryIds(prev => prev.filter(id => id !== cat.id));
+                    } else {
+                      setSelectedCategoryIds(prev => [...prev, cat.id]);
+                    }
+                  }}
+                  className={`px-4 py-1.5 rounded-full text-sm font-medium border whitespace-nowrap transition-colors ${selectedCategoryIds.includes(cat.id) ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
+                    }`}
+                >
+                  {cat.name}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-3 gap-2">
+            <button
+              onClick={() => setIsFilterModalOpen(true)}
+              className="flex items-center justify-center gap-1.5 h-11 bg-white border border-gray-200 rounded-xl text-gray-700 font-medium active:scale-95 transition-transform"
+            >
+              <Filter className="w-4 h-4" />
+              <span className="text-sm text-gray-700 font-semibold">Lọc</span>
+            </button>
+            <div className="flex flex-col items-center justify-center h-11 bg-white border border-gray-200 rounded-xl px-2">
+              <span className="text-[10px] text-gray-500 uppercase font-bold tracking-wider leading-none mb-0.5">Kết quả</span>
+              <span className="text-sm font-bold text-gray-900 leading-none">{filteredProducts.length} SP</span>
+            </div>
+            <button
+              className="flex items-center justify-center gap-1.5 h-11 bg-rose-50 border border-rose-100 rounded-xl text-rose-600 font-medium"
+            >
+              <Heart className="w-4 h-4 fill-rose-500" />
+              <span className="text-sm font-bold">{wishlistIds.size}</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-6 lg:flex-row lg:items-start mt-6">
+        {/* Left Sidebar - Filters (Desktop Only) */}
+        <div className="hidden md:block w-full md:w-64 flex-shrink-0">
+          <div className="px-5 py-1 sticky top-24">
             {/* Category Filter */}
             <CategoryFilter
               categories={categories}
@@ -460,468 +632,365 @@ export default function ProductsClient({ products, categories, initialWishlistId
               onFilterChange={setSelectedCategoryIds}
             />
 
-            {/* Price Filter */}
-            <div className="bg-white rounded-xl shadow-sm p-4">
-              <h3 className="text-lg font-bold text-gray-800 mb-4">Khoảng giá</h3>
+            {/* Price Filter - Accordion */}
+            <PriceFilterAccordion
+              priceRange={priceRange}
+              setPriceRange={setPriceRange}
+              minPrice={minPrice}
+              maxPrice={maxPrice}
+              formatCurrency={formatCurrency}
+            />
 
-              {/* Price Range Display */}
-              <div className="mb-4 text-sm text-gray-600">
-                <div className="flex justify-between items-center">
-                  <span>{formatCurrency(priceRange[0])}</span>
-                  <span>-</span>
-                  <span>{formatCurrency(priceRange[1])}</span>
-                </div>
-              </div>
+            {/* Location Filter - Accordion */}
+            <RegionFilterAccordion
+              selectedProvinceId={selectedProvinceId}
+              setSelectedProvinceId={setSelectedProvinceId}
+              provinces={provinces}
+            />
+          </div>
+        </div>
 
-              {/* Min Price Slider */}
-              <div className="mb-4">
-                <label className="block text-xs text-gray-600 mb-2">Giá tối thiểu</label>
-                <input
-                  type="range"
-                  min={minPrice}
-                  max={maxPrice}
-                  step={100000}
-                  value={priceRange[0]}
-                  onChange={(e) => {
-                    const newMin = parseInt(e.target.value);
-                    if (newMin <= priceRange[1]) {
-                      setPriceRange([newMin, priceRange[1]]);
-                    }
-                  }}
-                  className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
-                />
-              </div>
-
-              {/* Max Price Slider */}
-              <div className="mb-4">
-                <label className="block text-xs text-gray-600 mb-2">Giá tối đa</label>
-                <input
-                  type="range"
-                  min={minPrice}
-                  max={maxPrice}
-                  step={100000}
-                  value={priceRange[1]}
-                  onChange={(e) => {
-                    const newMax = parseInt(e.target.value);
-                    if (newMax >= priceRange[0]) {
-                      setPriceRange([priceRange[0], newMax]);
-                    }
-                  }}
-                  className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
-                />
-              </div>
-
-              {/* Quick Price Filters */}
-              <div className="space-y-2">
-                <button
-                  onClick={() => setPriceRange([0, 500000])}
-                  className="w-full text-left px-3 py-2 rounded-lg text-sm text-gray-700 hover:bg-gray-100 transition-colors"
-                >
-                  Dưới 500k
-                </button>
-                <button
-                  onClick={() => setPriceRange([500000, 1000000])}
-                  className="w-full text-left px-3 py-2 rounded-lg text-sm text-gray-700 hover:bg-gray-100 transition-colors"
-                >
-                  500k - 1 triệu
-                </button>
-                <button
-                  onClick={() => setPriceRange([1000000, 2000000])}
-                  className="w-full text-left px-3 py-2 rounded-lg text-sm text-gray-700 hover:bg-gray-100 transition-colors"
-                >
-                  1 - 2 triệu
-                </button>
-                <button
-                  onClick={() => setPriceRange([2000000, maxPrice])}
-                  className="w-full text-left px-3 py-2 rounded-lg text-sm text-gray-700 hover:bg-gray-100 transition-colors"
-                >
-                  Trên 2 triệu
-                </button>
-              </div>
-
-              {/* Reset Button */}
-              <button
-                onClick={() => setPriceRange([minPrice, maxPrice])}
-                className="w-full mt-4 px-3 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm font-medium transition-colors"
-              >
-                Đặt lại
+        {/* Mobile Filter Modal */}
+        {isFilterModalOpen && (
+          <div className="fixed inset-0 z-[100] flex md:hidden flex-col bg-white animate-fade-scale">
+            <div className="flex items-center justify-between p-4 border-b border-gray-100">
+              <h2 className="text-lg font-bold text-gray-800">Lọc sản phẩm</h2>
+              <button onClick={() => setIsFilterModalOpen(false)} className="p-2 text-gray-500 bg-gray-50 rounded-full hover:bg-gray-100">
+                <X className="w-5 h-5" />
               </button>
             </div>
-
-            {/* Location Filter (Desktop) */}
-            <div className="bg-white rounded-xl shadow-sm p-4 sticky top-24 mt-4">
-              <h3 className="text-lg font-bold text-gray-800 mb-4">Khu vực</h3>
-              <div className="max-h-60 overflow-y-auto space-y-1 pr-2 custom-scrollbar">
-                <button
-                  onClick={() => setSelectedProvinceId(null)}
-                  className={`w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition-colors ${!selectedProvinceId ? 'bg-indigo-50 text-indigo-700' : 'text-gray-700 hover:bg-gray-100'}`}
-                >
-                  Tất cả khu vực
-                </button>
-                {provinces.map(prov => (
-                  <button
-                    key={prov.id}
-                    onClick={() => setSelectedProvinceId(prov.id)}
-                    className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${selectedProvinceId === prov.id ? 'bg-indigo-50 text-indigo-700 font-medium' : 'text-gray-700 hover:bg-gray-100'}`}
-                  >
-                    {prov.name} {prov.isMajor && <span className="text-indigo-500 font-bold ml-1">*</span>}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* Mobile Filter Modal */}
-          {isFilterModalOpen && (
-            <div className="fixed inset-0 z-[100] flex md:hidden flex-col bg-white animate-fade-scale">
-              <div className="flex items-center justify-between p-4 border-b border-gray-100">
-                <h2 className="text-lg font-bold text-gray-800">Lọc sản phẩm</h2>
-                <button onClick={() => setIsFilterModalOpen(false)} className="p-2 text-gray-500 bg-gray-50 rounded-full hover:bg-gray-100">
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-              <div className="flex-1 overflow-y-auto p-4 space-y-6 pb-24">
-                {/* Price Filter */}
-                <div className="pt-2">
-                  <h3 className="font-bold text-gray-800 mb-3">Khoảng giá</h3>
-                  <div className="mb-4 text-sm text-gray-600 font-medium bg-gray-50 p-3 rounded-lg text-center">
-                    {formatCurrency(priceRange[0])} - {formatCurrency(priceRange[1])}
-                  </div>
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-xs text-gray-600 mb-2">Từ</label>
-                      <input
-                        type="range"
-                        min={minPrice} max={maxPrice} step={100000}
-                        value={priceRange[0]}
-                        onChange={(e) => {
-                          const newMin = parseInt(e.target.value);
-                          if (newMin <= priceRange[1]) setPriceRange([newMin, priceRange[1]]);
-                        }}
-                        className="w-full h-2 bg-gray-200 rounded-lg appearance-none accent-blue-600"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs text-gray-600 mb-2">Đến</label>
-                      <input
-                        type="range"
-                        min={minPrice} max={maxPrice} step={100000}
-                        value={priceRange[1]}
-                        onChange={(e) => {
-                          const newMax = parseInt(e.target.value);
-                          if (newMax >= priceRange[0]) setPriceRange([priceRange[0], newMax]);
-                        }}
-                        className="w-full h-2 bg-gray-200 rounded-lg appearance-none accent-blue-600"
-                      />
-                    </div>
-                  </div>
+            <div className="flex-1 overflow-y-auto p-4 space-y-6 pb-24">
+              {/* Price Filter */}
+              <div className="pt-2">
+                <h3 className="font-bold text-gray-800 mb-3">Khoảng giá</h3>
+                <div className="mb-4 text-sm text-gray-600 font-medium bg-gray-50 p-3 rounded-lg text-center">
+                  {formatCurrency(priceRange[0])} - {formatCurrency(priceRange[1])}
                 </div>
-
-                {/* Location Filter */}
-                <div className="border-t border-gray-100 pt-6">
-                  <h3 className="font-bold text-gray-800 mb-3">Khu vực</h3>
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      onClick={() => setSelectedProvinceId(null)}
-                      className={`px-3 py-2 text-xs font-medium rounded-lg transition-colors border ${!selectedProvinceId ? 'bg-indigo-50 border-indigo-200 text-indigo-700' : 'bg-gray-50 border-gray-200 text-gray-700'}`}
-                    >
-                      Tất cả
-                    </button>
-                    {provinces.filter(p => p.isMajor).map(prov => (
-                      <button
-                        key={prov.id}
-                        onClick={() => setSelectedProvinceId(prov.id)}
-                        className={`px-3 py-2 text-xs font-medium rounded-lg transition-colors border ${selectedProvinceId === prov.id ? 'bg-indigo-50 border-indigo-200 text-indigo-700' : 'bg-gray-50 border-gray-200 text-gray-700'}`}
-                      >
-                        {prov.name}
-                      </button>
-                    ))}
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-2">Từ</label>
+                    <input
+                      type="range"
+                      min={minPrice} max={maxPrice} step={100000}
+                      value={priceRange[0]}
+                      onChange={(e) => {
+                        const newMin = parseInt(e.target.value);
+                        if (newMin <= priceRange[1]) setPriceRange([newMin, priceRange[1]]);
+                      }}
+                      className="w-full h-2 bg-gray-200 rounded-lg appearance-none accent-blue-600"
+                    />
                   </div>
-                  <div className="mt-3">
-                    <Select
-                      value={selectedProvinceId || ''}
-                      onChange={(val) => setSelectedProvinceId(val || null)}
-                      className="w-full"
-                      placeholder="Chọn tỉnh thành khác..."
-                      options={provinces.filter(p => !p.isMajor).map(prov => ({
-                        value: prov.id,
-                        label: prov.name
-                      }))}
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-2">Đến</label>
+                    <input
+                      type="range"
+                      min={minPrice} max={maxPrice} step={100000}
+                      value={priceRange[1]}
+                      onChange={(e) => {
+                        const newMax = parseInt(e.target.value);
+                        if (newMax >= priceRange[0]) setPriceRange([priceRange[0], newMax]);
+                      }}
+                      className="w-full h-2 bg-gray-200 rounded-lg appearance-none accent-blue-600"
                     />
                   </div>
                 </div>
               </div>
 
-              <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-gray-100 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
-                <div className="flex gap-3">
+              {/* Location Filter */}
+              <div className="border-t border-gray-100 pt-6">
+                <h3 className="font-bold text-gray-800 mb-3">Khu vực</h3>
+                <div className="grid grid-cols-2 gap-2">
                   <button
-                    onClick={() => {
-                      setSelectedCategoryIds([]);
-                      setPriceRange([minPrice, maxPrice]);
-                      setSelectedProvinceId(null);
-                    }}
-                    className="w-1/3 py-3 rounded-xl border border-gray-300 text-gray-700 font-semibold"
+                    onClick={() => setSelectedProvinceId(null)}
+                    className={`px-3 py-2 text-xs font-medium rounded-lg transition-colors border ${!selectedProvinceId ? 'bg-indigo-50 border-indigo-200 text-indigo-700' : 'bg-gray-50 border-gray-200 text-gray-700'}`}
                   >
-                    Đặt lại
+                    Tất cả
                   </button>
-                  <button
-                    onClick={() => setIsFilterModalOpen(false)}
-                    className="w-2/3 py-3 rounded-xl bg-blue-600 text-white font-bold shadow-md shadow-blue-200"
-                  >
-                    Áp dụng ({filteredProducts.length} SP)
-                  </button>
+                  {provinces.filter(p => p.isMajor).map(prov => (
+                    <button
+                      key={prov.id}
+                      onClick={() => setSelectedProvinceId(prov.id)}
+                      className={`px-3 py-2 text-xs font-medium rounded-lg transition-colors border ${selectedProvinceId === prov.id ? 'bg-indigo-50 border-indigo-200 text-indigo-700' : 'bg-gray-50 border-gray-200 text-gray-700'}`}
+                    >
+                      {prov.name}
+                    </button>
+                  ))}
+                </div>
+                <div className="mt-3">
+                  <Select
+                    value={selectedProvinceId || ''}
+                    onChange={(val) => setSelectedProvinceId(val || null)}
+                    className="w-full"
+                    placeholder="Chọn tỉnh thành khác..."
+                    options={provinces.filter(p => !p.isMajor).map(prov => ({
+                      value: prov.id,
+                      label: prov.name
+                    }))}
+                  />
                 </div>
               </div>
             </div>
-          )}
 
-          {/* Right Content - Products */}
-          <div className="flex-1">
-
-            {filteredProducts.length === 0 ? (
-              <div className="bg-white rounded-2xl shadow-sm p-16 text-center">
-                <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-gray-100 flex items-center justify-center">
-                  <Eye className="w-10 h-10 text-gray-300" />
-                </div>
-                <h3 className="text-xl font-bold text-gray-800 mb-2">
-                  Không tìm thấy sản phẩm
-                </h3>
-                <p className="text-gray-500 max-w-sm mx-auto">
-                  Thử thay đổi bộ lọc hoặc danh mục để tìm sản phẩm phù hợp
-                </p>
+            <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-gray-100 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+              <div className="flex gap-3">
+                <button
+                  onClick={() => {
+                    setSelectedCategoryIds([]);
+                    setPriceRange([minPrice, maxPrice]);
+                    setSelectedProvinceId(null);
+                  }}
+                  className="w-1/3 py-3 rounded-xl border border-gray-300 text-gray-700 font-semibold"
+                >
+                  Đặt lại
+                </button>
+                <button
+                  onClick={() => setIsFilterModalOpen(false)}
+                  className="w-2/3 py-3 rounded-xl bg-blue-600 text-white font-bold shadow-md shadow-blue-200"
+                >
+                  Áp dụng ({filteredProducts.length} SP)
+                </button>
               </div>
-            ) : (
-              <>
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-5">
-                  {currentProducts.map((product, index) => {
-                    const finalPrices = [product.salePrice || product.originalPrice];
-                    const originalPrices = [product.originalPrice];
+            </div>
+          </div>
+        )}
 
-                    if (product.variants?.length) {
-                      product.variants.forEach(v => {
-                        if (v.price) {
-                          finalPrices.push(v.price);
-                          // We assume variant price replaces both sale and original price since admin only inputs 1 price for variant
-                          originalPrices.push(v.price);
-                        }
-                      });
-                    }
+        {/* Right Content - Products */}
+        <div className="flex-1">
 
-                    const minPrice = Math.min(...finalPrices);
-                    const maxPrice = Math.max(...finalPrices);
-                    const minOriginalPrice = Math.min(...originalPrices);
-                    const maxOriginalPrice = Math.max(...originalPrices);
+          {filteredProducts.length === 0 ? (
+            <div className="bg-white rounded-2xl shadow-sm p-16 text-center">
+              <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-gray-100 flex items-center justify-center">
+                <Eye className="w-10 h-10 text-gray-300" />
+              </div>
+              <h3 className="text-xl font-bold text-gray-800 mb-2">
+                Không tìm thấy sản phẩm
+              </h3>
+              <p className="text-gray-500 max-w-sm mx-auto">
+                Thử thay đổi bộ lọc hoặc danh mục để tìm sản phẩm phù hợp
+              </p>
+            </div>
+          ) : (
+            <>
+              <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3 sm:gap-4">
+                {currentProducts.map((product, index) => {
+                  const finalPrices = [product.salePrice || product.originalPrice];
+                  const originalPrices = [product.originalPrice];
 
-                    const displayPriceString = formatCurrency(minPrice);
+                  if (product.variants?.length) {
+                    product.variants.forEach(v => {
+                      if (v.price) {
+                        finalPrices.push(v.price);
+                        // We assume variant price replaces both sale and original price since admin only inputs 1 price for variant
+                        originalPrices.push(v.price);
+                      }
+                    });
+                  }
 
-                    // Has discount if at least one price was discounted
-                    const hasDiscount = minPrice < minOriginalPrice || maxPrice < maxOriginalPrice;
+                  const minPrice = Math.min(...finalPrices);
+                  const maxPrice = Math.max(...finalPrices);
+                  const minOriginalPrice = Math.min(...originalPrices);
+                  const maxOriginalPrice = Math.max(...originalPrices);
 
-                    // For the discount tag, maybe just find max discount percent. Or keep it simple.
-                    const maxDiscountPercent = hasDiscount
-                      ? Math.round(((product.originalPrice - product.salePrice!) / product.originalPrice) * 100)
-                      : 0;
+                  const displayPriceString = formatCurrency(minPrice);
 
-                    const isWishlisted = wishlistIds.has(product.id);
-                    const isToggling = togglingIds.has(product.id);
-                    const outOfStock = product.stockQuantity === 0;
+                  // Has discount if at least one price was discounted
+                  const hasDiscount = minPrice < minOriginalPrice || maxPrice < maxOriginalPrice;
 
-                    return (
-                      <div
-                        key={`${product.id}-${currentPage}-${debouncedSearchQuery}-${selectedCategoryIds.join(',')}-${priceRange[0]}-${priceRange[1]}`}
-                        className="group animate-fade-scale bg-white rounded-2xl shadow-sm overflow-hidden hover:shadow-xl transition-all duration-300 hover:-translate-y-1 relative cursor-pointer"
-                        style={{ animationDelay: `${index * 50}ms` }}
-                        onClick={() => router.push(`/portal/products/${product.slug}`)}
-                      >
-                        {/* Product Image */}
-                        <div className="relative bg-gradient-to-br from-gray-50 to-gray-100 overflow-hidden" style={{ paddingBottom: 'calc(100% + 15px)' }}>
-                          {product.imageUrl ? (
-                            <img
-                              src={product.imageUrl}
-                              alt={product.name}
-                              className="absolute inset-0 w-full h-full object-cover group-hover:scale-110 transition-transform duration-500 ease-out"
-                            />
-                          ) : (
-                            <div className="absolute inset-0 w-full h-full flex items-center justify-center">
-                              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-100 to-purple-100 flex items-center justify-center">
-                                <ShoppingCart className="w-8 h-8 text-blue-300" />
-                              </div>
-                            </div>
-                          )}
+                  // For the discount tag, maybe just find max discount percent. Or keep it simple.
+                  const maxDiscountPercent = hasDiscount
+                    ? Math.round(((product.originalPrice - product.salePrice!) / product.originalPrice) * 100)
+                    : 0;
 
-                          {/* Overlay gradient on hover */}
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                  const isWishlisted = wishlistIds.has(product.id);
+                  const isToggling = togglingIds.has(product.id);
+                  const outOfStock = product.stockQuantity === 0;
 
-                          {/* Action Buttons */}
-                          <div className="absolute top-3 right-3 flex flex-col gap-2 z-10">
-                            {/* Wishlist Button */}
-                            <button
-                              onClick={(e) => toggleWishlist(product.id, e)}
-                              disabled={isToggling}
-                              className={`w-9 h-9 rounded-full flex items-center justify-center transition-all duration-300 backdrop-blur-sm ${isWishlisted
-                                ? 'bg-rose-500 text-white shadow-lg shadow-rose-500/30'
-                                : 'bg-white/80 text-gray-400 hover:bg-white hover:text-rose-500 shadow-sm'
-                                } ${isToggling ? 'opacity-50 cursor-wait' : 'hover:scale-110 active:scale-95'}`}
-                              title={isWishlisted ? 'Bỏ yêu thích' : 'Thêm vào yêu thích'}
-                            >
-                              <Heart
-                                className={`w-4 h-4 ${isWishlisted ? 'fill-current heart-pop' : ''}`}
-                              />
-                            </button>
-
-                            {/* Share Button */}
-                            <button
-                              onClick={(e) => handleShareProduct(product.slug, product.id, e)}
-                              className={`w-9 h-9 rounded-full flex items-center justify-center transition-all duration-300 backdrop-blur-sm ${copiedProductId === product.id
-                                ? 'bg-green-500 text-white shadow-lg shadow-green-500/30'
-                                : 'bg-white/80 text-gray-400 hover:bg-white hover:text-blue-500 shadow-sm hover:scale-110 active:scale-95'
-                                }`}
-                              title="Chia sẻ sản phẩm"
-                            >
-                              <Share2 className="w-4 h-4" />
-                            </button>
+                  return (
+                    <div
+                      key={`${product.id}-${currentPage}-${debouncedSearchQuery}-${selectedCategoryIds.join(',')}-${priceRange[0]}-${priceRange[1]}`}
+                      className="group animate-fade-scale bg-white rounded-lg overflow-hidden hover:shadow-lg transition-all duration-300 relative cursor-pointer border border-gray-100"
+                      style={{ animationDelay: `${index * 50}ms` }}
+                      onClick={() => router.push(`/portal/products/${product.slug}`)}
+                    >
+                      {/* Product Image */}
+                      <div className="relative bg-gray-50 overflow-hidden" style={{ paddingBottom: '110%' }}>
+                        {product.imageUrl ? (
+                          <img
+                            src={product.imageUrl}
+                            alt={product.name}
+                            className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ease-out"
+                          />
+                        ) : (
+                          <div className="absolute inset-0 w-full h-full flex items-center justify-center bg-gray-50">
+                            <ShoppingCart className="w-10 h-10 text-gray-300" />
                           </div>
+                        )}
 
-
-
-                          {/* Combo Badge */}
-                          {product.isComboSet && (
-                            <div className="absolute bottom-3 left-3 z-10">
-                              <div className="bg-gradient-to-r from-amber-400 to-orange-500 text-white px-2.5 py-1 rounded-lg text-xs font-bold flex items-center gap-1 shadow-lg">
-                                <Star className="w-3 h-3 fill-current" />
-                                Combo
-                              </div>
-                            </div>
-                          )}
-
-                          {/* Out of Stock Overlay */}
-                          {outOfStock && (
-                            <div className="absolute inset-0 bg-white/70 backdrop-blur-[2px] flex items-center justify-center z-10">
-                              <div className="bg-gray-900/80 text-white px-4 py-2 rounded-xl text-sm font-semibold backdrop-blur-sm">
-                                Hết hàng
-                              </div>
-                            </div>
-                          )}
+                        {/* Action Buttons - top right */}
+                        <div className="absolute top-2 right-2 flex flex-col gap-1 z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                          <button
+                            onClick={(e) => toggleWishlist(product.id, e)}
+                            disabled={isToggling}
+                            className={`w-7 h-7 rounded-full flex items-center justify-center transition-all duration-200 backdrop-blur-sm ${isWishlisted
+                              ? 'bg-rose-500 text-white shadow-md'
+                              : 'bg-white/90 text-gray-500 hover:text-rose-500 shadow-sm'
+                              } ${isToggling ? 'opacity-50 cursor-wait' : 'hover:scale-110 active:scale-95'}`}
+                            title={isWishlisted ? 'Bỏ yêu thích' : 'Thêm vào yêu thích'}
+                          >
+                            <Heart className={`w-3 h-3 ${isWishlisted ? 'fill-current heart-pop' : ''}`} />
+                          </button>
+                          <button
+                            onClick={(e) => handleShareProduct(product.slug, product.id, e)}
+                            className={`w-7 h-7 rounded-full flex items-center justify-center transition-all duration-200 backdrop-blur-sm ${copiedProductId === product.id
+                              ? 'bg-green-500 text-white shadow-md'
+                              : 'bg-white/90 text-gray-500 hover:text-gray-800 shadow-sm hover:scale-110 active:scale-95'
+                              }`}
+                            title="Chia sẻ sản phẩm"
+                          >
+                            <Share2 className="w-3 h-3" />
+                          </button>
                         </div>
 
-                        {/* Product Info */}
-                        <div className="p-4 flex flex-col flex-1">
-                          {/* Store Info - Only show if product belongs to a store (not admin/main store) */}
-                          {product.store && !product.store.slug.startsWith('main-store') && (
-                            <div className="flex items-center gap-1.5 mb-2">
-                              <div className="w-4 h-4 rounded-full bg-gray-100 flex items-center justify-center overflow-hidden flex-shrink-0">
-                                {product.store.logoUrl ? (
-                                  <img src={product.store.logoUrl} alt={product.store.name} className="w-full h-full object-cover" />
-                                ) : (
-                                  <span className="text-[8px] font-bold text-gray-500">{(product.store.name || 'S').charAt(0)}</span>
-                                )}
-                              </div>
-                              <span className="text-[11px] font-medium text-gray-500 truncate" title={product.store.name}>
-                                {product.store.name}
-                              </span>
+                        {/* Wishlist indicator always visible if wishlisted */}
+                        {isWishlisted && (
+                          <div className="absolute top-2 right-2 z-10 group-hover:opacity-0 transition-opacity duration-200">
+                            <div className="w-7 h-7 rounded-full bg-rose-500 text-white flex items-center justify-center shadow-md">
+                              <Heart className="w-3 h-3 fill-current" />
                             </div>
-                          )}
+                          </div>
+                        )}
 
-                          {/* Discount Tag */}
+                        {/* Combo Badge */}
+                        {product.isComboSet && (
+                          <div className="absolute top-2 left-2 z-10">
+                            <div className="bg-gray-900 text-white px-2 py-0.5 rounded text-[10px] font-bold flex items-center gap-1">
+                              <Star className="w-2.5 h-2.5 fill-current" />
+                              Combo
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Discount Badge - top left */}
+                        {hasDiscount && !product.isComboSet && (
+                          <div className="absolute top-2 left-2 z-10">
+                            <div className="bg-sky-500 text-white px-2 py-0.5 rounded text-[10px] font-bold">
+                              -{maxDiscountPercent}%
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Out of Stock Overlay */}
+                        {outOfStock && (
+                          <div className="absolute inset-0 bg-white/60 backdrop-blur-[1px] flex items-center justify-center z-10">
+                            <div className="bg-gray-900/80 text-white px-3 py-1 rounded text-[10px] font-semibold">
+                              Hết hàng
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Product Info */}
+                      <div className="p-2 flex flex-col flex-1">
+                        {/* Store Info */}
+                        {product.store && !product.store.slug.startsWith('main-store') && (
+                          <div className="flex items-center gap-1.5 mb-1.5">
+                            <div className="w-3.5 h-3.5 rounded-full bg-gray-100 flex items-center justify-center overflow-hidden flex-shrink-0">
+                              {product.store.logoUrl ? (
+                                <img src={product.store.logoUrl} alt={product.store.name} className="w-full h-full object-cover" />
+                              ) : (
+                                <span className="text-[7px] font-bold text-gray-500">{(product.store.name || 'S').charAt(0)}</span>
+                              )}
+                            </div>
+                            <span className="text-[10px] text-gray-400 truncate">{product.store.name}</span>
+                          </div>
+                        )}
+
+                        {/* Product Name */}
+                        <h3 className="text-xs font-medium text-gray-900 line-clamp-2 min-h-[2rem] leading-[1.3] mb-1.5">
+                          {product.name}
+                        </h3>
+
+                        {/* Price */}
+                        <div className="mt-auto">
+                          <div className="text-[13px] sm:text-sm font-bold text-gray-900 tracking-tight">
+                            {displayPriceString}
+                          </div>
+
                           {hasDiscount && (
-                            <div className="flex flex-wrap gap-1.5 mb-2 justify-between items-center">
-                              <span className="px-2 py-0.5 bg-rose-50 border border-rose-100 text-rose-600 rounded-md text-[11px] font-bold tracking-wide">
-                                Giảm {maxDiscountPercent}%
+                            <div className="flex items-center gap-1.5 mt-0.5">
+                              <span className="text-[10px] sm:text-xs text-gray-400 line-through">
+                                {formatCurrency(maxOriginalPrice)}
                               </span>
-                              <span className="px-4 bg-green-50 border border-green-100 text-green-600 rounded-md text-[11px] font-bold tracking-wide">
-                                -{formatCurrency(Math.floor((product.originalPrice - product.salePrice!) / 1000) * 1000)}
+                              <span className="text-[10px] sm:text-xs font-semibold text-gray-500">
+                                -{maxDiscountPercent}%
                               </span>
                             </div>
                           )}
 
-                          {/* Product Name */}
-                          <h3 className="text-sm font-semibold text-gray-800 line-clamp-2 min-h-[2.5rem] leading-snug group-hover:text-blue-600 transition-colors">
-                            {product.name}
-                          </h3>
-
-                          {/* Price Section */}
-                          <div className="mb-3 overflow-hidden">
-                            <div className="flex items-baseline whitespace-nowrap overflow-hidden">
-                              <span className="text-lg font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent truncate tracking-tighter">
-                                {displayPriceString}
-                              </span>
-                            </div>
-                            {hasDiscount && (
-                              <div className="mt-0.5 whitespace-nowrap overflow-hidden flex items-center gap-1">
-                                <span className="text-[10px] text-gray-400 font-medium">Giá gốc:</span>
-                                <span className="text-[11px] text-gray-400 line-through font-medium opacity-80 truncate tracking-tighter">
-                                  {formatCurrency(maxOriginalPrice)}
-                                </span>
-                              </div>
-                            )}
-                          </div>
-
-                          {/* Stock & Sold Info */}
-                          {!outOfStock && (
-                            <div className="mb-3 flex items-center justify-between text-[11px] text-gray-500">
-                              <span>Còn lại: <strong className="text-gray-700">{product.stockQuantity}</strong></span>
-                              <span>Đã bán: <strong className="text-gray-700">{product.soldCount}</strong></span>
+                          {hasDiscount && (
+                            <div className="text-[11px] text-gray-400 mt-0.5">
+                              Giá cũ: {formatCurrency(maxOriginalPrice)}
                             </div>
                           )}
                         </div>
-                      </div>
-                    );
-                  })}
-                </div>
-
-                {/* Pagination */}
-                {totalPages > 1 && (
-                  <div className="mt-8 bg-white rounded-xl shadow-sm p-6">
-                    <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-                      <div className="text-sm text-gray-600">
-                        Hiển thị {startIndex + 1} - {Math.min(endIndex, filteredProducts.length)} trong tổng số {filteredProducts.length} sản phẩm
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => goToPage(currentPage - 1)}
-                          disabled={currentPage === 1}
-                          className="px-3 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-1"
-                        >
-                          <ChevronLeft className="w-4 h-4" />
-                          Trước
-                        </button>
-
-                        <div className="flex items-center gap-1">
-                          {renderPageNumbers().map((page, index) => (
-                            page === '...' ? (
-                              <span key={`ellipsis-${index}`} className="px-3 py-2 text-gray-500">
-                                ...
-                              </span>
-                            ) : (
-                              <button
-                                key={page}
-                                onClick={() => goToPage(page as number)}
-                                className={`px-3 py-2 rounded-lg font-medium transition-colors ${currentPage === page
-                                  ? 'bg-indigo-600 text-white'
-                                  : 'text-gray-700 hover:bg-gray-100'
-                                  }`}
-                              >
-                                {page}
-                              </button>
-                            )
-                          ))}
-                        </div>
-
-                        <button
-                          onClick={() => goToPage(currentPage + 1)}
-                          disabled={currentPage === totalPages}
-                          className="px-3 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-1"
-                        >
-                          Sau
-                          <ChevronRight className="w-4 h-4" />
-                        </button>
                       </div>
                     </div>
+                  );
+                })}
+              </div>
+
+              {/* Pagination */}
+              {totalPages > 1 && (
+                <div className="mt-8 bg-white rounded-xl shadow-sm p-6">
+                  <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                    <div className="text-sm text-gray-600">
+                      Hiển thị {startIndex + 1} - {Math.min(endIndex, filteredProducts.length)} trong tổng số {filteredProducts.length} sản phẩm
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => goToPage(currentPage - 1)}
+                        disabled={currentPage === 1}
+                        className="px-3 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-1"
+                      >
+                        <ChevronLeft className="w-4 h-4" />
+                        Trước
+                      </button>
+
+                      <div className="flex items-center gap-1">
+                        {renderPageNumbers().map((page, index) => (
+                          page === '...' ? (
+                            <span key={`ellipsis-${index}`} className="px-3 py-2 text-gray-500">
+                              ...
+                            </span>
+                          ) : (
+                            <button
+                              key={page}
+                              onClick={() => goToPage(page as number)}
+                              className={`px-3 py-2 rounded-lg font-medium transition-colors ${currentPage === page
+                                ? 'bg-indigo-600 text-white'
+                                : 'text-gray-700 hover:bg-gray-100'
+                                }`}
+                            >
+                              {page}
+                            </button>
+                          )
+                        ))}
+                      </div>
+
+                      <button
+                        onClick={() => goToPage(currentPage + 1)}
+                        disabled={currentPage === totalPages}
+                        className="px-3 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-1"
+                      >
+                        Sau
+                        <ChevronRight className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
-                )}
-              </>
-            )}
-          </div>
+                </div>
+              )}
+            </>
+          )}
         </div>
       </div>
     </div>

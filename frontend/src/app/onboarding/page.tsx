@@ -36,7 +36,7 @@ function OnboardingContent() {
     interests: [] as string[],
   });
 
-  const returnTo = searchParams.get('returnTo') || '/portal';
+  const returnTo = searchParams.get('returnTo') || '/portal/products';
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {

@@ -219,7 +219,7 @@ export default function CheckoutClient({ user, items, store, cartMode }: Checkou
 
         if (Array.isArray(userVoucherData)) {
           userVoucherData
-            .filter((uv: any) => !uv.isUsed && uv.voucher && uv.status !== 'PENDING' && uv.status !== 'REJECTED')
+            .filter((uv: any) => !uv.isUsed && uv.voucher && uv.status === 'ACTIVE')
             .forEach((uv: any) => {
               if (uv.expiresAt && new Date(uv.expiresAt) <= new Date()) return;
               voucherMap.set(uv.voucher.id, {

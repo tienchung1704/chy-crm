@@ -4,7 +4,7 @@ import { Queue } from 'bullmq';
 import { PrismaService } from '../prisma/prisma.service';
 import { ViettelPostWebhookDto } from './dto/viettelpost-webhook.dto';
 import * as crypto from 'crypto';
-import { AdminNotificationsService } from '../admin-notifications/admin-notifications.service';
+import { AdminNotificationsService } from '../modules/admin-notifications/admin-notifications.service';
 
 @Injectable()
 export class WebhooksService {
@@ -212,8 +212,8 @@ export class WebhooksService {
         type: 'ORDER',
         title: `Đơn hàng ${order.orderCode} có cập nhật`,
         message: `Trạng thái vận chuyển: ${STATUS_NAME || newOrderStatus || 'Có cập nhật mới'}`,
-        link: `/admin/orders?search=${order.orderCode}`,
-        metadata: { orderCode: order.orderCode, status: newOrderStatus },
+        link: `/admin/orders/${order.id}`,
+        metadata: { orderId: order.id, orderCode: order.orderCode, status: newOrderStatus },
       });
     }
   }

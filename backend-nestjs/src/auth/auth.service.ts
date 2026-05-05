@@ -7,7 +7,7 @@ import { UsersService } from '../users/users.service';
 import { VouchersService } from '../vouchers/vouchers.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
-import { AdminNotificationsService } from '../admin-notifications/admin-notifications.service';
+import { AdminNotificationsService } from '../modules/admin-notifications/admin-notifications.service';
 
 @Injectable()
 export class AuthService {
@@ -68,12 +68,13 @@ export class AuthService {
     });
 
     // Notify admins about new customer
+    const displayName = name || phone || email || 'Khách hàng';
     await this.adminNotificationsService.createNotification({
       type: 'CUSTOMER',
       title: 'Khách hàng mới đăng ký',
-      message: `${name} (${phone || email}) vừa tạo tài khoản`,
+      message: `${displayName} (${phone || email || 'N/A'}) vừa tạo tài khoản`,
       link: `/admin/customers?search=${phone || email || ''}`,
-      metadata: { userId: user.id, name, phone, email },
+      metadata: { userId: user.id, name: displayName, phone, email },
     });
 
     // Create referral closure entries
@@ -141,7 +142,7 @@ export class AuthService {
       ? '/admin'
       : needsOnboarding
       ? '/onboarding'
-      : '/portal';
+      : '/portal/products';
 
     return {
       success: true,

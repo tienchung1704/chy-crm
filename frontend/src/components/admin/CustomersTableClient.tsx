@@ -53,12 +53,12 @@ export default function CustomersTableClient({ customers, searchParams, isZaloEn
 
   return (
     <>
-      <div className="bg-white rounded-xl shadow-sm overflow-hidden relative">
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden relative">
         <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 w-12 text-left">
+          <table className="w-full text-left border-collapse text-sm">
+            <thead>
+              <tr className="border-b border-gray-100 bg-gray-50/60">
+                <th className="px-4 py-3 text-xs font-semibold text-gray-500 whitespace-nowrap w-12 text-left">
                   <input
                     type="checkbox"
                     className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
@@ -67,17 +67,17 @@ export default function CustomersTableClient({ customers, searchParams, isZaloEn
                     onChange={handleSelectAll}
                   />
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Khách hàng</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Hạng</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Tổng chi tiêu</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Số đơn</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Giới thiệu</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Hoa hồng</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Ngày đăng ký</th>
-                <th className="px-6 py-3"></th>
+                <th className="px-4 py-3 text-xs font-semibold text-gray-500 whitespace-nowrap">Khách hàng</th>
+                <th className="px-4 py-3 text-xs font-semibold text-gray-500 whitespace-nowrap">Hạng</th>
+                <th className="px-4 py-3 text-xs font-semibold text-gray-500 whitespace-nowrap">Tổng chi tiêu</th>
+                <th className="px-4 py-3 text-xs font-semibold text-gray-500 whitespace-nowrap">Số đơn</th>
+                <th className="px-4 py-3 text-xs font-semibold text-gray-500 whitespace-nowrap">Giới thiệu</th>
+                <th className="px-4 py-3 text-xs font-semibold text-gray-500 whitespace-nowrap">Hoa hồng</th>
+                <th className="px-4 py-3 text-xs font-semibold text-gray-500 whitespace-nowrap">Ngày đăng ký</th>
+                <th className="px-4 py-3 text-xs font-semibold text-gray-500 whitespace-nowrap"></th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody className="divide-y divide-gray-50">
               {customers.length === 0 ? (
                 <tr>
                   <td colSpan={9}>
@@ -94,8 +94,8 @@ export default function CustomersTableClient({ customers, searchParams, isZaloEn
                 </tr>
               ) : (
                 customers.map((customer) => (
-                  <tr key={customer.id} className={`hover:bg-gray-50 ${selectedIds.has(customer.id) ? 'bg-blue-50/30' : ''}`}>
-                    <td className="px-6 py-4">
+                  <tr key={customer.id} className={`hover:bg-gray-50/50 transition-colors ${selectedIds.has(customer.id) ? 'bg-blue-50/30' : ''}`}>
+                    <td className="px-4 py-3 whitespace-nowrap">
                       <input
                         type="checkbox"
                         className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
@@ -103,18 +103,18 @@ export default function CustomersTableClient({ customers, searchParams, isZaloEn
                         onChange={(e) => handleSelectOne(customer.id, e.target.checked)}
                       />
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="px-4 py-3 whitespace-nowrap">
                       <div>
-                        <div className="font-semibold text-gray-800">
+                        <div className="font-medium text-gray-800">
                           {customer.phone || customer.name}
                         </div>
-                        <div className="text-xs text-gray-600">
+                        <div className="text-xs text-gray-500">
                           {customer.name !== customer.phone ? customer.name : (customer.email || 'Chưa cập nhật')}
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4">
-                      <span className={`px-3 py-1 rounded-full text-xs font-semibold ${customer.rank === 'PLATINUM' ? 'bg-purple-100 text-purple-700' :
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${customer.rank === 'PLATINUM' ? 'bg-purple-100 text-purple-700' :
                           customer.rank === 'DIAMOND' ? 'bg-blue-100 text-blue-700' :
                             customer.rank === 'GOLD' ? 'bg-yellow-100 text-yellow-700' :
                               customer.rank === 'SILVER' ? 'bg-gray-200 text-gray-700' :
@@ -123,19 +123,19 @@ export default function CustomersTableClient({ customers, searchParams, isZaloEn
                         {customer.rank}
                       </span>
                     </td>
-                    <td className="px-6 py-4 font-semibold text-gray-800">
+                    <td className="px-4 py-3 whitespace-nowrap text-gray-800">
                       {formatCurrency(customer.totalSpent)}
                     </td>
-                    <td className="px-6 py-4">{customer._count?.orders || 0}</td>
-                    <td className="px-6 py-4">
-                      <span className="px-3 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-700">
+                    <td className="px-4 py-3 whitespace-nowrap text-gray-700">{customer._count?.orders || 0}</td>
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-indigo-50 text-indigo-700">
                         {customer._count?.referees || 0} người
                       </span>
                     </td>
-                    <td className="px-6 py-4 font-semibold text-gray-800">{formatCurrency(customer.commissionBalance)}</td>
-                    <td className="px-6 py-4 text-sm text-gray-600">{formatDate(customer.createdAt)}</td>
-                    <td className="px-6 py-4">
-                      <Link href={`/admin/customers/${customer.id}`} className="text-sm text-blue-600 hover:text-blue-700 font-medium">
+                    <td className="px-4 py-3 whitespace-nowrap text-gray-800">{formatCurrency(customer.commissionBalance)}</td>
+                    <td className="px-4 py-3 whitespace-nowrap text-gray-700">{formatDate(customer.createdAt)}</td>
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      <Link href={`/admin/customers/${customer.id}`} className="text-indigo-600 hover:underline font-medium">
                         Chi tiết
                       </Link>
                     </td>

@@ -3,7 +3,7 @@ import * as bcrypt from 'bcryptjs';
 import { PrismaService } from '../prisma/prisma.service';
 
 import { MailService } from '../mail/mail.service';
-import { AdminNotificationsService } from '../admin-notifications/admin-notifications.service';
+import { AdminNotificationsService } from '../modules/admin-notifications/admin-notifications.service';
 
 @Injectable()
 export class StoresService implements OnModuleInit {

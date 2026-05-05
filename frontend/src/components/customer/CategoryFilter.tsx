@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { ChevronDown, ChevronRight, Check } from 'lucide-react';
+import { ChevronDown, ChevronRight, Check, Minus, Plus } from 'lucide-react';
 
 interface Category {
   id: string;
@@ -20,6 +20,7 @@ export default function CategoryFilter({
   selectedCategoryIds,
   onFilterChange,
 }: CategoryFilterProps) {
+  const [isExpanded, setIsExpanded] = useState(true);
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(
     new Set(),
   );
@@ -54,7 +55,7 @@ export default function CategoryFilter({
   };
 
   const renderCategory = (category: Category, level = 0) => {
-    const isExpanded = expandedCategories.has(category.id);
+    const isExpandedCat = expandedCategories.has(category.id);
     const isSelected = selectedCategoryIds.includes(category.id);
     const children = getCategoriesByParent(category.id);
     const hasChild = children.length > 0;
@@ -64,28 +65,28 @@ export default function CategoryFilter({
         <button
           type="button"
           onClick={() => handleCategoryClick(category)}
-          className={`group flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-left text-sm transition-colors ${
-            isSelected
-              ? 'bg-indigo-50 text-indigo-700 font-medium'
-              : 'text-gray-700 hover:bg-gray-100'
-          }`}
-          style={{ paddingLeft: `${12 + level * 14}px` }}
+          className="group flex w-full items-center gap-3 py-3 text-left text-sm transition-colors hover:text-gray-900"
+          style={{ paddingLeft: `${level * 20}px` }}
         >
-          <div className="flex items-center gap-2 truncate">
-            <div className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 ${isSelected ? 'bg-indigo-600 border-indigo-600' : 'border-gray-300'}`}>
-              {isSelected && <Check className="w-3 h-3 text-white" />}
-            </div>
-            <span className="truncate">{category.name}</span>
+          <div className={`w-[18px] h-[18px] rounded border-2 flex items-center justify-center shrink-0 transition-all duration-200 ${
+            isSelected 
+              ? 'bg-gray-900 border-gray-900' 
+              : 'border-gray-300 group-hover:border-gray-400'
+          }`}>
+            {isSelected && <Check className="w-3 h-3 text-white stroke-[3]" />}
           </div>
+          <span className={`flex-1 ${isSelected ? 'font-semibold text-gray-900' : 'text-gray-600'}`}>
+            {category.name}
+          </span>
           {hasChild && (
             <span
-              className="ml-2 shrink-0 p-1 rounded-full hover:bg-gray-200"
+              className="shrink-0 text-gray-400 hover:text-gray-600 transition-colors"
               onClick={(event) => {
                 event.stopPropagation();
                 toggleExpand(category.id);
               }}
             >
-              {isExpanded ? (
+              {isExpandedCat ? (
                 <ChevronDown className="h-4 w-4" />
               ) : (
                 <ChevronRight className="h-4 w-4" />
@@ -94,8 +95,8 @@ export default function CategoryFilter({
           )}
         </button>
 
-        {isExpanded && hasChild && (
-          <div className="mt-1 space-y-1">
+        {isExpandedCat && hasChild && (
+          <div className="border-l border-gray-100 ml-2">
             {children.map((child) => renderCategory(child, level + 1))}
           </div>
         )}
@@ -106,28 +107,38 @@ export default function CategoryFilter({
   const rootCategories = getCategoriesByParent(null);
 
   return (
-    <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-      <div className="mb-4">
-        <h3 className="text-base font-semibold text-gray-900">Danh mục</h3>
-        <p className="mt-1 text-sm text-gray-500">
-          Chọn nhóm sản phẩm bạn muốn xem.
-        </p>
-      </div>
+    <div className="border-b border-gray-200 pb-1">
+      {/* Header with +/- toggle */}
+      <button
+        type="button"
+        onClick={() => setIsExpanded(!isExpanded)}
+        className="flex w-full items-center justify-between py-4 text-left"
+      >
+        <h3 className="text-[15px] font-bold text-gray-900 tracking-tight">Danh mục</h3>
+        <span className="text-gray-400 hover:text-gray-600 transition-colors">
+          {isExpanded ? <Minus className="w-5 h-5" /> : <Plus className="w-5 h-5" />}
+        </span>
+      </button>
 
-      <div className="max-h-[320px] space-y-1 overflow-y-auto pr-1">
-        <button
-          type="button"
-          onClick={() => onFilterChange([])}
-          className={`w-full rounded-xl px-3 py-2.5 text-left text-sm transition-colors ${
-            selectedCategoryIds.length === 0
-              ? 'bg-gray-900 text-white font-medium'
-              : 'text-gray-700 hover:bg-gray-100'
-          }`}
-        >
-          Tất cả sản phẩm
-        </button>
+      {/* Content */}
+      <div
+        className={`overflow-hidden transition-all duration-300 ease-in-out ${
+          isExpanded ? 'max-h-[500px] opacity-100 pb-3' : 'max-h-0 opacity-0'
+        }`}
+      >
+        <div className="max-h-[320px] overflow-y-auto pr-1 space-y-0 custom-scrollbar">
+          {rootCategories.map((category) => renderCategory(category))}
+        </div>
 
-        {rootCategories.map((category) => renderCategory(category))}
+        {selectedCategoryIds.length > 0 && (
+          <button
+            type="button"
+            onClick={() => onFilterChange([])}
+            className="mt-2 text-xs text-gray-500 hover:text-gray-700 underline underline-offset-2 transition-colors"
+          >
+            Bỏ chọn tất cả
+          </button>
+        )}
       </div>
     </div>
   );

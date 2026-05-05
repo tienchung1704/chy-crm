@@ -7,7 +7,7 @@ import { CassoController } from './casso.controller';
 import { CassoService } from './casso.service';
 import { OrdersModule } from '../orders/orders.module';
 import { CommissionsModule } from '../commissions/commissions.module';
-import { AdminNotificationsModule } from '../admin-notifications/admin-notifications.module';
+import { AdminNotificationsModule } from '../modules/admin-notifications/admin-notifications.module';
 
 const logger = new Logger('WebhooksModule');
 

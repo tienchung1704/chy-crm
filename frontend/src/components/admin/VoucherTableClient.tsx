@@ -62,23 +62,24 @@ export default function VoucherTableClient({ vouchers }: { vouchers: any[] }) {
 
   return (
     <>
-      <div className="overflow-x-auto">
-        <table className="w-full">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Code</th>
-              <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Tên</th>
-              <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Chiến dịch</th>
-              <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Loại</th>
-              <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Giá trị</th>
-              <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Đơn tối thiểu</th>
-              <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Đã dùng</th>
-              <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Hạn dùng</th>
-              <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Trạng thái</th>
-              <th className="px-6 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">Thao tác</th>
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse text-sm">
+            <thead>
+              <tr className="border-b border-gray-100 bg-gray-50/60">
+              <th className="px-4 py-3 text-xs font-semibold text-gray-500 whitespace-nowrap">Code</th>
+              <th className="px-4 py-3 text-xs font-semibold text-gray-500 whitespace-nowrap">Tên</th>
+              <th className="px-4 py-3 text-xs font-semibold text-gray-500 whitespace-nowrap">Chiến dịch</th>
+              <th className="px-4 py-3 text-xs font-semibold text-gray-500 whitespace-nowrap">Loại</th>
+              <th className="px-4 py-3 text-xs font-semibold text-gray-500 whitespace-nowrap">Giá trị</th>
+              <th className="px-4 py-3 text-xs font-semibold text-gray-500 whitespace-nowrap">Đơn tối thiểu</th>
+              <th className="px-4 py-3 text-xs font-semibold text-gray-500 whitespace-nowrap">Đã dùng</th>
+              <th className="px-4 py-3 text-xs font-semibold text-gray-500 whitespace-nowrap">Hạn dùng</th>
+              <th className="px-4 py-3 text-xs font-semibold text-gray-500 whitespace-nowrap">Trạng thái</th>
+              <th className="px-4 py-3 text-xs font-semibold text-gray-500 whitespace-nowrap text-right">Thao tác</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-100">
+          <tbody className="divide-y divide-gray-50">
             {vouchers.length === 0 ? (
               <tr>
                 <td colSpan={10}>
@@ -95,14 +96,14 @@ export default function VoucherTableClient({ vouchers }: { vouchers: any[] }) {
               const isDeleting = deletingId === voucher.id;
 
               return (
-                <tr key={voucher.id} className={`hover:bg-gray-50 transition-colors ${isDeleting ? 'opacity-50' : ''}`}>
-                  <td className="px-6 py-4">
+                <tr key={voucher.id} className={`hover:bg-gray-50/50 transition-colors ${isDeleting ? 'opacity-50' : ''}`}>
+                  <td className="px-4 py-3 whitespace-nowrap">
                     <span className="font-mono font-bold text-sm bg-gray-100 px-2 py-1 rounded">
                       {voucher.code}
                     </span>
                   </td>
-                  <td className="px-6 py-4 font-semibold text-gray-800">{voucher.name}</td>
-                  <td className="px-6 py-4">
+                  <td className="px-4 py-3 whitespace-nowrap font-medium text-gray-800">{voucher.name}</td>
+                  <td className="px-4 py-3 whitespace-nowrap">
                     <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
                       campInfo.class === 'badge-success' ? 'bg-green-100 text-green-700' :
                       campInfo.class === 'badge-gold' ? 'bg-yellow-100 text-yellow-700' :
@@ -115,8 +116,8 @@ export default function VoucherTableClient({ vouchers }: { vouchers: any[] }) {
                       {campInfo.label}
                     </span>
                   </td>
-                  <td className="px-6 py-4">
-                    <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                  <td className="px-4 py-3 whitespace-nowrap">
+                    <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${
                       typeInfo.class === 'badge-primary' ? 'bg-blue-100 text-blue-700' :
                       typeInfo.class === 'badge-success' ? 'bg-green-100 text-green-700' :
                       typeInfo.class === 'badge-warning' ? 'bg-orange-100 text-orange-700' :
@@ -125,7 +126,7 @@ export default function VoucherTableClient({ vouchers }: { vouchers: any[] }) {
                       {typeInfo.label}
                     </span>
                   </td>
-                  <td className="px-6 py-4 font-semibold text-gray-800">
+                  <td className="px-4 py-3 whitespace-nowrap font-medium text-gray-800">
                     {voucher.type === 'STACK'
                       ? (() => {
                           const tiers = voucher.stackTiers as any[] | null;
@@ -149,20 +150,20 @@ export default function VoucherTableClient({ vouchers }: { vouchers: any[] }) {
                         ? `${voucher.value}%`
                         : formatCurrency(voucher.value)}
                   </td>
-                  <td className="px-6 py-4 text-gray-700">{formatCurrency(voucher.minOrderValue)}</td>
-                  <td className="px-6 py-4 text-gray-700">
+                  <td className="px-4 py-3 whitespace-nowrap text-gray-700">{formatCurrency(voucher.minOrderValue)}</td>
+                  <td className="px-4 py-3 whitespace-nowrap text-gray-700">
                     {voucher.usedCount}
                     {voucher.totalUsageLimit ? `/${voucher.totalUsageLimit}` : ''}
                   </td>
-                  <td className="px-6 py-4 text-sm text-gray-600">{formatDate(voucher.validTo)}</td>
-                  <td className="px-6 py-4">
-                    <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                  <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">{formatDate(voucher.validTo)}</td>
+                  <td className="px-4 py-3 whitespace-nowrap">
+                    <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${
                       voucher.isActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
                     }`}>
                       {voucher.isActive ? 'Hoạt động' : 'Tắt'}
                     </span>
                   </td>
-                  <td className="px-6 py-4">
+                  <td className="px-4 py-3 whitespace-nowrap">
                     <div className="flex items-center justify-end gap-2">
                       <button
                         onClick={() => setEditVoucher(voucher)}
@@ -184,6 +185,7 @@ export default function VoucherTableClient({ vouchers }: { vouchers: any[] }) {
             })}
           </tbody>
         </table>
+      </div>
       </div>
 
       {/* Edit Modal */}

@@ -49,7 +49,7 @@ function LoginForm() {
 
   const handleGoogleLogin = () => {
     // Get the return URL from query params (if user came from a product page)
-    let returnTo = searchParams.get('returnTo') || '/portal';
+    let returnTo = searchParams.get('returnTo') || '/portal/products';
     // Preserve campaign param if present in current URL
     const campaign = searchParams.get('campaign');
     if (campaign && !returnTo.includes('campaign=')) {
@@ -106,7 +106,7 @@ function LoginForm() {
       // If backend says onboarding, preserve returnTo through onboarding
       if (finalRedirect === '/onboarding' && returnTo) {
         finalRedirect = `/onboarding?returnTo=${encodeURIComponent(returnTo)}`;
-      } else if (returnTo && finalRedirect === '/portal') {
+      } else if (returnTo && (finalRedirect === '/portal' || finalRedirect === '/portal/products')) {
         // If backend says /portal but we have a specific returnTo (e.g. /portal?campaign=qr_claim), use it
         finalRedirect = returnTo;
       }
