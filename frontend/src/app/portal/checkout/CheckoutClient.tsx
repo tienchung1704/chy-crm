@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { MapPin, CreditCard, Ticket, CheckCircle2, Loader2, X } from 'lucide-react';
 import { apiClientClient } from '@/lib/apiClientClient';
 import VietQRPaymentClient from './vietqr/VietQRPaymentClient';
+import Select from '@/components/ui/Select';
 
 interface AddressOption {
   code: string;
@@ -392,8 +393,7 @@ export default function CheckoutClient({ user, items, store, cartMode }: Checkou
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Tỉnh/Thành phố *</label>
-                <select className="w-full border border-gray-300 rounded-lg focus:ring-indigo-500 px-4 py-2.5 outline-none" value={province} onChange={async e => {
-                  const nextProvince = e.target.value;
+                <Select value={province} onChange={async nextProvince => {
                   setProvince(nextProvince);
                   setWard('');
                   setWards([]);
@@ -401,17 +401,17 @@ export default function CheckoutClient({ user, items, store, cartMode }: Checkou
                     const result = await loadWards(nextProvince);
                     if (result) setWards(result.wards);
                   } catch { }
-                }} required>
-                  <option value="">Chọn Tỉnh/Thành</option>
-                  {provinces.map(p => <option key={p.code} value={p.name}>{p.name}</option>)}
-                </select>
+                }} size="md" placeholder="Chọn Tỉnh/Thành" options={[
+                  { value: '', label: 'Chọn Tỉnh/Thành' },
+                  ...provinces.map(p => ({ value: p.name, label: p.name })),
+                ]} />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Phường/Xã *</label>
-                <select className="w-full border border-gray-300 rounded-lg focus:ring-indigo-500 disabled:bg-gray-100 px-4 py-2.5 outline-none" value={ward} onChange={e => setWard(e.target.value)} disabled={!province} required>
-                  <option value="">Chọn Phường/Xã</option>
-                  {wards.map(w => <option key={w.code} value={w.name}>{w.name}</option>)}
-                </select>
+                <Select value={ward} onChange={setWard} disabled={!province} size="md" placeholder="Chọn Phường/Xã" options={[
+                  { value: '', label: 'Chọn Phường/Xã' },
+                  ...wards.map(w => ({ value: w.name, label: w.name })),
+                ]} />
               </div>
             </div>
             <div>

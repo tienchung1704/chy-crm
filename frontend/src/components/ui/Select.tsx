@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 
 export interface SelectOption {
   value: string | number;
@@ -27,11 +28,18 @@ export default function Select({
   size = 'sm'
 }: SelectProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [menuRect, setMenuRect] = useState<DOMRect | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
   
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+      const target = event.target as Node;
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(target) &&
+        !menuRef.current?.contains(target)
+      ) {
         setIsOpen(false);
       }
     }
@@ -39,7 +47,37 @@ export default function Select({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const updateMenuRect = () => {
+      setMenuRect(dropdownRef.current?.getBoundingClientRect() || null);
+    };
+
+    updateMenuRect();
+    window.addEventListener('resize', updateMenuRect);
+    window.addEventListener('scroll', updateMenuRect, true);
+    return () => {
+      window.removeEventListener('resize', updateMenuRect);
+      window.removeEventListener('scroll', updateMenuRect, true);
+    };
+  }, [isOpen]);
+
   const selectedLabel = options.find(o => String(o.value) === String(value))?.label || placeholder;
+  const menuPosition = menuRect ? (() => {
+    const viewportHeight = window.innerHeight;
+    const spaceBelow = viewportHeight - menuRect.bottom - 8;
+    const spaceAbove = menuRect.top - 8;
+    const openUp = spaceBelow < 220 && spaceAbove > spaceBelow;
+    const maxHeight = Math.max(120, Math.min(240, openUp ? spaceAbove : spaceBelow));
+
+    return {
+      top: openUp ? Math.max(8, menuRect.top - maxHeight - 4) : menuRect.bottom + 4,
+      left: menuRect.left,
+      width: menuRect.width,
+      maxHeight,
+    };
+  })() : null;
 
   const sizeClasses = {
     xs: 'pl-2 pr-6 py-1 text-xs',
@@ -67,8 +105,12 @@ export default function Select({
         <svg className={`w-4 h-4 transition-transform ${isOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
       </div>
 
-      {isOpen && !disabled && (
-        <div className="absolute z-[100] w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg py-1 p-1 max-h-60 overflow-y-auto">
+      {isOpen && !disabled && menuPosition && createPortal(
+        <div
+          ref={menuRef}
+          className="fixed z-[1000] bg-white border border-gray-200 rounded-lg shadow-xl py-1 p-1 overflow-y-auto overscroll-contain"
+          style={menuPosition}
+        >
           {options.map((option) => (
             <button
               key={option.value}
@@ -86,7 +128,8 @@ export default function Select({
               {option.label}
             </button>
           ))}
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );

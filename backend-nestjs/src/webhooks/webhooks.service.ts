@@ -237,6 +237,7 @@ export class WebhooksService {
             ...(MONEY_COLLECTION !== undefined ? { cod: MONEY_COLLECTION } : {}),
           },
         },
+        updatedAt: this.parseProviderDate(ORDER_STATUSDATE) || new Date(),
       };
 
       // Update order status if we have a valid mapping
@@ -281,6 +282,44 @@ export class WebhooksService {
         metadata: { orderId: order.id, orderCode: order.orderCode, status: newOrderStatus, previousStatus, trackingCode: ORDER_NUMBER },
       });
     }
+  }
+
+  private parseProviderDate(value?: string | null): Date | null {
+    if (!value) return null;
+
+    const normalized = value.trim();
+    const parsed = new Date(normalized);
+    if (!Number.isNaN(parsed.getTime())) return parsed;
+
+    const dateTimeMatch = /^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?$/.exec(normalized);
+    if (dateTimeMatch) {
+      const [, day, month, year, hour = '0', minute = '0', second = '0'] = dateTimeMatch;
+      const localDate = new Date(
+        Number(year),
+        Number(month) - 1,
+        Number(day),
+        Number(hour),
+        Number(minute),
+        Number(second),
+      );
+      return Number.isNaN(localDate.getTime()) ? null : localDate;
+    }
+
+    const sqlDateTimeMatch = /^(\d{4})-(\d{1,2})-(\d{1,2})(?:\s+(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?$/.exec(normalized);
+    if (sqlDateTimeMatch) {
+      const [, year, month, day, hour = '0', minute = '0', second = '0'] = sqlDateTimeMatch;
+      const localDate = new Date(
+        Number(year),
+        Number(month) - 1,
+        Number(day),
+        Number(hour),
+        Number(minute),
+        Number(second),
+      );
+      return Number.isNaN(localDate.getTime()) ? null : localDate;
+    }
+
+    return null;
   }
 
   /**

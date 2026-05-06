@@ -70,6 +70,10 @@ export class OrdersController {
     @Query('status') status?: string,
     @Query('search') search?: string,
     @Query('paymentMethod') paymentMethod?: string,
+    @Query('dateField') dateField?: string,
+    @Query('dateSort') dateSort?: string,
+    @Query('dateFilterType') dateFilterType?: string,
+    @Query('dateValue') dateValue?: string,
   ) {
     return this.ordersService.findAdminOrders({
       userId,
@@ -78,6 +82,10 @@ export class OrdersController {
       status,
       search,
       paymentMethod,
+      dateField,
+      dateSort,
+      dateFilterType,
+      dateValue,
     });
   }
 

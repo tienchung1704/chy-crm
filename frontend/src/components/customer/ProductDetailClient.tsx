@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
-import { Heart, ShoppingBag, Truck, ShieldCheck, Undo2, Sparkles, Share2, X } from 'lucide-react';
+import { useState, useCallback, useEffect, useRef } from 'react';
+import { Heart, ShoppingBag, Truck, ShieldCheck, Undo2, Sparkles, Share2, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { persistReferralCode } from '@/lib/referral-client';
 import ProductReviews from './ProductReviews';
@@ -90,6 +90,15 @@ export default function ProductDetailClient({ product, relatedProducts = [], ini
   const [copied, setCopied] = useState(false);
   const [isImageModalOpen, setIsImageModalOpen] = useState(false);
   const [navigatingSlug, setNavigatingSlug] = useState<string | null>(null);
+  const relatedScrollRef = useRef<HTMLDivElement>(null);
+
+  const scrollRelated = (direction: 'left' | 'right') => {
+    if (relatedScrollRef.current) {
+      const { current } = relatedScrollRef;
+      const scrollAmount = current.clientWidth;
+      current.scrollBy({ left: direction === 'left' ? -scrollAmount : scrollAmount, behavior: 'smooth' });
+    }
+  };
 
   // Save referral code from URL for signup flows.
   useEffect(() => {
@@ -587,11 +596,33 @@ export default function ProductDetailClient({ product, relatedProducts = [], ini
 
         {/* Related Products */}
         {relatedProducts && relatedProducts.length > 0 && (
-          <div className="mt-16 mb-12">
-            <h3 className="text-2xl font-bold text-gray-900 mb-8">
-              Sản phẩm liên quan
-            </h3>
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-5">
+          <div className="mt-16 mb-12 relative">
+            <div className="flex items-center justify-between mb-8">
+              <h3 className="text-2xl font-bold text-gray-900">
+                Sản phẩm liên quan
+              </h3>
+              {relatedProducts.length > 5 && (
+                <div className="flex items-center gap-2">
+                  <button 
+                    onClick={() => scrollRelated('left')}
+                    className="p-2 rounded-full bg-white border border-gray-200 text-gray-600 hover:bg-indigo-50 hover:text-indigo-600 transition-colors"
+                  >
+                    <ChevronLeft className="w-5 h-5" />
+                  </button>
+                  <button 
+                    onClick={() => scrollRelated('right')}
+                    className="p-2 rounded-full bg-white border border-gray-200 text-gray-600 hover:bg-indigo-50 hover:text-indigo-600 transition-colors"
+                  >
+                    <ChevronRight className="w-5 h-5" />
+                  </button>
+                </div>
+              )}
+            </div>
+            <div 
+              ref={relatedScrollRef}
+              className="flex overflow-x-auto gap-3 sm:gap-5 pb-4 snap-x snap-mandatory [&::-webkit-scrollbar]:hidden"
+              style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+            >
               {relatedProducts.map(rp => {
                 const finalPrices = [rp.salePrice || rp.originalPrice];
                 const originalPrices = [rp.originalPrice];
@@ -621,7 +652,7 @@ export default function ProductDetailClient({ product, relatedProducts = [], ini
                 return (
                   <div
                     key={rp.id}
-                    className="group bg-white rounded-lg overflow-hidden hover:shadow-lg transition-all duration-300 relative cursor-pointer border border-gray-100"
+                    className="group bg-white rounded-lg overflow-hidden hover:shadow-lg transition-all duration-300 relative cursor-pointer border border-gray-100 flex-shrink-0 w-[calc(50%-0.375rem)] sm:w-[calc(33.333%-0.833rem)] lg:w-[calc(25%-0.9375rem)] xl:w-[calc(20%-1rem)] snap-start"
                     onClick={() => {
                       setNavigatingSlug(rp.slug);
                       router.push(`/portal/products/${rp.slug}`);

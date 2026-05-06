@@ -2,10 +2,13 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
+import { ArrowDown, ArrowUp, ArrowUpDown } from 'lucide-react';
 import ExportQRButton from './ExportQRButton';
 import CreateOrderButton from './CreateOrderButton';
 import OrderSearchInput from './OrderSearchInput';
 import OrderStatusFilter from './OrderStatusFilter';
+import OrderAdvancedFilter from './OrderAdvancedFilter';
 
 const statusMap: Record<string, { cls: string; label: string }> = {
   PENDING: { cls: 'bg-orange-100 text-orange-700 border border-orange-200', label: 'Chờ xác nhận' },
@@ -25,6 +28,33 @@ const statusMap: Record<string, { cls: string; label: string }> = {
 
 function fmtDate(d: string | Date) {
   return new Intl.DateTimeFormat('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(d));
+}
+
+function OrderDateSortHeader({ field, label }: { field: 'createdAt' | 'updatedAt'; label: string }) {
+  const searchParams = useSearchParams();
+  const currentField = searchParams.get('dateField') || 'updatedAt';
+  const currentSort = searchParams.get('dateSort') || 'desc';
+  const isActive = currentField === field;
+  const nextSort = isActive && currentSort === 'desc' ? 'asc' : 'desc';
+  const params = new URLSearchParams(searchParams.toString());
+  params.set('dateField', field);
+  params.set('dateSort', nextSort);
+  params.delete('page');
+
+  const Icon = isActive ? (currentSort === 'asc' ? ArrowUp : ArrowDown) : ArrowUpDown;
+
+  return (
+    <Link
+      href={`/admin/orders?${params.toString()}`}
+      className={`inline-flex items-center gap-1.5 rounded-md px-1.5 py-1 -ml-1.5 transition-colors ${
+        isActive ? 'text-blue-600 hover:bg-blue-50' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700'
+      }`}
+      title={`Sắp xếp ${label.toLowerCase()} ${nextSort === 'desc' ? 'mới nhất' : 'cũ nhất'}`}
+    >
+      <Icon className="w-3.5 h-3.5" />
+      <span>{label}</span>
+    </Link>
+  );
 }
 
 interface OrdersTableClientProps {
@@ -72,6 +102,7 @@ export default function OrdersTableClient({ orders, statusCounts }: OrdersTableC
           <div className="w-full md:w-80">
             <OrderSearchInput />
           </div>
+          <OrderAdvancedFilter />
           <ExportQRButton selectedOrders={selectedOrders} />
           <CreateOrderButton />
         </div>
@@ -175,8 +206,12 @@ export default function OrdersTableClient({ orders, statusCounts }: OrdersTableC
                 <th className="px-4 py-3 text-xs font-semibold text-gray-500 whitespace-nowrap">Nguồn</th>
                 <th className="px-4 py-3 text-xs font-semibold text-gray-500 whitespace-nowrap">Sản phẩm</th>
                 <th className="px-4 py-3 text-xs font-semibold text-gray-500 whitespace-nowrap">Trạng thái</th>
-                <th className="px-4 py-3 text-xs font-semibold text-gray-500 whitespace-nowrap">Ngày tạo</th>
-                <th className="px-4 py-3 text-xs font-semibold text-gray-500 whitespace-nowrap">Cập nhật</th>
+                <th className="px-4 py-3 text-xs font-semibold whitespace-nowrap">
+                  <OrderDateSortHeader field="createdAt" label="Ngày tạo" />
+                </th>
+                <th className="px-4 py-3 text-xs font-semibold whitespace-nowrap">
+                  <OrderDateSortHeader field="updatedAt" label="Cập nhật" />
+                </th>
                 <th className="px-4 py-3 text-xs font-semibold text-gray-500 whitespace-nowrap"></th>
               </tr>
             </thead>

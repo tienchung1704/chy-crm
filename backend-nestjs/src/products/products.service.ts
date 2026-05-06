@@ -343,7 +343,7 @@ export class ProductsService {
 
     const categoryIds = product.categories.map((c) => c.id);
 
-    return this.prisma.product.findMany({
+    const relatedByCategory = await this.prisma.product.findMany({
       where: {
         isActive: true,
         id: { not: productId },
@@ -355,13 +355,37 @@ export class ProductsService {
           { store: { isActive: true, isBanned: false } },
         ],
       },
-      take: 6,
+      take: 10,
       include: {
         categories: { select: { name: true } },
         variants: { include: { size: true, color: true } },
         store: { select: { id: true, name: true, slug: true, logoUrl: true } },
       },
     });
+
+    if (relatedByCategory.length >= 10) {
+      return relatedByCategory;
+    }
+
+    const excludeIds = [productId, ...relatedByCategory.map(p => p.id)];
+    const additionalProducts = await this.prisma.product.findMany({
+      where: {
+        isActive: true,
+        id: { notIn: excludeIds },
+        OR: [
+          { storeId: null },
+          { store: { isActive: true, isBanned: false } },
+        ],
+      },
+      take: 10 - relatedByCategory.length,
+      include: {
+        categories: { select: { name: true } },
+        variants: { include: { size: true, color: true } },
+        store: { select: { id: true, name: true, slug: true, logoUrl: true } },
+      },
+    });
+
+    return [...relatedByCategory, ...additionalProducts];
   }
 
   async update(id: string, updateProductDto: UpdateProductDto, userId: string, role: string) {

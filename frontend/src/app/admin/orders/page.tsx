@@ -4,7 +4,18 @@ import { getSession } from '@/lib/auth';
 import OrdersTableClient from '@/components/admin/OrdersTableClient';
 import { apiClient } from '@/lib/apiClient';
 
-export default async function OrdersPage(props: { searchParams: Promise<{ page?: string; status?: string; paymentMethod?: string; search?: string }> }) {
+export default async function OrdersPage(props: {
+  searchParams: Promise<{
+    page?: string;
+    status?: string;
+    paymentMethod?: string;
+    search?: string;
+    dateField?: string;
+    dateSort?: string;
+    dateFilterType?: string;
+    dateValue?: string;
+  }>;
+}) {
   const searchParams = await props.searchParams;
   const session = await getSession();
   if (!session) return null;
@@ -20,6 +31,10 @@ export default async function OrdersPage(props: { searchParams: Promise<{ page?:
         status: searchParams.status,
         paymentMethod: searchParams.paymentMethod,
         search: searchParams.search,
+        dateField: searchParams.dateField,
+        dateSort: searchParams.dateSort,
+        dateFilterType: searchParams.dateFilterType,
+        dateValue: searchParams.dateValue,
       }
     });
     orders = data.orders;
@@ -28,6 +43,19 @@ export default async function OrdersPage(props: { searchParams: Promise<{ page?:
   } catch (error) {
     console.error('Error fetching admin orders:', error);
   }
+
+  const buildPageUrl = (page: number) => {
+    const p = new URLSearchParams();
+    p.set('page', String(page));
+    if (searchParams.status) p.set('status', searchParams.status);
+    if (searchParams.paymentMethod) p.set('paymentMethod', searchParams.paymentMethod);
+    if (searchParams.search) p.set('search', searchParams.search);
+    if (searchParams.dateField) p.set('dateField', searchParams.dateField);
+    if (searchParams.dateSort) p.set('dateSort', searchParams.dateSort);
+    if (searchParams.dateFilterType) p.set('dateFilterType', searchParams.dateFilterType);
+    if (searchParams.dateValue) p.set('dateValue', searchParams.dateValue);
+    return `/admin/orders?${p.toString()}`;
+  };
 
   return (
     <>
@@ -38,13 +66,7 @@ export default async function OrdersPage(props: { searchParams: Promise<{ page?:
           {/* Previous Page */}
           {pagination.page > 1 && (
             <Link
-              href={`/admin/orders?${(() => {
-                const p = new URLSearchParams();
-                p.set('page', String(pagination.page - 1));
-                if (searchParams.status) p.set('status', searchParams.status);
-                if (searchParams.search) p.set('search', searchParams.search);
-                return p.toString();
-              })()}`}
+              href={buildPageUrl(pagination.page - 1)}
               className="px-3 py-2 rounded-lg text-sm font-medium bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 transition-colors"
             >
               ←
@@ -63,15 +85,10 @@ export default async function OrdersPage(props: { searchParams: Promise<{ page?:
               return null;
             }
 
-            const params = new URLSearchParams();
-            params.set('page', String(pageNum));
-            if (searchParams.status) params.set('status', searchParams.status);
-            if (searchParams.search) params.set('search', searchParams.search);
-
             return (
               <Link
                 key={pageNum}
-                href={`/admin/orders?${params.toString()}`}
+                href={buildPageUrl(pageNum)}
                 className={`w-10 h-10 flex items-center justify-center rounded-lg text-sm font-bold transition-all ${pagination.page === pageNum
                   ? 'bg-blue-600 text-white shadow-md shadow-blue-200'
                   : 'bg-white text-gray-600 border border-gray-200 hover:border-blue-400 hover:text-blue-600'
@@ -85,13 +102,7 @@ export default async function OrdersPage(props: { searchParams: Promise<{ page?:
           {/* Next Page */}
           {pagination.page < pagination.totalPages && (
             <Link
-              href={`/admin/orders?${(() => {
-                const p = new URLSearchParams();
-                p.set('page', String(pagination.page + 1));
-                if (searchParams.status) p.set('status', searchParams.status);
-                if (searchParams.search) p.set('search', searchParams.search);
-                return p.toString();
-              })()}`}
+              href={buildPageUrl(pagination.page + 1)}
               className="px-3 py-2 rounded-lg text-sm font-medium bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 transition-colors"
             >
               →
@@ -102,4 +113,3 @@ export default async function OrdersPage(props: { searchParams: Promise<{ page?:
     </>
   );
 }
-

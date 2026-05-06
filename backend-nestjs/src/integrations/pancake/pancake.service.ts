@@ -1409,9 +1409,11 @@ export class PancakeService {
       trackingLink: detailData.tracking_link || pOrder.tracking_link || null,
     };
 
-    // Use Pancake's original order creation time
+    // Use Pancake's original order creation/update time when the API provides it.
     const pancakeCreatedAt = detailData.inserted_at || pOrder.inserted_at;
     const orderCreatedAt = pancakeCreatedAt ? new Date(pancakeCreatedAt) : new Date();
+    const pancakeUpdatedAt = detailData.updated_at || pOrder.updated_at || partner?.updated_at || null;
+    const orderUpdatedAt = this.parsePancakeDate(pancakeUpdatedAt) || new Date();
 
     let order;
     const shouldAttachUserToExistingOrder =
@@ -1444,6 +1446,7 @@ export class PancakeService {
           customerNote: pOrder.note_print || detailData.note_print || null,
           metadata,
           storeId,
+          updatedAt: orderUpdatedAt,
           items: orderItemsData.length > 0 ? {
             create: orderItemsData
           } : undefined,
@@ -1478,6 +1481,7 @@ export class PancakeService {
           metadata,
           storeId,
           createdAt: orderCreatedAt,
+          updatedAt: orderUpdatedAt,
           items: orderItemsData.length > 0 ? {
             create: orderItemsData
           } : undefined,
@@ -1513,6 +1517,14 @@ export class PancakeService {
     }
 
     return { synced: true, amount: totalAmount, orderId: order.id, isUpdate: !!existing, status: order.status, paymentStatus: order.paymentStatus };
+  }
+
+  private parsePancakeDate(value?: string | Date | null): Date | null {
+    if (!value) return null;
+    if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value;
+
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
   }
 
   /**

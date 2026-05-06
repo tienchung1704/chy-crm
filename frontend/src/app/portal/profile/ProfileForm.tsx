@@ -2,8 +2,9 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { Trash2, X, MapPin, ChevronDown, Loader2 } from 'lucide-react';
+import { Trash2, X, MapPin } from 'lucide-react';
 import { apiClientClient } from '@/lib/apiClientClient';
+import Select from '@/components/ui/Select';
 
 interface AddressOption {
   code: string;
@@ -117,8 +118,7 @@ export default function ProfileForm({ user }: ProfileFormProps) {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
-  const handleProvinceChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const value = e.target.value;
+  const handleProvinceChange = (value: string) => {
     setForm(prev => ({
       ...prev,
       addressProvince: value,
@@ -128,8 +128,8 @@ export default function ProfileForm({ user }: ProfileFormProps) {
     fetchWards(value);
   };
 
-  const handleWardChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setForm(prev => ({ ...prev, addressWard: e.target.value }));
+  const handleWardChange = (value: string) => {
+    setForm(prev => ({ ...prev, addressWard: value }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -200,7 +200,6 @@ export default function ProfileForm({ user }: ProfileFormProps) {
     }
   };
 
-  const selectClass = "w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm appearance-none bg-white cursor-pointer";
   const inputClass = "w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm";
 
   return (
@@ -276,21 +275,18 @@ export default function ProfileForm({ user }: ProfileFormProps) {
                 <label className="block text-sm font-semibold text-gray-700 mb-2" htmlFor="profile-gender">
                   Giới tính
                 </label>
-                <div className="relative">
-                  <select
-                    className={selectClass}
-                    id="profile-gender"
-                    name="gender"
-                    value={form.gender}
-                    onChange={handleChange}
-                  >
-                    <option value="">— Chọn —</option>
-                    <option value="MALE">Nam</option>
-                    <option value="FEMALE">Nữ</option>
-                    <option value="OTHER">Khác</option>
-                  </select>
-                  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-                </div>
+                <Select
+                  value={form.gender}
+                  onChange={(value) => setForm(prev => ({ ...prev, gender: value }))}
+                  placeholder="— Chọn —"
+                  size="md"
+                  options={[
+                    { value: '', label: '— Chọn —' },
+                    { value: 'MALE', label: 'Nam' },
+                    { value: 'FEMALE', label: 'Nữ' },
+                    { value: 'OTHER', label: 'Khác' },
+                  ]}
+                />
               </div>
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2" htmlFor="profile-dob">
@@ -319,25 +315,17 @@ export default function ProfileForm({ user }: ProfileFormProps) {
                 <label className="block text-sm font-semibold text-gray-700 mb-2" htmlFor="profile-address-province">
                   Tỉnh/Thành phố
                 </label>
-                <div className="relative">
-                  <select
-                    className={selectClass}
-                    id="profile-address-province"
-                    value={form.addressProvince}
-                    onChange={handleProvinceChange}
-                    disabled={loadingProvinces}
-                  >
-                    <option value="">— Chọn tỉnh/thành phố —</option>
-                    {provinces.map(p => (
-                      <option key={p.code} value={p.name}>{p.name}</option>
-                    ))}
-                  </select>
-                  {loadingProvinces ? (
-                    <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-indigo-400 animate-spin" />
-                  ) : (
-                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-                  )}
-                </div>
+                <Select
+                  value={form.addressProvince}
+                  onChange={handleProvinceChange}
+                  disabled={loadingProvinces}
+                  placeholder={loadingProvinces ? 'Đang tải tỉnh/thành phố...' : '— Chọn tỉnh/thành phố —'}
+                  size="md"
+                  options={[
+                    { value: '', label: loadingProvinces ? 'Đang tải tỉnh/thành phố...' : '— Chọn tỉnh/thành phố —' },
+                    ...provinces.map(p => ({ value: p.name, label: p.name })),
+                  ]}
+                />
               </div>
 
               {/* Ward */}
@@ -345,25 +333,17 @@ export default function ProfileForm({ user }: ProfileFormProps) {
                 <label className="block text-sm font-semibold text-gray-700 mb-2" htmlFor="profile-address-ward">
                   Phường/Xã
                 </label>
-                <div className="relative">
-                  <select
-                    className={selectClass}
-                    id="profile-address-ward"
-                    value={form.addressWard}
-                    onChange={handleWardChange}
-                    disabled={!form.addressProvince || loadingWards}
-                  >
-                    <option value="">— Chọn phường/xã —</option>
-                    {wards.map(w => (
-                      <option key={w.code} value={w.name}>{w.name}</option>
-                    ))}
-                  </select>
-                  {loadingWards ? (
-                    <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-indigo-400 animate-spin" />
-                  ) : (
-                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-                  )}
-                </div>
+                <Select
+                  value={form.addressWard}
+                  onChange={handleWardChange}
+                  disabled={!form.addressProvince || loadingWards}
+                  placeholder={loadingWards ? 'Đang tải phường/xã...' : '— Chọn phường/xã —'}
+                  size="md"
+                  options={[
+                    { value: '', label: loadingWards ? 'Đang tải phường/xã...' : '— Chọn phường/xã —' },
+                    ...wards.map(w => ({ value: w.name, label: w.name })),
+                  ]}
+                />
               </div>
 
               {/* Street Address */}

@@ -731,6 +731,10 @@ export class OrdersService {
     status?: string;
     search?: string;
     paymentMethod?: string;
+    dateField?: string;
+    dateSort?: string;
+    dateFilterType?: string;
+    dateValue?: string;
   }) {
     const { userId, role } = params;
     const page = params.page || 1;
@@ -738,6 +742,10 @@ export class OrdersService {
     const search = params.search || '';
     const status = params.status;
     const paymentMethod = params.paymentMethod;
+    const dateField = params.dateField === 'createdAt' ? 'createdAt' : 'updatedAt';
+    const dateSort = params.dateSort === 'asc' ? 'asc' : 'desc';
+    const dateFilterType = params.dateFilterType;
+    const dateValue = params.dateValue;
 
     const where: any = {};
     const baseWhere: any = {}; // For status counts
@@ -772,6 +780,14 @@ export class OrdersService {
     if (status) where.status = status;
     if (paymentMethod) where.paymentMethod = paymentMethod;
 
+    if (dateFilterType && dateValue) {
+      const range = this.getOrderDateRange(dateFilterType, dateValue);
+      if (range) {
+        where[dateField] = { gte: range.start, lt: range.end };
+        baseWhere[dateField] = { gte: range.start, lt: range.end };
+      }
+    }
+
     const [orders, total, countsData] = await Promise.all([
       this.prisma.order.findMany({
         where,
@@ -793,7 +809,7 @@ export class OrdersService {
           },
           _count: { select: { commissions: true } },
         },
-        orderBy: { createdAt: 'desc' },
+        orderBy: { [dateField]: dateSort },
         skip: (page - 1) * limit,
         take: limit,
       }),
@@ -820,6 +836,43 @@ export class OrdersService {
       },
       statusCounts,
     };
+  }
+
+  private getOrderDateRange(filterType: string, value: string): { start: Date; end: Date } | null {
+    if (filterType === 'date') {
+      const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+      if (!match) return null;
+
+      const year = Number(match[1]);
+      const month = Number(match[2]) - 1;
+      const day = Number(match[3]);
+      const start = new Date(year, month, day);
+      const end = new Date(year, month, day + 1);
+      return { start, end };
+    }
+
+    if (filterType === 'month') {
+      const match = /^(\d{4})-(\d{2})$/.exec(value);
+      if (!match) return null;
+
+      const year = Number(match[1]);
+      const month = Number(match[2]) - 1;
+      const start = new Date(year, month, 1);
+      const end = new Date(year, month + 1, 1);
+      return { start, end };
+    }
+
+    if (filterType === 'year') {
+      const match = /^(\d{4})$/.exec(value);
+      if (!match) return null;
+
+      const year = Number(match[1]);
+      const start = new Date(year, 0, 1);
+      const end = new Date(year + 1, 0, 1);
+      return { start, end };
+    }
+
+    return null;
   }
 
   async findAll(userId: string, filters?: any) {
@@ -980,7 +1033,7 @@ export class OrdersService {
     }
 
     // Update order
-    const updateData: any = {};
+    const updateData: any = { updatedAt: new Date() };
     if (status) updateData.status = status;
     if (paymentStatus) {
       updateData.paymentStatus = paymentStatus;
