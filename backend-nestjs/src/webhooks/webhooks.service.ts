@@ -132,57 +132,70 @@ export class WebhooksService {
    * Find the Order by tracking code and update its status + metadata
    */
   private async updateOrderFromWebhook(payload: ViettelPostWebhookDto) {
-    const { ORDER_NUMBER, ORDER_STATUS, STATUS_NAME, ORDER_STATUSDATE, NOTE, LOCALION_CURRENTLY, LOCATION_CURRENTLY, MONEY_COLLECTION } = payload.DATA;
+    const { ORDER_NUMBER, ORDER_STATUS, STATUS_NAME, ORDER_STATUSDATE, NOTE, LOCALION_CURRENTLY, LOCATION_CURRENTLY, MONEY_COLLECTION, ORDER_REFERENCE } = payload.DATA;
+
+    let pancakeOrderId: string | null = null;
+    if (ORDER_REFERENCE) {
+      // Extract numeric part from PKE123456
+      const numericPart = ORDER_REFERENCE.replace(/\D/g, '');
+      if (numericPart) {
+        pancakeOrderId = numericPart;
+      }
+    }
+
+    const searchConditions: any[] = [
+      { orderCode: ORDER_NUMBER },
+      {
+        metadata: {
+          path: '$.partner.trackingCode',
+          equals: ORDER_NUMBER,
+        },
+      },
+    ];
+
+    if (ORDER_REFERENCE) {
+      searchConditions.push({ orderCode: ORDER_REFERENCE });
+    }
+    if (pancakeOrderId) {
+      searchConditions.push({ orderCode: `PCK-${pancakeOrderId}` });
+    }
 
     // Find order by tracking code in metadata OR by orderCode
-    const orders = await this.prisma.order.findMany({
+    let orders = await this.prisma.order.findMany({
       where: {
-        OR: [
-          { orderCode: ORDER_NUMBER },
-          {
-            metadata: {
-              path: '$.partner.trackingCode',
-              equals: ORDER_NUMBER,
-            },
-          },
-        ],
+        OR: searchConditions,
       },
     });
 
-    if (orders.length === 0) {
-      this.logger.warn(`⚠️ No order found for tracking code ${ORDER_NUMBER}. Attempting Pancake sync...`);
-
-      // Try to find and sync order from Pancake by tracking code
-      const synced = await this.tryPancakeSyncByTrackingCode(ORDER_NUMBER);
+    // If order not found but we have a pancakeOrderId, try to sync from Pancake directly
+    if (orders.length === 0 && pancakeOrderId) {
+      this.logger.warn(`⚠️ No order found for tracking code ${ORDER_NUMBER}. Attempting to sync from Pancake using ORDER_REFERENCE ID: ${pancakeOrderId}`);
+      const synced = await this.tryPancakeSyncById(Number(pancakeOrderId));
+      
       if (synced) {
         // Re-query after sync
-        const retryOrders = await this.prisma.order.findMany({
-          where: {
-            OR: [
-              { orderCode: ORDER_NUMBER },
-              { metadata: { path: '$.partner.trackingCode', equals: ORDER_NUMBER } },
-            ],
-          },
+        orders = await this.prisma.order.findMany({
+          where: { OR: searchConditions },
         });
-        if (retryOrders.length > 0) {
+        
+        if (orders.length > 0) {
           this.logger.log(`✅ Found order after Pancake sync, continuing webhook processing.`);
-          // Process with found orders - fall through to the for loop below
-          orders.push(...retryOrders);
         }
       }
+    }
 
-      // Still no order after Pancake sync attempt
-      if (orders.length === 0) {
-        // Still fire notification so admin knows a webhook came in
-        await this.adminNotificationsService.createNotification({
-          type: 'ORDER',
-          title: `Cập nhật vận chuyển: ${ORDER_NUMBER}`,
-          message: `${STATUS_NAME || `VTP-${ORDER_STATUS}`} (không tìm thấy đơn hàng liên kết)`,
-          link: '/admin/orders',
-          metadata: { trackingCode: ORDER_NUMBER, status: ORDER_STATUS, statusName: STATUS_NAME },
-        });
-        return;
-      }
+    if (orders.length === 0) {
+      this.logger.warn(`⚠️ No order found for tracking code ${ORDER_NUMBER} after all sync attempts.`);
+
+      // Fire notification so admin knows a webhook came in
+      await this.adminNotificationsService.createNotification({
+        type: 'ORDER',
+        title: `Cập nhật vận chuyển: ${ORDER_NUMBER}`,
+        message: `${STATUS_NAME || `VTP-${ORDER_STATUS}`} (không tìm thấy đơn hàng liên kết)`,
+        link: '/admin/orders',
+        metadata: { trackingCode: ORDER_NUMBER, status: ORDER_STATUS, statusName: STATUS_NAME, reference: ORDER_REFERENCE },
+      });
+      return;
     }
 
     for (const order of orders) {
@@ -480,9 +493,9 @@ export class WebhooksService {
   }
 
   /**
-   * Try to find an order on Pancake by ViettelPost tracking code and sync it
+   * Try to find an order on Pancake by its specific Order ID and sync it
    */
-  private async tryPancakeSyncByTrackingCode(trackingCode: string): Promise<boolean> {
+  private async tryPancakeSyncById(orderId: number): Promise<boolean> {
     try {
       // Get any active Pancake integration
       const integration = await this.prisma.storeIntegration.findFirst({
@@ -495,37 +508,27 @@ export class WebhooksService {
         return false;
       }
 
-      // Search Pancake orders by tracking code
-      const pancakeOrders = await this.pancakeService.fetchOrdersByPhone(trackingCode, integration.storeId);
+      // Fetch order by ID from Pancake
+      const orderDetail = await this.pancakeService.fetchOrderDetail(orderId, integration.storeId);
       
-      if (!pancakeOrders || pancakeOrders.length === 0) {
-        this.logger.log(`[VTP→Pancake] No Pancake orders found for tracking code: ${trackingCode}`);
+      if (!orderDetail) {
+        this.logger.log(`[VTP→Pancake] Pancake order ID ${orderId} not found or failed to fetch.`);
         return false;
       }
 
-      // Find the order whose partner.extend_code matches the tracking code
-      const matchingOrder = pancakeOrders.find((o: any) => {
-        const partnerCode = o.partner?.extend_code || o.extend_code;
-        return partnerCode === trackingCode;
-      });
-
-      if (!matchingOrder) {
-        this.logger.log(`[VTP→Pancake] No matching extend_code in ${pancakeOrders.length} results for: ${trackingCode}`);
-        return false;
-      }
-
-      this.logger.log(`[VTP→Pancake] Found Pancake order ${matchingOrder.id} with tracking code ${trackingCode}. Syncing...`);
+      this.logger.log(`[VTP→Pancake] Found Pancake order ${orderId}. Syncing...`);
       
-      const result = await this.pancakeService.syncSingleOrder(matchingOrder, integration.storeId);
+      const result = await this.pancakeService.syncSingleOrder(orderDetail, integration.storeId);
       
       if (result.synced) {
-        this.logger.log(`[VTP→Pancake] Successfully synced order PCK-${matchingOrder.id}`);
+        this.logger.log(`[VTP→Pancake] Successfully synced order PCK-${orderId}`);
         return true;
       }
 
+      this.logger.log(`[VTP→Pancake] Order PCK-${orderId} was found but sync logic returned false (e.g. no phone number)`);
       return false;
     } catch (error) {
-      this.logger.error(`[VTP→Pancake] Error attempting Pancake sync: ${error.message}`);
+      this.logger.error(`[VTP→Pancake] Error during sync attempt for ID ${orderId}: ${error.message}`);
       return false;
     }
   }

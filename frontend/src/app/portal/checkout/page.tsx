@@ -41,14 +41,37 @@ export default async function CheckoutPage(props: { searchParams: Promise<{ [key
       redirect('/portal/cart'); // Can't mix stores
     }
 
-    const orderItems = cartItems.map(ci => ({
-      cartItemId: ci.id,
-      product: ci.product,
-      quantity: ci.quantity,
-      size: null as string | null,
-      color: null as string | null,
-      price: ci.product.salePrice || ci.product.originalPrice,
-    }));
+    const orderItems = cartItems.map(ci => {
+      let price = ci.product.salePrice || ci.product.originalPrice;
+      if (ci.product.variants && ci.product.variants.length > 0) {
+        let variant = null;
+        if (ci.size && ci.color) {
+          variant = ci.product.variants.find(
+            (v: any) => v.size?.name === ci.size && v.color?.name === ci.color
+          );
+        } else if (ci.size) {
+          variant = ci.product.variants.find(
+            (v: any) => v.size?.name === ci.size
+          );
+        } else if (ci.color) {
+          variant = ci.product.variants.find(
+            (v: any) => v.color?.name === ci.color
+          );
+        }
+        if (variant && variant.price) {
+          price = variant.price;
+        }
+      }
+
+      return {
+        cartItemId: ci.id,
+        product: ci.product,
+        quantity: ci.quantity,
+        size: ci.size,
+        color: ci.color,
+        price,
+      };
+    });
 
     const store = cartItems[0]?.product.store || null;
 
@@ -83,12 +106,33 @@ export default async function CheckoutPage(props: { searchParams: Promise<{ [key
     redirect('/portal/products');
   }
 
+  let price = product.salePrice || product.originalPrice;
+  if (product.variants && product.variants.length > 0) {
+    let variant = null;
+    if (size && color) {
+      variant = product.variants.find(
+        (v: any) => v.size?.name === size && v.color?.name === color
+      );
+    } else if (size) {
+      variant = product.variants.find(
+        (v: any) => v.size?.name === size
+      );
+    } else if (color) {
+      variant = product.variants.find(
+        (v: any) => v.color?.name === color
+      );
+    }
+    if (variant && variant.price) {
+      price = variant.price;
+    }
+  }
+
   const orderItems = [{
     product,
     quantity,
     size,
     color,
-    price: product.salePrice || product.originalPrice,
+    price,
   }];
 
   return (

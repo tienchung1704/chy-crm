@@ -8,19 +8,19 @@ import OrderSearchInput from './OrderSearchInput';
 import OrderStatusFilter from './OrderStatusFilter';
 
 const statusMap: Record<string, { cls: string; label: string }> = {
-  PENDING: { cls: 'badge-warning', label: 'Chờ xác nhận' },
-  WAITING_FOR_GOODS: { cls: 'badge-purple', label: 'Chờ hàng' },
-  CONFIRMED: { cls: 'badge-info', label: 'Đã xác nhận' },
-  PACKAGING: { cls: 'badge-blue', label: 'Đang đóng hàng' },
-  WAITING_FOR_SHIPPING: { cls: 'badge-gray', label: 'Chờ vận chuyển' },
-  SHIPPED: { cls: 'badge-info', label: 'Đã gửi hàng' },
-  DELIVERED: { cls: 'badge-success', label: 'Đã nhận' },
-  PAYMENT_COLLECTED: { cls: 'badge-success', label: 'Đã thu tiền' },
-  RETURNING: { cls: 'badge-danger', label: 'Đang hoàn' },
-  EXCHANGING: { cls: 'badge-warning', label: 'Đang đổi' },
-  COMPLETED: { cls: 'badge-success', label: 'Hoàn thành' },
-  CANCELLED: { cls: 'badge-danger', label: 'Đã hủy' },
-  REFUNDED: { cls: 'badge-gray', label: 'Hoàn trả' },
+  PENDING: { cls: 'bg-orange-100 text-orange-700 border border-orange-200', label: 'Chờ xác nhận' },
+  WAITING_FOR_GOODS: { cls: 'bg-purple-100 text-purple-700 border border-purple-200', label: 'Chờ hàng' },
+  CONFIRMED: { cls: 'bg-cyan-100 text-cyan-700 border border-cyan-200', label: 'Đã xác nhận' },
+  PACKAGING: { cls: 'bg-blue-100 text-blue-700 border border-blue-200', label: 'Đang đóng hàng' },
+  WAITING_FOR_SHIPPING: { cls: 'bg-gray-100 text-gray-700 border border-gray-200', label: 'Chờ vận chuyển' },
+  SHIPPED: { cls: 'bg-sky-100 text-sky-700 border border-sky-200', label: 'Đã gửi hàng' },
+  DELIVERED: { cls: 'bg-emerald-100 text-emerald-700 border border-emerald-200', label: 'Đã nhận' },
+  PAYMENT_COLLECTED: { cls: 'bg-green-100 text-green-700 border border-green-200', label: 'Đã thu tiền' },
+  RETURNING: { cls: 'bg-red-100 text-red-700 border border-red-200', label: 'Đang hoàn' },
+  EXCHANGING: { cls: 'bg-yellow-100 text-yellow-700 border border-yellow-200', label: 'Đang đổi' },
+  COMPLETED: { cls: 'bg-teal-100 text-teal-700 border border-teal-200', label: 'Hoàn thành' },
+  CANCELLED: { cls: 'bg-rose-100 text-rose-700 border border-rose-200', label: 'Đã hủy' },
+  REFUNDED: { cls: 'bg-slate-100 text-slate-700 border border-slate-200', label: 'Hoàn trả' },
 };
 
 function fmtDate(d: string | Date) {
@@ -118,7 +118,7 @@ export default function OrdersTableClient({ orders, statusCounts }: OrdersTableC
                       #{order.orderCode}
                     </span>
                   </div>
-                  <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold shadow-sm ${st.cls === 'badge-warning' ? 'bg-orange-100 text-orange-700' : st.cls === 'badge-purple' ? 'bg-purple-100 text-purple-700' : st.cls === 'badge-info' ? 'bg-cyan-100 text-cyan-700' : st.cls === 'badge-success' ? 'bg-green-100 text-green-700' : st.cls === 'badge-blue' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-700'}`}>
+                  <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold shadow-sm ${st.cls}`}>
                     {st.label}
                   </span>
                 </div>
@@ -137,9 +137,14 @@ export default function OrdersTableClient({ orders, statusCounts }: OrdersTableC
                 </div>
 
                 <div className="flex justify-between items-center mt-1">
-                  <span className="text-[11px] font-medium text-gray-400">
-                    {fmtDate(order.createdAt)}
-                  </span>
+                  <div className="flex flex-col gap-0.5">
+                    <span className="text-[11px] font-medium text-gray-400">
+                      Tạo: {fmtDate(order.createdAt)}
+                    </span>
+                    <span className="text-[11px] font-medium text-gray-400">
+                      Sửa: {fmtDate(order.updatedAt)}
+                    </span>
+                  </div>
                   <Link
                     href={`/admin/orders/${order.id}`}
                     className="inline-flex items-center px-4 py-1.5 text-xs text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg font-bold transition-all"
@@ -171,6 +176,7 @@ export default function OrdersTableClient({ orders, statusCounts }: OrdersTableC
                 <th className="px-4 py-3 text-xs font-semibold text-gray-500 whitespace-nowrap">Sản phẩm</th>
                 <th className="px-4 py-3 text-xs font-semibold text-gray-500 whitespace-nowrap">Trạng thái</th>
                 <th className="px-4 py-3 text-xs font-semibold text-gray-500 whitespace-nowrap">Ngày tạo</th>
+                <th className="px-4 py-3 text-xs font-semibold text-gray-500 whitespace-nowrap">Cập nhật</th>
                 <th className="px-4 py-3 text-xs font-semibold text-gray-500 whitespace-nowrap"></th>
               </tr>
             </thead>
@@ -242,11 +248,12 @@ export default function OrdersTableClient({ orders, statusCounts }: OrdersTableC
                       </div>
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap">
-                      <span className={`${st.cls}`}>
+                      <span className={`px-3 py-1 rounded-full text-xs font-bold shadow-sm inline-block text-center ${st.cls}`}>
                         {st.label}
                       </span>
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap text-gray-700">{fmtDate(order.createdAt)}</td>
+                    <td className="px-4 py-3 whitespace-nowrap text-gray-700">{fmtDate(order.updatedAt)}</td>
                     <td className="px-4 py-3 whitespace-nowrap text-right">
                       <Link
                         href={`/admin/orders/${order.id}`}

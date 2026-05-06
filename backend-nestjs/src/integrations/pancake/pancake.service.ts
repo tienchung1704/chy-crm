@@ -1512,7 +1512,7 @@ export class PancakeService {
       await this.updateUserRankAndSpent(user.id, -totalAmount);
     }
 
-    return { synced: true, amount: totalAmount, orderId: order.id, isUpdate: !!existing };
+    return { synced: true, amount: totalAmount, orderId: order.id, isUpdate: !!existing, status: order.status, paymentStatus: order.paymentStatus };
   }
 
   /**
@@ -1605,12 +1605,17 @@ export class PancakeService {
       if (result.synced) {
         const orderCode = `PCK-${orderData.id}`;
         const existingOrder = await this.prisma.order.findFirst({ where: { orderCode } });
+        let messageStr = `Giá trị: ${new Intl.NumberFormat('vi-VN').format(result.amount || 0)} VND`;
+        if (result.status) {
+          messageStr += ` • Trạng thái: ${result.status}`;
+        }
+
         await this.adminNotificationsService.createNotification({
           type: 'ORDER',
-          title: `Đơn hàng ${orderCode} ${result.isUpdate ? 'cập nhật' : 'mới'} từ Pancake`,
-          message: `Giá trị: ${new Intl.NumberFormat('vi-VN').format(result.amount || 0)} VND`,
+          title: `Đơn hàng ${orderCode} ${result.isUpdate ? 'cập nhật' : 'mới'}`,
+          message: messageStr,
           link: existingOrder ? `/admin/orders/${existingOrder.id}` : '/admin/orders',
-          metadata: { orderCode, amount: result.amount, action: result.isUpdate ? 'updated' : 'created' },
+          metadata: { orderCode, amount: result.amount, action: result.isUpdate ? 'updated' : 'created', status: result.status },
         });
       }
 

@@ -95,7 +95,7 @@ echo "ℹ️  Current branch: $ORIGINAL_BRANCH"
 
 # Create archive of source code
 echo "📦 Creating archive of source code..."
-TAR_FILES="src prisma package.json ecosystem.config.js nest-cli.json tsconfig.json"
+TAR_FILES="src scripts prisma package.json ecosystem.config.js nest-cli.json tsconfig.json"
 
 # Add optional files if they exist
 [ -f "package-lock.json" ] && TAR_FILES="$TAR_FILES package-lock.json" && echo "  ✓ Including package-lock.json"

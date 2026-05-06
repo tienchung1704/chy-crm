@@ -6,11 +6,10 @@ export const metadata: Metadata = {
   description: 'Quét mã QR để thanh toán đơn hàng',
 };
 
-export default function VietQRPage({
-  searchParams,
-}: {
-  searchParams: { orderId?: string };
+export default async function VietQRPage(props: {
+  searchParams: Promise<{ orderId?: string }>;
 }) {
+  const searchParams = await props.searchParams;
   const orderId = searchParams.orderId;
 
   if (!orderId) {

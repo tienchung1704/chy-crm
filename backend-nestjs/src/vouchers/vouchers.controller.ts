@@ -98,9 +98,9 @@ export class VouchersController {
   @Public()
   @ApiOperation({ summary: 'Send SMS OTP for QR claim' })
   async sendOtp(
-    @Body() dto: { phone: string }
+    @Body() dto: { phone: string; orderCode: string }
   ) {
-    return this.vouchersService.sendOtp(dto.phone);
+    return this.vouchersService.sendOtp(dto.phone, dto.orderCode);
   }
 
   @Post('claim-qr')

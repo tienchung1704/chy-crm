@@ -1,4 +1,5 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
+import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from '../prisma/prisma.service';
 import { UsersService } from '../users/users.service';
 import { CommissionsService } from '../commissions/commissions.service';
@@ -8,6 +9,9 @@ import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
 
 @Injectable()
 export class OrdersService {
+  private readonly logger = new Logger(OrdersService.name);
+  private isExpiringVietqrOrders = false;
+
   constructor(
     private prisma: PrismaService,
     private usersService: UsersService,
@@ -23,6 +27,139 @@ export class OrdersService {
     return `${prefix}${timestamp}${random}`;
   }
 
+  private isVietqrExpiredByMetadata(order: { metadata: any }, now = new Date()): boolean {
+    const expiresAt = order.metadata?.vietqr?.expiresAt;
+    if (!expiresAt) return false;
+
+    const expiry = new Date(expiresAt);
+    if (Number.isNaN(expiry.getTime())) return false;
+
+    return expiry <= now;
+  }
+
+  isVietqrExpiryCancellation(order: { status: string; metadata: any }): boolean {
+    return (
+      order.status === 'CANCELLED' &&
+      order.metadata?.vietqr?.expired === true &&
+      order.metadata?.vietqr?.cancelledBy === 'VIETQR_EXPIRY_CRON'
+    );
+  }
+
+  isPaymentExpired(order: { paymentMethod: any; paymentStatus: string; status: string; metadata: any }): boolean {
+    return (
+      order.paymentMethod === 'VIETQR' &&
+      order.paymentStatus !== 'PAID' &&
+      (this.isVietqrExpiryCancellation(order) || this.isVietqrExpiredByMetadata(order))
+    );
+  }
+
+  @Cron(CronExpression.EVERY_MINUTE)
+  async expireVietqrOrdersCron() {
+    if (this.isExpiringVietqrOrders) {
+      this.logger.warn('Skipping VietQR expiry cron because a previous run is still active.');
+      return;
+    }
+
+    this.isExpiringVietqrOrders = true;
+    try {
+      const expiredCount = await this.expireOverdueVietqrOrders();
+      if (expiredCount > 0) {
+        this.logger.log(`Expired ${expiredCount} overdue VietQR order(s).`);
+      }
+    } catch (error) {
+      this.logger.error(`Failed to expire overdue VietQR orders: ${error.message}`, error.stack);
+    } finally {
+      this.isExpiringVietqrOrders = false;
+    }
+  }
+
+  async expireOverdueVietqrOrders(now = new Date()): Promise<number> {
+    const candidates = await this.prisma.order.findMany({
+      where: {
+        paymentMethod: 'VIETQR',
+        paymentStatus: 'UNPAID',
+        status: 'PENDING',
+      },
+      include: {
+        items: true,
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    let expiredCount = 0;
+    for (const order of candidates) {
+      if (!this.isVietqrExpiredByMetadata(order, now)) continue;
+
+      const didExpire = await this.cancelExpiredVietqrOrder(order, now);
+      if (didExpire) expiredCount += 1;
+    }
+
+    return expiredCount;
+  }
+
+  private async cancelExpiredVietqrOrder(
+    order: { id: string; orderCode: string; metadata: any; items: Array<{ productId: string; quantity: number; size: string | null; color: string | null }> },
+    now: Date,
+  ): Promise<boolean> {
+    const metadata = order.metadata && typeof order.metadata === 'object' && !Array.isArray(order.metadata)
+      ? order.metadata
+      : {};
+    const vietqr = metadata.vietqr && typeof metadata.vietqr === 'object' ? metadata.vietqr : {};
+
+    return this.prisma.$transaction(async (tx) => {
+      const updateResult = await tx.order.updateMany({
+        where: {
+          id: order.id,
+          paymentMethod: 'VIETQR',
+          paymentStatus: 'UNPAID',
+          status: 'PENDING',
+        },
+        data: {
+          status: 'CANCELLED',
+          metadata: {
+            ...metadata,
+            vietqr: {
+              ...vietqr,
+              expired: true,
+              cancelledBy: 'VIETQR_EXPIRY_CRON',
+              cancelledAt: now.toISOString(),
+            },
+          },
+        },
+      });
+
+      if (updateResult.count === 0) return false;
+
+      for (const item of order.items) {
+        await tx.product.update({
+          where: { id: item.productId },
+          data: { stockQuantity: { increment: item.quantity } },
+        });
+
+        if (item.size || item.color) {
+          const variant = await tx.productVariant.findFirst({
+            where: {
+              productId: item.productId,
+              ...(item.size ? { size: { name: item.size } } : {}),
+              ...(item.color ? { color: { name: item.color } } : {}),
+            },
+            select: { id: true },
+          });
+
+          if (variant) {
+            await tx.productVariant.update({
+              where: { id: variant.id },
+              data: { stock: { increment: item.quantity } },
+            });
+          }
+        }
+      }
+
+      this.logger.log(`Cancelled expired VietQR order ${order.orderCode} and restored stock.`);
+      return true;
+    });
+  }
+
   async create(userId: string, createOrderDto: CreateOrderDto) {
     const {
       items,
@@ -35,7 +172,9 @@ export class OrdersService {
       addressProvince,
       note,
       voucherId,
+      voucherIds,
       useCommissionPoints = false,
+      appliedCommissionPoints,
       shippingFee: clientShippingFee = 0,
     } = createOrderDto;
 
@@ -71,35 +210,38 @@ export class OrdersService {
         throw new BadRequestException('Cannot mix products from different stores in one order');
       }
 
-      if (product.stockQuantity < item.quantity) {
-        throw new BadRequestException(`Not enough stock for ${product.name}`);
-      }
+      // Stock check removed - admin handles actual inventory
 
       let itemPrice = product.salePrice || product.originalPrice;
 
-      // Handle variants
+      // Handle variants with flexible matching
       if (item.size || item.color) {
-        const matchingVariant = product.variants.find(
-          (v: any) =>
-            (v.size?.name || null) === (item.size || null) &&
-            (v.color?.name || null) === (item.color || null),
-        );
-
-        if (!matchingVariant || matchingVariant.stock < item.quantity) {
-          throw new BadRequestException(
-            `Phân loại ${item.size || ''} ${item.color || ''} cho ${product.name} không đủ số lượng`,
+        let matchingVariant = null;
+        if (item.size && item.color) {
+          matchingVariant = product.variants.find(
+            (v: any) => v.size?.name === item.size && v.color?.name === item.color,
+          );
+        } else if (item.size) {
+          matchingVariant = product.variants.find(
+            (v: any) => v.size?.name === item.size,
+          );
+        } else if (item.color) {
+          matchingVariant = product.variants.find(
+            (v: any) => v.color?.name === item.color,
           );
         }
 
-        if (matchingVariant.price !== null && matchingVariant.price !== undefined) {
-          itemPrice = matchingVariant.price;
-        }
+        if (matchingVariant) {
+          if (matchingVariant.price !== null && matchingVariant.price !== undefined) {
+            itemPrice = matchingVariant.price;
+          }
 
-        // Decrement variant stock
-        await this.prisma.productVariant.update({
-          where: { id: matchingVariant.id },
-          data: { stock: { decrement: item.quantity } },
-        });
+          // Decrement variant stock
+          await this.prisma.productVariant.update({
+            where: { id: matchingVariant.id },
+            data: { stock: { decrement: item.quantity } },
+          });
+        }
       }
 
       // Decrement main product stock
@@ -120,13 +262,16 @@ export class OrdersService {
 
     // Handle discounts
     let discountAmount = 0;
-    let appliedUserVoucherId: string | null = null;
+    const appliedUserVoucherIds: string[] = [];
 
-    // Apply Voucher
-    if (voucherId) {
+    // Resolve voucher IDs from either voucherIds array or legacy voucherId
+    const resolvedVoucherIds = (voucherIds && voucherIds.length > 0) ? voucherIds : (voucherId ? [voucherId] : []);
+
+    // Apply Vouchers
+    for (const currentVoucherId of resolvedVoucherIds) {
       const now = new Date();
       const targetVoucher = await this.prisma.voucher.findUnique({
-        where: { id: voucherId },
+        where: { id: currentVoucherId },
         include: {
           _count: {
             select: { userVouchers: true },
@@ -175,7 +320,7 @@ export class OrdersService {
         }
 
         const userUsedCount = await this.prisma.userVoucher.count({
-          where: { userId, voucherId, isUsed: true },
+          where: { userId, voucherId: currentVoucherId, isUsed: true },
         });
 
         if (
@@ -255,7 +400,7 @@ export class OrdersService {
                 usedAt: now,
               },
             });
-            appliedUserVoucherId = usedVoucher.id;
+            appliedUserVoucherIds.push(usedVoucher.id);
           } else {
             const newlyClaimed = await this.prisma.userVoucher.create({
               data: {
@@ -265,7 +410,7 @@ export class OrdersService {
                 usedAt: now,
               },
             });
-            appliedUserVoucherId = newlyClaimed.id;
+            appliedUserVoucherIds.push(newlyClaimed.id);
           }
 
           await this.prisma.voucher.update({
@@ -283,8 +428,10 @@ export class OrdersService {
         user.commissionBalance,
         Math.max(0, subtotal - discountAmount),
       );
-      if (maxApplicable > 0) {
-        commissionDiscount = maxApplicable;
+      const requestedPoints = appliedCommissionPoints !== undefined ? appliedCommissionPoints : maxApplicable;
+      const actualApplicable = Math.min(requestedPoints, maxApplicable);
+      if (actualApplicable > 0) {
+        commissionDiscount = actualApplicable;
         discountAmount += commissionDiscount;
         await this.prisma.user.update({
           where: { id: user.id },
@@ -297,11 +444,34 @@ export class OrdersService {
     let totalAmount = subtotal - discountAmount + parsedShippingFee;
     if (totalAmount < 0) totalAmount = 0;
 
+    // Update user profile if missing information
+    const userUpdateData: any = {};
+    if (!user.name && name) userUpdateData.name = name;
+    if (!user.phone && phone) userUpdateData.phone = phone;
+    if (!user.addressStreet && addressStreet) userUpdateData.addressStreet = addressStreet;
+    if (!user.addressWard && addressWard) userUpdateData.addressWard = addressWard;
+    if (!user.addressProvince && addressProvince) userUpdateData.addressProvince = addressProvince;
+    
+    if (Object.keys(userUpdateData).length > 0) {
+      await this.prisma.user.update({
+        where: { id: user.id },
+        data: userUpdateData,
+      });
+    }
+
+    const orderCode = this.generateOrderCode();
+    const vietqrExpiresAt = paymentMethod === 'VIETQR'
+      ? new Date(Date.now() + 30 * 60 * 1000)
+      : null;
+    const vietqrTransactionCode = paymentMethod === 'VIETQR'
+      ? `ORDER:${orderCode}`
+      : null;
+
     // Create Order
     const order = await this.prisma.order.create({
       data: {
         userId: user.id,
-        orderCode: this.generateOrderCode(),
+        orderCode,
         shippingName: name || user.name,
         shippingPhone: phone || user.phone,
         shippingStreet: addressStreet,
@@ -317,16 +487,28 @@ export class OrdersService {
         customerNote: note,
         source: 'PORTAL_DIRECT',
         storeId: orderStoreId,
+        ...(vietqrExpiresAt && vietqrTransactionCode
+          ? {
+              metadata: {
+                vietqr: {
+                  expiresAt: vietqrExpiresAt.toISOString(),
+                  transactionCode: vietqrTransactionCode,
+                  amount: totalAmount,
+                  expired: false,
+                },
+              },
+            }
+          : {}),
         items: {
           create: orderItemsToCreate,
         },
-        ...(appliedUserVoucherId
+        ...(appliedUserVoucherIds.length > 0
           ? {
               appliedVouchers: {
-                create: {
-                  userVoucherId: appliedUserVoucherId,
-                  discountApplied: discountAmount - commissionDiscount,
-                },
+                create: appliedUserVoucherIds.map(uvId => ({
+                  userVoucherId: uvId,
+                  discountApplied: (discountAmount - commissionDiscount) / appliedUserVoucherIds.length,
+                })),
               },
             }
           : {}),
@@ -342,12 +524,12 @@ export class OrdersService {
 
     let vietqrData = null;
     if (paymentMethod === 'VIETQR') {
-      const bankId = process.env.VIETQR_BANK_ID || '';
+      const bankId = process.env.VIETQR_BANK_ID || process.env.VIETQR_ACQ_ID || '';
       const accountNo = process.env.VIETQR_ACCOUNT_NO || '';
       const accountName = process.env.VIETQR_ACCOUNT_NAME || '';
       const template = process.env.VIETQR_TEMPLATE || 'compact2';
       const amount = totalAmount;
-      const addInfo = `ORDER:${order.orderCode}`;
+      const addInfo = vietqrTransactionCode || `ORDER:${order.orderCode}`;
       
       const qrImageUrl = `https://img.vietqr.io/image/${bankId}-${accountNo}-${template}.png?amount=${amount}&addInfo=${encodeURIComponent(addInfo)}&accountName=${encodeURIComponent(accountName)}`;
       
@@ -358,7 +540,7 @@ export class OrdersService {
         bankId,
         accountNo,
         accountName,
-        expiresAt: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
+        expiresAt: (vietqrExpiresAt || new Date(Date.now() + 30 * 60 * 1000)).toISOString(),
       };
     }
 

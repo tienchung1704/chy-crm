@@ -2,7 +2,8 @@ import React, { Suspense } from 'react';
 import Link from 'next/link';
 import { CheckCircle2 } from 'lucide-react';
 
-function SuccessPageContent({ searchParams }: { searchParams: { orderId?: string } }) {
+export default async function OrderSuccessPage(props: { searchParams: Promise<{ orderId?: string }> }) {
+  const searchParams = await props.searchParams;
   const orderId = searchParams.orderId;
 
   return (
@@ -32,13 +33,5 @@ function SuccessPageContent({ searchParams }: { searchParams: { orderId?: string
         </Link>
       </div>
     </div>
-  );
-}
-
-export default function OrderSuccessPage({ searchParams }: { searchParams: { orderId?: string } }) {
-  return (
-    <Suspense fallback={<div className="min-h-[60vh] flex items-center justify-center">Đang tải...</div>}>
-      <SuccessPageContent searchParams={searchParams} />
-    </Suspense>
   );
 }

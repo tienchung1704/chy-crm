@@ -9,6 +9,8 @@ import { apiClientClient } from '@/lib/apiClientClient';
 interface CartItemData {
   id: string;
   quantity: number;
+  size: string | null;
+  color: string | null;
   product: {
     id: string;
     name: string;
@@ -19,6 +21,7 @@ interface CartItemData {
     isActive: boolean;
     storeId: string | null;
     store: { id: string; name: string } | null;
+    variants?: any[];
   };
 }
 
@@ -33,6 +36,30 @@ function formatCurrency(amount: number) {
     maximumFractionDigits: 0,
   }).format(amount);
 }
+
+const getCartItemPrice = (item: CartItemData) => {
+  let price = item.product.salePrice || item.product.originalPrice;
+  if (item.product.variants && item.product.variants.length > 0) {
+    let variant = null;
+    if (item.size && item.color) {
+      variant = item.product.variants.find(
+        (v: any) => v.size?.name === item.size && v.color?.name === item.color
+      );
+    } else if (item.size) {
+      variant = item.product.variants.find(
+        (v: any) => v.size?.name === item.size
+      );
+    } else if (item.color) {
+      variant = item.product.variants.find(
+        (v: any) => v.color?.name === item.color
+      );
+    }
+    if (variant && variant.price) {
+      price = variant.price;
+    }
+  }
+  return price;
+};
 
 export default function CartClient({ initialItems }: CartClientProps) {
   const router = useRouter();
@@ -66,8 +93,7 @@ export default function CartClient({ initialItems }: CartClientProps) {
   // Calculate subtotal for selected items only
   const selectedItems = items.filter(i => selectedIds.has(i.id));
   const subtotal = selectedItems.reduce((sum, item) => {
-    const price = item.product.salePrice || item.product.originalPrice;
-    return sum + price * item.quantity;
+    return sum + getCartItemPrice(item) * item.quantity;
   }, 0);
 
   const toggleSelect = (itemId: string) => {
@@ -200,7 +226,7 @@ export default function CartClient({ initialItems }: CartClientProps) {
               {/* Items */}
               <div className="space-y-0">
                 {group.items.map((item) => {
-                  const price = item.product.salePrice || item.product.originalPrice;
+                  const price = getCartItemPrice(item);
                   const itemTotal = price * item.quantity;
                   const isOutOfStock = item.product.stockQuantity === 0 || !item.product.isActive;
                   const disabled = isItemDisabled(item);
@@ -234,7 +260,13 @@ export default function CartClient({ initialItems }: CartClientProps) {
 
                         {/* Info */}
                         <div className="flex-1 min-w-0">
-                          <h3 className="font-semibold text-gray-800 mb-1 leading-tight truncate">{item.product.name}</h3>
+                          <h3 className="font-semibold text-gray-800 mb-0.5 leading-tight truncate">{item.product.name}</h3>
+                          {(item.size || item.color) && (
+                            <div className="text-xs text-gray-500 mb-1">
+                              {item.size && <span>Size: {item.size} </span>}
+                              {item.color && <span>&bull; Màu: {item.color}</span>}
+                            </div>
+                          )}
                           <div className="text-lg font-bold text-blue-600 mb-1">{formatCurrency(price)}</div>
 
                           {isOutOfStock && (

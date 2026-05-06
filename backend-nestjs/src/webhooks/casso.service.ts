@@ -2,6 +2,7 @@ import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { OrdersService } from '../orders/orders.service';
 import { CommissionsService } from '../commissions/commissions.service';
+import { AdminNotificationsService } from '../modules/admin-notifications/admin-notifications.service';
 import * as crypto from 'crypto';
 
 interface CassoTransaction {
@@ -35,6 +36,7 @@ export class CassoService {
     private readonly prisma: PrismaService,
     private readonly ordersService: OrdersService,
     private readonly commissionsService: CommissionsService,
+    private readonly adminNotificationsService: AdminNotificationsService,
   ) {}
 
   verifySignature(signature: string, payload: string, secret: string): boolean {
@@ -98,6 +100,26 @@ export class CassoService {
     if (order.paymentStatus === 'PAID') {
       this.logger.log(`Order ${orderCode} is already paid.`);
       return true;
+    }
+
+    if (this.ordersService.isVietqrExpiryCancellation(order)) {
+      this.logger.warn(
+        `Late VietQR payment for expired order ${orderCode}. Amount: ${transaction.amount}. Reference: ${transaction.reference}. Order remains CANCELLED.`,
+      );
+      await this.adminNotificationsService.createNotification({
+        type: 'ORDER',
+        title: `Thanh toán trễ cho đơn ${orderCode}`,
+        message: `Đơn VietQR đã hết hạn và bị huỷ, nhưng Casso ghi nhận giao dịch ${transaction.reference} với số tiền ${transaction.amount}.`,
+        link: `/admin/orders/${order.id}`,
+        metadata: {
+          orderId: order.id,
+          orderCode,
+          transactionReference: transaction.reference,
+          amount: transaction.amount,
+          reason: 'VIETQR_LATE_PAYMENT_AFTER_EXPIRY',
+        },
+      });
+      return false;
     }
 
     // Verify amount (allow 1% tolerance)

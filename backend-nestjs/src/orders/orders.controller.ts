@@ -198,9 +198,11 @@ export class OrdersController {
     @GetUser('role') role: string,
   ) {
     const order = await this.ordersService.findOne(id, userId, role);
+    const isExpired = this.ordersService.isPaymentExpired(order);
+
     return {
       status: order.paymentStatus === 'PAID' ? 'SUCCESS' : 'PENDING',
-      is_expired: false,
+      is_expired: isExpired,
     };
   }
 

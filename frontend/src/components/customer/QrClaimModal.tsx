@@ -84,6 +84,11 @@ export default function QrClaimModal() {
   };
 
   const handleSendOtp = async () => {
+    if (!orderCode.trim()) {
+      setMessage({ type: 'error', text: 'Vui lòng nhập mã đơn hàng trước khi lấy mã' });
+      return;
+    }
+
     if (!phone.trim() || phone.trim().length < 9) {
       setMessage({ type: 'error', text: 'Vui lòng nhập số điện thoại hợp lệ trước khi lấy mã' });
       return;
@@ -95,7 +100,7 @@ export default function QrClaimModal() {
     try {
       // Must dynamically import to avoid circular dependencies if any, but regular import is fine.
       const { sendOtpAction } = await import('@/actions/qrClaimActions');
-      const result = await sendOtpAction(phone);
+      const result = await sendOtpAction(phone, orderCode);
       
       if (result.success) {
         setMessage({ type: 'success', text: result.message });

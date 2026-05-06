@@ -11,6 +11,7 @@ export default function NavigationProgress() {
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const prevPathRef = useRef(pathname);
+  const prevSearchRef = useRef(searchParams.toString());
 
   const cleanup = useCallback(() => {
     if (intervalRef.current) {
@@ -80,9 +81,11 @@ export default function NavigationProgress() {
 
   // Complete progress when route changes
   useEffect(() => {
-    if (prevPathRef.current !== pathname) {
+    const currentSearch = searchParams.toString();
+    if (prevPathRef.current !== pathname || prevSearchRef.current !== currentSearch) {
       completeProgress();
       prevPathRef.current = pathname;
+      prevSearchRef.current = currentSearch;
     }
   }, [pathname, searchParams, completeProgress]);
 

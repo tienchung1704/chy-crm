@@ -77,7 +77,8 @@ export class SmsService {
       }
 
     } catch (error: any) {
-      this.logger.error(`[SMS] Exception when sending SMS: ${error.message}`);
+      this.logger.error(`[SMS] Exception when sending SMS to ${phone}. Error Name: ${error.name}, Message: ${error.message}, Cause: ${error.cause ? JSON.stringify(error.cause) : 'N/A'}, Code: ${error.code || 'N/A'}`);
+      console.error('[SMS] Full error details:', error);
       return false;
     }
   }

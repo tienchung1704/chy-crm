@@ -89,6 +89,7 @@ export default function ProductDetailClient({ product, relatedProducts = [], ini
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [copied, setCopied] = useState(false);
   const [isImageModalOpen, setIsImageModalOpen] = useState(false);
+  const [navigatingSlug, setNavigatingSlug] = useState<string | null>(null);
 
   // Save referral code from URL for signup flows.
   useEffect(() => {
@@ -591,46 +592,60 @@ export default function ProductDetailClient({ product, relatedProducts = [], ini
               Sản phẩm liên quan
             </h3>
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-5">
-              {relatedProducts.filter(rp => rp.stockQuantity > 0).map(rp => {
-                const finalPrice = rp.salePrice || rp.originalPrice;
-                const hasDiscount = rp.salePrice && rp.salePrice < rp.originalPrice;
+              {relatedProducts.map(rp => {
+                const finalPrices = [rp.salePrice || rp.originalPrice];
+                const originalPrices = [rp.originalPrice];
+
+                if (rp.variants?.length) {
+                  rp.variants.forEach(v => {
+                    if (v.price) {
+                      finalPrices.push(v.price);
+                      originalPrices.push(v.price);
+                    }
+                  });
+                }
+
+                const minPrice = Math.min(...finalPrices);
+                const maxPrice = Math.max(...finalPrices);
+                const minOriginalPrice = Math.min(...originalPrices);
+                const maxOriginalPrice = Math.max(...originalPrices);
+
+                const hasDiscount = minPrice < minOriginalPrice || maxPrice < maxOriginalPrice;
                 const discountPercent = hasDiscount
                   ? Math.round(((rp.originalPrice - rp.salePrice!) / rp.originalPrice) * 100)
                   : 0;
+
                 const isWishlisted = initialWishlistIds.includes(rp.id);
+
 
                 return (
                   <div
                     key={rp.id}
-                    className="group bg-white rounded-2xl shadow-sm overflow-hidden hover:shadow-xl transition-all duration-300 hover:-translate-y-1 relative cursor-pointer"
-                    onClick={() => router.push(`/portal/products/${rp.slug}`)}
+                    className="group bg-white rounded-lg overflow-hidden hover:shadow-lg transition-all duration-300 relative cursor-pointer border border-gray-100"
+                    onClick={() => {
+                      setNavigatingSlug(rp.slug);
+                      router.push(`/portal/products/${rp.slug}`);
+                    }}
                   >
                     {/* Product Image */}
-                    <div className="relative bg-gradient-to-br from-gray-50 to-gray-100 overflow-hidden" style={{ paddingBottom: '125%' }}>
+                    <div className="relative bg-gray-50 overflow-hidden" style={{ paddingBottom: '125%' }}>
                       {rp.imageUrl ? (
                         <img
                           src={rp.imageUrl}
                           alt={rp.name}
-                          className="absolute inset-0 w-full h-full object-cover group-hover:scale-110 transition-transform duration-500 ease-out"
+                          className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ease-out"
                         />
                       ) : (
-                        <div className="absolute inset-0 w-full h-full flex items-center justify-center">
-                          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-100 to-purple-100 flex items-center justify-center">
-                            <ShoppingBag className="w-8 h-8 text-blue-300" />
-                          </div>
+                        <div className="absolute inset-0 w-full h-full flex items-center justify-center bg-gray-50">
+                          <ShoppingBag className="w-10 h-10 text-gray-300" />
                         </div>
                       )}
 
-                      {/* Overlay gradient on hover */}
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-
-                      {/* Action Buttons */}
-                      <div className="absolute top-3 right-3 flex flex-col gap-2 z-10">
-                        {/* Wishlist Button */}
+                      {/* Action Buttons - top right */}
+                      <div className="absolute top-2 right-2 flex flex-col gap-1 z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            // Toggle wishlist for related product
                             fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api'}/wishlist`, {
                               method: 'POST',
                               headers: { 'Content-Type': 'application/json' },
@@ -639,17 +654,15 @@ export default function ProductDetailClient({ product, relatedProducts = [], ini
                               showToast('💖 Đã cập nhật yêu thích!', 'success');
                             });
                           }}
-                          className={`w-9 h-9 rounded-full flex items-center justify-center transition-all duration-300 backdrop-blur-sm ${
+                          className={`w-7 h-7 rounded-full flex items-center justify-center transition-all duration-200 backdrop-blur-sm ${
                             isWishlisted
-                              ? 'bg-rose-500 text-white shadow-lg shadow-rose-500/30'
-                              : 'bg-white/80 text-gray-400 hover:bg-white hover:text-rose-500 shadow-sm hover:scale-110 active:scale-95'
-                          }`}
+                              ? 'bg-rose-500 text-white shadow-md'
+                              : 'bg-white/90 text-gray-500 hover:text-rose-500 shadow-sm'
+                          } hover:scale-110 active:scale-95`}
                           title={isWishlisted ? 'Bỏ yêu thích' : 'Thêm vào yêu thích'}
                         >
-                          <Heart className={`w-4 h-4 ${isWishlisted ? 'fill-current' : ''}`} />
+                          <Heart className={`w-3 h-3 ${isWishlisted ? 'fill-current' : ''}`} />
                         </button>
-
-                        {/* Share Button */}
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
@@ -658,80 +671,96 @@ export default function ProductDetailClient({ product, relatedProducts = [], ini
                               showToast('📋 Đã copy link!', 'success');
                             });
                           }}
-                          className="w-9 h-9 rounded-full flex items-center justify-center transition-all duration-300 backdrop-blur-sm bg-white/80 text-gray-400 hover:bg-white hover:text-blue-500 shadow-sm hover:scale-110 active:scale-95"
+                          className="w-7 h-7 rounded-full flex items-center justify-center transition-all duration-200 backdrop-blur-sm bg-white/90 text-gray-500 hover:text-gray-800 shadow-sm hover:scale-110 active:scale-95"
                           title="Chia sẻ sản phẩm"
                         >
-                          <Share2 className="w-4 h-4" />
+                          <Share2 className="w-3 h-3" />
                         </button>
                       </div>
 
+                      {/* Wishlist indicator always visible if wishlisted */}
+                      {isWishlisted && (
+                        <div className="absolute top-2 right-2 z-10 group-hover:opacity-0 transition-opacity duration-200">
+                          <div className="w-7 h-7 rounded-full bg-rose-500 text-white flex items-center justify-center shadow-md">
+                            <Heart className="w-3 h-3 fill-current" />
+                          </div>
+                        </div>
+                      )}
+
                       {/* Combo Badge */}
                       {rp.isComboSet && (
-                        <div className="absolute bottom-3 left-3 z-10">
-                          <div className="bg-gradient-to-r from-amber-400 to-orange-500 text-white px-2.5 py-1 rounded-lg text-xs font-bold flex items-center gap-1 shadow-lg">
-                            <Sparkles className="w-3 h-3 fill-current" />
+                        <div className="absolute top-2 left-2 z-10">
+                          <div className="bg-gray-900 text-white px-2 py-0.5 rounded text-[10px] font-bold flex items-center gap-1">
+                            <Sparkles className="w-2.5 h-2.5 fill-current" />
                             Combo
                           </div>
+                        </div>
+                      )}
+
+                      {/* Discount Badge - top left */}
+                      {hasDiscount && !rp.isComboSet && (
+                        <div className="absolute top-2 left-2 z-10">
+                          <div className="bg-sky-500 text-white px-2 py-0.5 rounded text-[10px] font-bold">
+                            -{discountPercent}%
+                          </div>
+                        </div>
+                      )}
+
+
+                      {/* Navigation Loading Overlay */}
+                      {navigatingSlug === rp.slug && (
+                        <div className="absolute inset-0 bg-white/70 backdrop-blur-[2px] flex items-center justify-center z-20">
+                          <svg className="animate-spin h-7 w-7 text-indigo-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
                         </div>
                       )}
                     </div>
 
                     {/* Product Info */}
-                    <div className="p-3 flex flex-col flex-1">
-                      {/* Store Info - Only show if not main store */}
+                    <div className="p-2 flex flex-col flex-1">
+                      {/* Store Info */}
                       {rp.store && !rp.store.slug.startsWith('main-store') && (
-                        <div className="flex items-center gap-1.5 mb-2">
-                          <div className="w-4 h-4 rounded-full bg-gray-100 flex items-center justify-center overflow-hidden flex-shrink-0">
+                        <div className="flex items-center gap-1.5 mb-1.5">
+                          <div className="w-3.5 h-3.5 rounded-full bg-gray-100 flex items-center justify-center overflow-hidden flex-shrink-0">
                             {rp.store.logoUrl ? (
                               <img src={rp.store.logoUrl} alt={rp.store.name} className="w-full h-full object-cover" />
                             ) : (
-                              <span className="text-[8px] font-bold text-gray-500">{(rp.store.name || 'S').charAt(0)}</span>
+                              <span className="text-[7px] font-bold text-gray-500">{(rp.store.name || 'S').charAt(0)}</span>
                             )}
                           </div>
-                          <span className="text-[11px] font-medium text-gray-500 truncate" title={rp.store.name}>
-                            {rp.store.name}
-                          </span>
-                        </div>
-                      )}
-
-                      {/* Discount Tag */}
-                      {hasDiscount && (
-                        <div className="flex flex-wrap gap-1.5 mb-2 justify-between items-center">
-                          <span className="px-2 py-0.5 bg-rose-50 border border-rose-100 text-rose-600 rounded-md text-[11px] font-bold tracking-wide">
-                            Giảm {discountPercent}%
-                          </span>
-                          <span className="px-4 bg-green-50 border border-green-100 text-green-600 rounded-md text-[11px] font-bold tracking-wide">
-                            -{formatCurrency(Math.floor((rp.originalPrice - rp.salePrice!) / 1000) * 1000)}
-                          </span>
+                          <span className="text-[10px] text-gray-400 truncate">{rp.store.name}</span>
                         </div>
                       )}
 
                       {/* Product Name */}
-                      <h3 className="text-sm font-semibold text-gray-800 line-clamp-2 min-h-[2.5rem] leading-snug group-hover:text-blue-600 transition-colors mb-2">
+                      <h3 className="text-xs font-medium text-gray-900 line-clamp-2 min-h-[2rem] leading-[1.3] mb-1.5">
                         {rp.name}
                       </h3>
 
-                      {/* Price Section */}
-                      <div className="mb-2 overflow-hidden">
-                        <div className="flex items-baseline whitespace-nowrap overflow-hidden">
-                          <span className="text-base font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent truncate tracking-tighter">
-                            {formatCurrency(finalPrice)}
-                          </span>
+                      {/* Price */}
+                      <div className="mt-auto">
+                        <div className="text-[13px] sm:text-sm font-bold text-gray-900 tracking-tight">
+                          {formatCurrency(minPrice)}
                         </div>
+
                         {hasDiscount && (
-                          <div className="mt-0.5 whitespace-nowrap overflow-hidden flex items-center gap-1">
-                            <span className="text-[10px] text-gray-400 font-medium">Giá gốc:</span>
-                            <span className="text-[11px] text-gray-400 line-through font-medium opacity-80 truncate tracking-tighter">
-                              {formatCurrency(rp.originalPrice)}
+                          <div className="flex items-center gap-1.5 mt-0.5">
+                            <span className="text-[10px] sm:text-xs text-gray-400 line-through">
+                              {formatCurrency(maxOriginalPrice)}
+                            </span>
+                            <span className="text-[10px] sm:text-xs font-semibold text-gray-500">
+                              -{discountPercent}%
                             </span>
                           </div>
                         )}
-                      </div>
 
-                      {/* Stock & Sold Info */}
-                      <div className="flex items-center justify-between text-[11px] text-gray-500">
-                        <span>Còn lại: <strong className="text-gray-700">{rp.stockQuantity}</strong></span>
-                        <span>Đã bán: <strong className="text-gray-700">{rp.soldCount}</strong></span>
+                        {hasDiscount && (
+                          <div className="text-[11px] text-gray-400 mt-0.5">
+                            Giá cũ: {formatCurrency(maxOriginalPrice)}
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>

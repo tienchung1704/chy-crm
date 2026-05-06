@@ -52,7 +52,26 @@ export class CartService {
 
     // Calculate totals
     const subtotal = cart.items.reduce((sum, item) => {
-      const price = item.product.salePrice || item.product.originalPrice;
+      let price = item.product.salePrice || item.product.originalPrice;
+      if (item.product.variants && item.product.variants.length > 0) {
+        let variant = null;
+        if (item.size && item.color) {
+          variant = item.product.variants.find(
+            (v: any) => v.size?.name === item.size && v.color?.name === item.color
+          );
+        } else if (item.size) {
+          variant = item.product.variants.find(
+            (v: any) => v.size?.name === item.size
+          );
+        } else if (item.color) {
+          variant = item.product.variants.find(
+            (v: any) => v.color?.name === item.color
+          );
+        }
+        if (variant && variant.price) {
+          price = variant.price;
+        }
+      }
       return sum + price * item.quantity;
     }, 0);
 

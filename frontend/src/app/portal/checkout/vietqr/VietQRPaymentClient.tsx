@@ -45,7 +45,7 @@ export default function VietQRPaymentClient({ orderId }: { orderId: string }) {
     const checkPayment = async () => {
       try {
         const data = await apiClientClient.get<any>(`/orders/${orderId}/payment-status`);
-        
+
         if (data.status === 'SUCCESS') {
           setStatus('success');
           setTimeout(() => {
@@ -113,7 +113,7 @@ export default function VietQRPaymentClient({ orderId }: { orderId: string }) {
       link.click();
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
-      
+
       setCopied('qr');
       setTimeout(() => setCopied(null), 2000);
     } catch (error) {
@@ -179,82 +179,45 @@ export default function VietQRPaymentClient({ orderId }: { orderId: string }) {
 
   return (
     <div className="space-y-6">
-      <div className="text-center">
-        <h2 className="text-2xl font-bold text-gray-900">Thanh toán đơn hàng</h2>
-        <p className="text-gray-500 mt-1">Mã đơn: <span className="font-semibold text-indigo-600">{orderId}</span></p>
-      </div>
-
       {/* Timer */}
-      <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-center gap-4">
+      <div className=" flex items-center gap-4">
         <Clock className="w-8 h-8 text-amber-500 flex-shrink-0" />
         <div>
-          <p className="text-sm font-medium text-amber-800">Thời gian còn lại để thanh toán</p>
-          <p className="text-2xl font-black text-amber-600">{formatTime(timeLeft)}</p>
+          <p className="text-sm font-medium text-black">Thời gian còn lại để thanh toán</p>
+          <p className="text-xl text-black">{formatTime(timeLeft)}</p>
         </div>
       </div>
 
-      {/* QR Code */}
-      <div className="bg-gray-50 border-2 border-dashed border-gray-200 rounded-2xl p-6 text-center">
-        <h3 className="text-sm font-medium text-gray-700 mb-4">Quét mã QR bằng ứng dụng ngân hàng</h3>
-        
-        <div className="flex justify-center mb-6">
-          <div className="relative w-64 h-64 bg-white rounded-xl shadow-sm border border-gray-100 p-2 group">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={vietqrData.qrImageUrl}
-              alt="VietQR Code"
-              className="w-full h-full object-contain"
-            />
-            <button
-              onClick={downloadQRImage}
-              className="absolute top-2 right-2 p-2 bg-white/90 hover:bg-white rounded-lg shadow-sm border border-gray-200 transition-all opacity-0 group-hover:opacity-100"
-              title="Tải mã QR"
-            >
-              {copied === 'qr' ? (
-                <Check className="w-4 h-4 text-emerald-600" />
-              ) : (
-                <Download className="w-4 h-4 text-gray-600" />
-              )}
-            </button>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 gap-3 text-left bg-white p-4 rounded-xl border border-gray-100">
-          <div className="flex justify-between items-center py-2 border-b border-gray-50">
-            <span className="text-sm text-gray-500">Số tiền:</span>
-            <div className="flex items-center gap-2">
-              <span className="font-bold text-lg text-indigo-600">{formatCurrency(vietqrData.amount)}</span>
-              <button onClick={() => copyToClipboard(vietqrData.amount.toString(), 'amount')} className="text-gray-400 hover:text-indigo-600">
-                {copied === 'amount' ? <Check className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4" />}
-              </button>
-            </div>
-          </div>
-          <div className="flex justify-between items-center py-2 border-b border-gray-50">
-            <span className="text-sm text-gray-500">Nội dung CK:</span>
-            <div className="flex items-center gap-2">
-              <span className="font-bold text-gray-900 bg-gray-100 px-2 py-0.5 rounded">{vietqrData.transactionCode}</span>
-              <button onClick={() => copyToClipboard(vietqrData.transactionCode, 'content')} className="text-gray-400 hover:text-indigo-600">
-                {copied === 'content' ? <Check className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4" />}
-              </button>
-            </div>
-          </div>
-          <div className="pt-2">
-            <span className="text-sm text-gray-500 block mb-1">Chủ tài khoản: <strong className="text-gray-900">{vietqrData.accountName}</strong></span>
-            <span className="text-sm text-gray-500 block">Số tài khoản: <strong className="text-gray-900">{vietqrData.accountNo}</strong></span>
-          </div>
-        </div>
+      <div className="relative w-118 h-116 group">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={vietqrData.qrImageUrl}
+          alt="VietQR Code"
+          className="w-full h-full object-contain"
+        />
+        <button
+          onClick={downloadQRImage}
+          className="absolute top-2 right-2 p-2 bg-white/90 hover:bg-gray-100 rounded-lg shadow-sm border border-gray-200 cursor-pointer "
+          title="Tải mã QR"
+        >
+          {copied === 'qr' ? (
+            <Check className="w-4 h-4 text-emerald-600" />
+          ) : (
+            <Download className="w-4 h-4 text-gray-600" />
+          )}
+        </button>
       </div>
 
       {/* Status indicator */}
       <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-4 flex items-center gap-3">
         <Loader2 className="w-5 h-5 text-indigo-600 animate-spin" />
         <p className="text-sm font-medium text-indigo-800">
-          Hệ thống đang chờ nhận thanh toán... Không cần làm mới trang.
+          Hệ thống đang chờ nhận thanh toán...
         </p>
       </div>
 
       <p className="text-xs text-center text-gray-500">
-        Sau khi chuyển khoản thành công, hệ thống sẽ tự động xác nhận trong vòng 1-3 phút.
+        Hệ thống sẽ tự động xác nhận thanh toán trong vòng 1-3 phút.
       </p>
     </div>
   );

@@ -2,8 +2,9 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { MapPin, CreditCard, Ticket, CheckCircle2, Loader2 } from 'lucide-react';
+import { MapPin, CreditCard, Ticket, CheckCircle2, Loader2, X } from 'lucide-react';
 import { apiClientClient } from '@/lib/apiClientClient';
+import VietQRPaymentClient from './vietqr/VietQRPaymentClient';
 
 interface AddressOption {
   code: string;
@@ -62,8 +63,13 @@ export default function CheckoutClient({ user, items, store, cartMode }: Checkou
 
   // Vouchers and Points
   const [vouchers, setVouchers] = useState<Voucher[]>([]);
-  const [selectedVoucherId, setSelectedVoucherId] = useState<string>('');
+  const [selectedVoucherIds, setSelectedVoucherIds] = useState<string[]>([]);
   const [useCommissionPoints, setUseCommissionPoints] = useState(false);
+  const [commissionPointsInput, setCommissionPointsInput] = useState<string>('');
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [showVoucherModal, setShowVoucherModal] = useState(false);
+  const [showVietQRModal, setShowVietQRModal] = useState(false);
+  const [createdOrderId, setCreatedOrderId] = useState<string | null>(null);
 
   const [loading, setLoading] = useState(false);
   const [importingAddress, setImportingAddress] = useState(false);
@@ -210,9 +216,12 @@ export default function CheckoutClient({ user, items, store, cartMode }: Checkou
   }, [getMatchedStackTier, subtotal]);
 
   useEffect(() => {
+    // Lấy storeId trực tiếp từ sản phẩm trong giỏ hàng để đảm bảo chính xác tuyệt đối
+    const cartStoreId = items?.[0]?.product?.storeId || items?.[0]?.product?.store?.id || store?.id;
+
     Promise.all([
       apiClientClient.get<any[]>('/vouchers/user/my-vouchers'),
-      apiClientClient.get<Voucher[]>('/vouchers'),
+      apiClientClient.get<Voucher[]>('/vouchers', { params: cartStoreId ? { storeId: cartStoreId } : undefined }),
     ])
       .then(([userVoucherData, systemVoucherData]) => {
         const voucherMap = new Map<string, Voucher>();
@@ -220,6 +229,12 @@ export default function CheckoutClient({ user, items, store, cartMode }: Checkou
         if (Array.isArray(userVoucherData)) {
           userVoucherData
             .filter((uv: any) => !uv.isUsed && uv.voucher && uv.status === 'ACTIVE')
+            .filter((uv: any) => {
+              // Only show vouchers that match current store or have no store (system-wide)
+              const voucherStoreId = uv.voucher?.store?.id || uv.voucher?.storeId || null;
+              if (!voucherStoreId) return true; // System-wide voucher
+              return voucherStoreId === cartStoreId; // Must match order store
+            })
             .forEach((uv: any) => {
               if (uv.expiresAt && new Date(uv.expiresAt) <= new Date()) return;
               voucherMap.set(uv.voucher.id, {
@@ -241,76 +256,51 @@ export default function CheckoutClient({ user, items, store, cartMode }: Checkou
           });
         }
 
-        setVouchers(Array.from(voucherMap.values()).filter(isVoucherApplicable));
+        setVouchers(Array.from(voucherMap.values()));
       })
       .catch(console.error);
-  }, [isVoucherApplicable]);
+  }, [store?.id]);
 
   useEffect(() => {
-    if (selectedVoucherId && !vouchers.some(v => v.id === selectedVoucherId)) {
-      setSelectedVoucherId('');
+    if (selectedVoucherIds.length > 0) {
+      setSelectedVoucherIds(prev => prev.filter(id => {
+        const v = vouchers.find(vv => vv.id === id);
+        return v && isVoucherApplicable(v);
+      }));
     }
-  }, [selectedVoucherId, vouchers]);
+  }, [vouchers, isVoucherApplicable]);
 
-  // Calc Discounts
+  // Calc Discounts - sum all selected vouchers
   let voucherDiscount = 0;
-  let stackTierInfo: { current: number; next?: { threshold: number; discount: number; type?: string; conditionType: string } } | null = null;
-  if (selectedVoucherId) {
-    const sel = vouchers.find(v => v.id === selectedVoucherId);
-    if (sel) {
-      if (sel.type === 'STACK' && sel.stackTiers && sel.stackTiers.length > 0) {
-        const matchedTier = getMatchedStackTier(sel);
-
-        if (matchedTier) {
-          if (matchedTier.type === 'PERCENT') {
-            voucherDiscount = subtotal * (matchedTier.discount / 100);
-            if (matchedTier.maxDiscount && voucherDiscount > matchedTier.maxDiscount) {
-              voucherDiscount = matchedTier.maxDiscount;
-            }
-          } else {
-            voucherDiscount = matchedTier.discount;
+  for (const vid of selectedVoucherIds) {
+    const sel = vouchers.find(v => v.id === vid);
+    if (!sel) continue;
+    let thisDiscount = 0;
+    if (sel.type === 'STACK' && sel.stackTiers && sel.stackTiers.length > 0) {
+      const matchedTier = getMatchedStackTier(sel);
+      if (matchedTier) {
+        if (matchedTier.type === 'PERCENT') {
+          thisDiscount = subtotal * (matchedTier.discount / 100);
+          if (matchedTier.maxDiscount && thisDiscount > matchedTier.maxDiscount) {
+            thisDiscount = matchedTier.maxDiscount;
           }
-        }
-
-        // Find the next tier for motivation message
-        const ascTiers = [...sel.stackTiers].sort((a, b) => {
-          const aVal = a.conditionType === 'amount' ? (a.minAmount || 0) : (a.minProducts || 0);
-          const bVal = b.conditionType === 'amount' ? (b.minAmount || 0) : (b.minProducts || 0);
-          return aVal - bVal;
-        });
-
-        const nextTier = ascTiers.find(t => {
-          if (t.conditionType === 'amount') {
-            return (t.minAmount || 0) > subtotal;
-          }
-          return (t.minProducts || 0) > distinctProductCount;
-        });
-
-        if (nextTier) {
-          stackTierInfo = {
-            current: voucherDiscount,
-            next: {
-              threshold: nextTier.conditionType === 'amount' ? (nextTier.minAmount || 0) : (nextTier.minProducts || 0),
-              discount: nextTier.discount,
-              type: nextTier.type,
-              conditionType: nextTier.conditionType || 'products'
-            }
-          };
         } else {
-          stackTierInfo = { current: voucherDiscount };
+          thisDiscount = matchedTier.discount;
         }
-      } else {
-        voucherDiscount = sel.type === 'PERCENT' ? subtotal * (sel.value / 100) : sel.value;
-        if (sel.maxDiscount && voucherDiscount > sel.maxDiscount) voucherDiscount = sel.maxDiscount;
       }
+    } else {
+      thisDiscount = sel.type === 'PERCENT' ? subtotal * (sel.value / 100) : sel.value;
+      if (sel.maxDiscount && thisDiscount > sel.maxDiscount) thisDiscount = sel.maxDiscount;
     }
+    voucherDiscount += thisDiscount;
   }
 
   let finalAmount = subtotal + shippingFee - voucherDiscount;
   if (finalAmount < 0) finalAmount = 0;
 
   const maxPointsApplicable = Math.min(user.commissionBalance || 0, finalAmount);
-  const pointDiscount = useCommissionPoints ? maxPointsApplicable : 0;
+  const requestedPoints = parseInt(commissionPointsInput) || 0;
+  const pointDiscount = Math.min(requestedPoints, maxPointsApplicable);
   finalAmount -= pointDiscount;
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -336,14 +326,16 @@ export default function CheckoutClient({ user, items, store, cartMode }: Checkou
         addressWard: ward,
         addressProvince: province,
         shippingFee,
-        voucherId: selectedVoucherId || undefined,
-        useCommissionPoints,
+        voucherIds: selectedVoucherIds.length > 0 ? selectedVoucherIds : undefined,
+        useCommissionPoints: pointDiscount > 0,
+        appliedCommissionPoints: pointDiscount,
       });
 
       // alert('Đặt hàng thành công!');
       if (paymentMethod === 'VIETQR' && data.vietqr) {
         localStorage.setItem(`vietqr_${data.orderId}`, JSON.stringify(data.vietqr));
-        router.push(`/portal/checkout/vietqr?orderId=${data.orderId}`);
+        setCreatedOrderId(data.orderId);
+        setShowVietQRModal(true);
       } else {
         router.push(`/portal/checkout/success?orderId=${data.orderId}`);
       }
@@ -473,99 +465,87 @@ export default function CheckoutClient({ user, items, store, cartMode }: Checkou
           <div className="py-4 space-y-6 border-b border-gray-100">
             {/* Payment Methods */}
             <div>
-              <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-3">
-                <CreditCard className="w-4 h-4 text-indigo-600" /> Phương thức thanh toán
-              </label>
-              <div className="space-y-3">
-                <label className={`flex items-center p-3 border rounded-xl cursor-pointer transition-all ${paymentMethod === 'COD' ? 'border-indigo-600 bg-indigo-50/50 shadow-sm' : 'border-gray-200 hover:bg-gray-50'}`}>
-                  <input type="radio" name="payment" value="COD" checked={paymentMethod === 'COD'} onChange={() => setPaymentMethod('COD')} className="w-4 h-4 text-indigo-600 border-gray-300 focus:ring-indigo-500" />
-                  <span className="ml-3 text-sm font-medium text-gray-900">Thanh toán khi nhận hàng (COD)</span>
+              <div className="flex justify-between items-center">
+                <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
+                  <CreditCard className="w-5 h-5 text-indigo-600" /> Phương thức thanh toán
                 </label>
-                <label className={`flex items-center p-3 border rounded-xl cursor-pointer transition-all ${paymentMethod === 'VIETQR' ? 'border-indigo-600 bg-indigo-50/50 shadow-sm' : 'border-gray-200 hover:bg-gray-50'}`}>
-                  <input type="radio" name="payment" value="VIETQR" checked={paymentMethod === 'VIETQR'} onChange={() => setPaymentMethod('VIETQR')} className="w-4 h-4 text-indigo-600 border-gray-300 focus:ring-indigo-500" />
-                  <span className="ml-3 text-sm font-medium text-gray-900">Chuyển khoản VietQR</span>
-                </label>
+                <button
+                  type="button"
+                  onClick={() => setShowPaymentModal(true)}
+                  className="text-indigo-600 font-bold hover:underline text-sm border-0 bg-transparent p-0"
+                >
+                  {paymentMethod === 'COD' ? 'COD' : 'VietQR'}
+                </button>
               </div>
             </div>
 
             {/* Vouchers */}
-            <div>
-              <div className="flex justify-between items-center mb-3">
+            <div className='pb-3 border-b border-gray-100'>
+              <div className="flex justify-between items-center">
                 <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
-                  <Ticket className="w-4 h-4 text-indigo-600" /> Mã giảm giá
+                  <Ticket className="w-5 h-5 text-indigo-600" /> Mã giảm giá
                 </label>
-                {selectedVoucherId && (
-                  <button onClick={() => setSelectedVoucherId('')} className="text-xs text-rose-500 font-medium hover:underline">Bỏ chọn</button>
-                )}
+                <div className="flex items-center gap-3">
+                  {selectedVoucherIds.length > 0 && (
+                    <button type="button" onClick={() => setSelectedVoucherIds([])} className="text-xs text-rose-500 font-medium hover:underline border-0 bg-transparent p-0">Bỏ chọn</button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setShowVoucherModal(true)}
+                    className="text-indigo-600 font-bold hover:underline text-sm border-0 bg-transparent p-0"
+                  >
+                    {selectedVoucherIds.length > 0 ? `${selectedVoucherIds.length} mã đã chọn` : 'Chọn mã'}
+                  </button>
+                </div>
               </div>
-
-              {vouchers.length === 0 ? (
-                <div className="text-sm text-gray-500 bg-gray-50 p-3 rounded-xl border border-gray-100 text-center">Không có mã giảm giá phù hợp</div>
-              ) : (
-                <>
-                  <div className="flex gap-3 overflow-x-auto pb-2">
-                    {vouchers.map(v => {
-                      const isSelected = selectedVoucherId === v.id;
-                      return (
-                        <div
-                          key={v.id}
-                          onClick={() => setSelectedVoucherId(v.id)}
-                          className={`flex-none w-[200px] p-3 rounded-xl border cursor-pointer transition-all ${isSelected
-                            ? 'bg-sky-50'
-                            : 'border-gray-200 hover:border-indigo-300 bg-white'
-                            }`}
-                        >
-                          <div className="font-bold text-sm bg-sky-500 text-white inline-block px-2 py-0.5 rounded text-[10px] mb-1.5 uppercase">{v.code}</div>
-                          <div className="text-sm font-bold text-gray-900 mb-0.5">
-                            {v.type === 'STACK' ? (
-                              (() => {
-                                if (v.stackTiers && v.stackTiers.length > 0) {
-                                  const maxTier = v.stackTiers.reduce((max, t) => t.discount > max.discount ? t : max, v.stackTiers[0]);
-                                  return `📊 Đến ${maxTier.type === 'PERCENT' ? `${maxTier.discount}%` : formatPrice(maxTier.discount)}`;
-                                }
-                                return '📊 Stack';
-                              })()
-                            ) : (
-                              `Giảm ${v.type === 'PERCENT' ? `${v.value}%` : formatPrice(v.value)}`
-                            )}
-                          </div>
-                          {v.type === 'STACK' && v.stackTiers && v.stackTiers[0] && (
-                            <div className="text-xs text-gray-500">
-                              Theo {v.stackTiers[0].conditionType === 'amount' ? 'giá trị đơn' : 'số SP khác nhau'}
-                            </div>
-                          )}
-                          {v.type !== 'STACK' && v.maxDiscount && <div className="text-xs text-gray-500">Tối đa: {formatPrice(v.maxDiscount)}</div>}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </>
+              {selectedVoucherIds.length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {selectedVoucherIds.map(id => {
+                    const v = vouchers.find(vv => vv.id === id);
+                    return v ? (
+                      <span key={id} className="inline-flex items-center gap-1 text-[11px] font-semibold bg-sky-50 text-sky-700 px-2 py-0.5 rounded-full border border-sky-200">
+                        {v.code}
+                        <button type="button" onClick={() => setSelectedVoucherIds(prev => prev.filter(x => x !== id))} className="text-sky-400 hover:text-sky-600 ml-0.5 border-0 bg-transparent p-0 leading-none">&times;</button>
+                      </span>
+                    ) : null;
+                  })}
+                </div>
               )}
             </div>
 
             {/* Points */}
-            {user.commissionBalance > 0 && (
-              <div className={`p-4 rounded-xl border transition-all ${useCommissionPoints ? 'border-orange-500 bg-orange-50/50' : 'border-gray-200 bg-gray-50/50'}`}>
-                <div className="flex justify-between items-center mb-1">
-                  <div>
-                    <div className="font-medium text-gray-800 text-sm">Dùng Hoa hồng</div>
-                    <div className="text-xs text-gray-500">Tối đa {formatPrice(maxPointsApplicable)}</div>
-                  </div>
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input
-                      type="checkbox" className="sr-only peer"
-                      checked={useCommissionPoints}
-                      onChange={(e) => setUseCommissionPoints(e.target.checked)}
-                      disabled={maxPointsApplicable <= 0 && !useCommissionPoints}
-                    />
-                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-orange-500 disabled:opacity-50"></div>
-                  </label>
+            <div className={`rounded-xl transition-all`}>
+              <div className="flex justify-between items-center mb-1 gap-1">
+                <div>
+                  <div className="font-medium text-gray-800 text-sm">Điểm giảm giá</div>
                 </div>
-                {useCommissionPoints && pointDiscount > 0 && (
-                  <div className="text-xs font-semibold text-orange-600 mt-2">✅ Đã áp dụng giảm {formatPrice(pointDiscount)}</div>
-                )}
+                <div className="text-xs text-gray-500">Tối đa {formatPrice(maxPointsApplicable)}</div>
               </div>
-            )}
+              <div className="w-full mt-2">
+                <input
+                  type="number"
+                  className="w-full border border-gray-300 rounded px-1 py-1.5 outline-none text-right bg-white"
+                  placeholder="0"
+                  value={commissionPointsInput}
+                  onChange={(e) => {
+                    let val = parseInt(e.target.value);
+                    if (isNaN(val)) {
+                      setCommissionPointsInput(e.target.value === '' ? '' : '0');
+                      return;
+                    }
+                    if (val < 0) val = 0;
+                    if (val > maxPointsApplicable) val = maxPointsApplicable;
+                    setCommissionPointsInput(val.toString());
+                  }}
+                  disabled={maxPointsApplicable <= 0}
+                  max={maxPointsApplicable}
+                  min={0}
+                />
+              </div>
+              {pointDiscount > 0 && (
+                <div className="text-xs font-semibold text-orange-600 mt-2">✅ Đã áp dụng giảm {formatPrice(pointDiscount)}</div>
+              )}
+            </div>
           </div>
 
           {/* Summary */}
@@ -597,6 +577,120 @@ export default function CheckoutClient({ user, items, store, cartMode }: Checkou
           </button>
         </div>
       </div>
+      {/* Payment Modal */}
+      {showPaymentModal && (
+        <div className="fixed inset-0 bg-black/50 z-[100] flex items-end sm:items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-md overflow-hidden animate-in fade-in slide-in-from-bottom-4 sm:slide-in-from-bottom-0 sm:zoom-in-95">
+            <div className="flex justify-between items-center p-4 border-b border-gray-100">
+              <h3 className="font-bold text-lg text-gray-900">Phương thức thanh toán</h3>
+              <button onClick={() => setShowPaymentModal(false)} className="p-2 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-4 space-y-3">
+              <label className={`flex items-center p-4 border rounded-xl cursor-pointer transition-all ${paymentMethod === 'COD' ? 'border-indigo-600 bg-indigo-50/50 shadow-sm' : 'border-gray-200 hover:bg-gray-50'}`}>
+                <input type="radio" name="payment" value="COD" checked={paymentMethod === 'COD'} onChange={() => { setPaymentMethod('COD'); setShowPaymentModal(false); }} className="w-5 h-5 text-indigo-600 border-gray-300 focus:ring-indigo-500" />
+                <span className="ml-3 font-medium text-gray-900">Thanh toán khi nhận hàng (COD)</span>
+              </label>
+              <label className={`flex items-center p-4 border rounded-xl cursor-pointer transition-all ${paymentMethod === 'VIETQR' ? 'border-indigo-600 bg-indigo-50/50 shadow-sm' : 'border-gray-200 hover:bg-gray-50'}`}>
+                <input type="radio" name="payment" value="VIETQR" checked={paymentMethod === 'VIETQR'} onChange={() => { setPaymentMethod('VIETQR'); setShowPaymentModal(false); }} className="w-5 h-5 text-indigo-600 border-gray-300 focus:ring-indigo-500" />
+                <span className="ml-3 font-medium text-gray-900">Chuyển khoản VietQR</span>
+              </label>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Voucher Modal */}
+      {showVoucherModal && (
+        <div className="fixed inset-0 bg-black/50 z-[100] flex items-end sm:items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-md overflow-hidden animate-in fade-in slide-in-from-bottom-4 sm:slide-in-from-bottom-0 sm:zoom-in-95 flex flex-col max-h-[85vh]">
+            <div className="flex justify-between items-center p-4 border-b border-gray-100 shrink-0">
+              <h3 className="font-bold text-lg text-gray-900">Chọn mã giảm giá</h3>
+              <button onClick={() => setShowVoucherModal(false)} className="p-2 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-4 overflow-y-auto space-y-3 flex-1">
+              {vouchers.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">Không có mã giảm giá nào</div>
+              ) : (
+                vouchers.map(v => {
+                  const isEligible = isVoucherApplicable(v);
+                  const isSelected = selectedVoucherIds.includes(v.id);
+
+                  return (
+                    <div
+                      key={v.id}
+                      onClick={() => {
+                        if (!isEligible) return;
+                        setSelectedVoucherIds(prev =>
+                          isSelected ? prev.filter(x => x !== v.id) : [...prev, v.id]
+                        );
+                      }}
+                      className={`relative p-4 rounded-xl border transition-all ${!isEligible
+                        ? 'bg-gray-50 opacity-70 border-gray-200 cursor-not-allowed'
+                        : isSelected
+                          ? 'bg-sky-50 border-sky-200 cursor-pointer shadow-sm'
+                          : 'bg-white border-gray-200 cursor-pointer hover:border-indigo-300 shadow-sm hover:shadow'
+                        }`}
+                    >
+                      <div className="pr-8">
+                        <div className="font-bold text-sm bg-sky-500 text-white inline-block px-2 py-0.5 rounded text-[10px] mb-2 uppercase tracking-wide">{v.code}</div>
+                        <div className="text-base font-bold text-gray-900 mb-1">
+                          {v.type === 'STACK' ? (
+                            (() => {
+                              if (v.stackTiers && v.stackTiers.length > 0) {
+                                const maxTier = v.stackTiers.reduce((max, t) => t.discount > max.discount ? t : max, v.stackTiers[0]);
+                                return `Giảm tầng đến ${maxTier.type === 'PERCENT' ? `${maxTier.discount}%` : formatPrice(maxTier.discount)}`;
+                              }
+                              return 'Giảm giá theo tầng';
+                            })()
+                          ) : (
+                            `Giảm ${v.type === 'PERCENT' ? `${v.value}%` : formatPrice(v.value)}`
+                          )}
+                        </div>
+                        {v.type === 'STACK' && v.stackTiers && v.stackTiers[0] && (
+                          <div className="text-xs text-gray-500 mt-1">
+                            Áp dụng theo {v.stackTiers[0].conditionType === 'amount' ? 'giá trị đơn' : 'số SP khác nhau'}
+                          </div>
+                        )}
+                        <div className="text-xs text-gray-500 mt-1">Đơn tối thiểu: {formatPrice(v.minOrderValue)}</div>
+                        {v.type !== 'STACK' && v.maxDiscount && <div className="text-xs text-gray-500">Giảm tối đa: {formatPrice(v.maxDiscount)}</div>}
+                      </div>
+
+                      {isSelected && (
+                        <CheckCircle2 className="w-6 h-6 text-green-500 absolute right-4 top-1/2 -translate-y-1/2" />
+                      )}
+                      {!isEligible && (
+                        <div className="absolute right-4 bottom-3 text-[10px] font-semibold text-rose-500 uppercase tracking-wider bg-white px-1.5 py-0.5 rounded">
+                          Không đủ điều kiện
+                        </div>
+                      )}
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* VietQR Modal */}
+      {showVietQRModal && createdOrderId && (
+        <div className="fixed inset-0 bg-black/50 z-[110] flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95 max-h-[90vh] flex flex-col">
+            <div className="flex justify-end p-2 border-b border-gray-100 shrink-0">
+              <button onClick={() => router.push(`/portal/checkout/success?orderId=${createdOrderId}`)} className="p-2 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-6 overflow-y-auto">
+              <VietQRPaymentClient orderId={createdOrderId} />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

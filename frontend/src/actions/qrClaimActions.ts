@@ -10,14 +10,19 @@ interface ClaimResult {
   claimCount?: number;
 }
 
-export async function sendOtpAction(phone: string): Promise<{ success: boolean; message: string }> {
+export async function sendOtpAction(phone: string, orderCode: string): Promise<{ success: boolean; message: string }> {
   try {
     const trimmedPhone = phone.trim();
+    const trimmedOrderCode = orderCode.trim().toUpperCase();
+
     if (!trimmedPhone || trimmedPhone.length < 9) {
       return { success: false, message: 'Số điện thoại không hợp lệ' };
     }
+    if (!trimmedOrderCode) {
+      return { success: false, message: 'Mã đơn hàng không hợp lệ' };
+    }
 
-    const result = await apiClient.post<any>('/vouchers/send-otp', { phone: trimmedPhone });
+    const result = await apiClient.post<any>('/vouchers/send-otp', { phone: trimmedPhone, orderCode: trimmedOrderCode });
     return {
       success: true,
       message: result.message || 'Đã gửi mã OTP',

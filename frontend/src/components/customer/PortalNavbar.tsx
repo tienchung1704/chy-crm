@@ -135,7 +135,6 @@ export default function PortalNavbar({ user }: Props) {
                     {user.rank}
                   </div>
                 </div>
-                <span className={`hidden md:block text-gray-400 transition-transform ${dropdownOpen ? 'rotate-180' : ''}`}>▾</span>
               </button>
 
               {dropdownOpen && (

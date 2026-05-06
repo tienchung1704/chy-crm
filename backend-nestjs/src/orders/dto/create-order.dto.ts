@@ -84,10 +84,21 @@ export class CreateOrderDto {
   @IsString()
   voucherId?: string;
 
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  voucherIds?: string[];
+
   @ApiPropertyOptional({ default: false })
   @IsOptional()
   @IsBoolean()
   useCommissionPoints?: boolean;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsNumber()
+  appliedCommissionPoints?: number;
 
   @ApiPropertyOptional({ default: 0 })
   @IsOptional()

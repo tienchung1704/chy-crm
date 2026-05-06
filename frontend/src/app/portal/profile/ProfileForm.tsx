@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Trash2, X, MapPin, ChevronDown, Loader2 } from 'lucide-react';
+import { apiClientClient } from '@/lib/apiClientClient';
 
 interface AddressOption {
   code: string;
@@ -137,22 +138,11 @@ export default function ProfileForm({ user }: ProfileFormProps) {
     setMessage(null);
 
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api'}/users/profile`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
-      });
-
-      const data = await res.json();
-
-      if (res.ok) {
-        setMessage({ type: 'success', text: 'Cập nhật hồ sơ thành công!' });
-        router.refresh();
-      } else {
-        setMessage({ type: 'error', text: data.error || 'Có lỗi xảy ra' });
-      }
-    } catch {
-      setMessage({ type: 'error', text: 'Không thể kết nối tới máy chủ' });
+      await apiClientClient.put('/users/profile', form);
+      setMessage({ type: 'success', text: 'Cập nhật hồ sơ thành công!' });
+      router.refresh();
+    } catch (error: any) {
+      setMessage({ type: 'error', text: error.message || 'Có lỗi xảy ra' });
     } finally {
       setLoading(false);
     }
@@ -176,25 +166,15 @@ export default function ProfileForm({ user }: ProfileFormProps) {
     }
 
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api'}/users/password`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          currentPassword: passwordForm.currentPassword,
-          newPassword: passwordForm.newPassword,
-        }),
+      await apiClientClient.put('/users/password', {
+        currentPassword: passwordForm.currentPassword,
+        newPassword: passwordForm.newPassword,
       });
 
-      const data = await res.json();
-
-      if (res.ok) {
-        setPasswordMsg({ type: 'success', text: 'Đổi mật khẩu thành công!' });
-        setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
-      } else {
-        setPasswordMsg({ type: 'error', text: data.error || 'Có lỗi xảy ra' });
-      }
-    } catch {
-      setPasswordMsg({ type: 'error', text: 'Không thể kết nối tới máy chủ' });
+      setPasswordMsg({ type: 'success', text: 'Đổi mật khẩu thành công!' });
+      setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+    } catch (error: any) {
+      setPasswordMsg({ type: 'error', text: error.message || 'Có lỗi xảy ra' });
     } finally {
       setPasswordLoading(false);
     }
@@ -209,20 +189,11 @@ export default function ProfileForm({ user }: ProfileFormProps) {
     setDeleteLoading(true);
 
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api'}/users/profile`, {
-        method: 'DELETE',
-      });
-
-      const data = await res.json();
-
-      if (res.ok) {
-        // Redirect to login page
-        router.push('/login');
-      } else {
-        alert(data.error || 'Có lỗi xảy ra khi xóa tài khoản');
-      }
-    } catch {
-      alert('Không thể kết nối tới máy chủ');
+      await apiClientClient.delete('/users/profile');
+      // Redirect to login page
+      router.push('/login');
+    } catch (error: any) {
+      alert(error.message || 'Có lỗi xảy ra khi xóa tài khoản');
     } finally {
       setDeleteLoading(false);
       setShowDeleteModal(false);

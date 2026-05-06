@@ -57,10 +57,9 @@ export class VouchersService implements OnModuleInit {
       where: {
         isActive: true,
         campaignCategory: { notIn: ['GAMIFICATION', 'REFERRAL'] },
-        ...(storeId && { storeId }),
-        OR: [
-          { validTo: null },
-          { validTo: { gt: now } },
+        AND: [
+          ...(storeId ? [{ OR: [{ storeId }, { storeId: null }] }] : []),
+          { OR: [{ validTo: null }, { validTo: { gt: now } }] },
         ],
       },
       include: {
@@ -115,11 +114,50 @@ export class VouchersService implements OnModuleInit {
     return voucher;
   }
 
-  async sendOtp(phone: string) {
+  async sendOtp(phone: string, orderCode: string) {
     // Normalize phone
     const normalizedPhone = phone.replace(/[\s\-]/g, '');
     if (!normalizedPhone || normalizedPhone.length < 9) {
       throw new BadRequestException('Số điện thoại không hợp lệ');
+    }
+
+    if (!orderCode) {
+      throw new BadRequestException('Mã đơn hàng không hợp lệ');
+    }
+
+    // --- VERIFY ORDER EXISTS AND PHONE MATCHES ---
+    // Try to find order by orderCode (internal CRM orders)
+    let order = await this.prisma.order.findFirst({
+      where: {
+        OR: [
+          { orderCode: orderCode },
+          { metadata: { path: '$.trackingNumber', equals: orderCode } },
+        ],
+      },
+      select: {
+        shippingPhone: true,
+        user: { select: { phone: true } },
+      },
+    });
+
+    if (!order) {
+      order = await this.prisma.order.findFirst({
+        where: { metadata: { string_contains: orderCode } },
+        select: {
+          shippingPhone: true,
+          user: { select: { phone: true } },
+        },
+      });
+    }
+
+    if (!order) {
+      throw new BadRequestException('Không tìm thấy đơn hàng với mã này. Vui lòng kiểm tra lại.');
+    }
+
+    // Verify phone number matches
+    const orderPhone = (order.shippingPhone || order.user?.phone || '').replace(/[\s\-]/g, '');
+    if (!orderPhone || !normalizedPhone.endsWith(orderPhone.slice(-9)) && !orderPhone.endsWith(normalizedPhone.slice(-9))) {
+      throw new BadRequestException('Số điện thoại không khớp với đơn hàng. Vui lòng nhập đúng SĐT đặt hàng để lấy mã.');
     }
 
     // Check if there's an existing unexpired OTP to prevent spam
