@@ -228,7 +228,7 @@ export default function CartClient({ initialItems }: CartClientProps) {
                 {group.items.map((item) => {
                   const price = getCartItemPrice(item);
                   const itemTotal = price * item.quantity;
-                  const isOutOfStock = item.product.stockQuantity === 0 || !item.product.isActive;
+                  const isOutOfStock = !item.product.isActive;
                   const disabled = isItemDisabled(item);
                   const isSelected = selectedIds.has(item.id);
 
@@ -269,8 +269,8 @@ export default function CartClient({ initialItems }: CartClientProps) {
                           )}
                           <div className="text-lg font-bold text-blue-600 mb-1">{formatCurrency(price)}</div>
 
-                          {isOutOfStock && (
-                            <div className="text-xs text-red-600 font-medium bg-red-50 p-1 rounded inline-block">⚠️ Hết hàng</div>
+                          {!item.product.isActive && (
+                            <div className="text-xs text-red-600 font-medium bg-red-50 p-1 rounded inline-block">⚠️ Ngừng kinh doanh</div>
                           )}
 
                           <div className="flex items-center gap-3 mt-1.5">
@@ -284,7 +284,7 @@ export default function CartClient({ initialItems }: CartClientProps) {
                               <button
                                 onClick={() => handleUpdateQuantity(item.id, item.quantity + 1)}
                                 className="w-7 h-7 rounded border border-gray-300 hover:bg-gray-100 transition-colors flex items-center justify-center text-sm disabled:opacity-50"
-                                disabled={isOutOfStock || item.quantity >= item.product.stockQuantity}
+                                disabled={isOutOfStock}
                               >+</button>
                             </div>
                             <button

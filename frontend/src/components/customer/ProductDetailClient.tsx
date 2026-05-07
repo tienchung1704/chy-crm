@@ -111,7 +111,7 @@ export default function ProductDetailClient({ product, relatedProducts = [], ini
   // Derived states
   const sizeOrder = ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL'];
   const variants = product.variants || [];
-  
+
   const availableSizes = Array.from(
     new Map(
       variants.filter(v => v.sizeId && v.size).map(v => [v.size!.id, v.size!])
@@ -119,16 +119,16 @@ export default function ProductDetailClient({ product, relatedProducts = [], ini
   ).sort((a, b) => {
     const indexA = sizeOrder.indexOf(a.name.toUpperCase());
     const indexB = sizeOrder.indexOf(b.name.toUpperCase());
-    
+
     // If both sizes are in the order array, sort by their position
     if (indexA !== -1 && indexB !== -1) {
       return indexA - indexB;
     }
-    
+
     // If only one is in the order array, prioritize it
     if (indexA !== -1) return -1;
     if (indexB !== -1) return 1;
-    
+
     // If neither is in the order array, sort alphabetically
     return a.name.localeCompare(b.name);
   });
@@ -143,12 +143,12 @@ export default function ProductDetailClient({ product, relatedProducts = [], ini
 
   // Calculate current price and stock
   let currentPrice = product.salePrice || product.originalPrice;
-  
-  const matchingVariants = variants.filter(v => 
+
+  const matchingVariants = variants.filter(v =>
     (!selectedSizeId || v.sizeId === selectedSizeId) &&
     (!selectedColorId || v.colorId === selectedColorId)
   );
-  
+
   let currentStock = variants.length > 0
     ? matchingVariants.reduce((sum, v) => sum + v.stock, 0)
     : product.stockQuantity;
@@ -165,15 +165,15 @@ export default function ProductDetailClient({ product, relatedProducts = [], ini
     // Only color selected: find first variant for this color
     currentVariant = variants.find(v => v.colorId === selectedColorId);
   }
-  
+
   if (currentVariant && currentVariant.price) {
-     currentPrice = currentVariant.price;
+    currentPrice = currentVariant.price;
   }
 
   // Effect to clear invalid color when size changes
   useEffect(() => {
     if (selectedSizeId && selectedColorId) {
-      const isValid = variants.some(v => v.sizeId === selectedSizeId && v.colorId === selectedColorId && v.stock > 0);
+      const isValid = variants.some(v => v.sizeId === selectedSizeId && v.colorId === selectedColorId);
       if (!isValid) {
         setSelectedColorId(null);
       }
@@ -218,12 +218,12 @@ export default function ProductDetailClient({ product, relatedProducts = [], ini
     if (userReferralCode) {
       productUrl += `?ref=${userReferralCode}`;
     }
-    
+
     try {
       await navigator.clipboard.writeText(productUrl);
       setCopied(true);
       showToast('📋 Đã copy link giới thiệu!', 'success');
-      
+
       // Reset copied state after 2 seconds
       setTimeout(() => {
         setCopied(false);
@@ -240,11 +240,6 @@ export default function ProductDetailClient({ product, relatedProducts = [], ini
     }
     if (availableColors.length > 0 && !selectedColorId) {
       showToast('Vui lòng chọn Màu sắc', 'error');
-      return false;
-    }
-
-    if (currentStock < quantity) {
-      showToast(currentStock === 0 ? 'Sản phẩm đã hết hàng' : 'Không đủ số lượng trong kho', 'error');
       return false;
     }
 
@@ -289,10 +284,10 @@ export default function ProductDetailClient({ product, relatedProducts = [], ini
       productId: product.id,
       quantity: quantity.toString(),
     });
-    
+
     const sizeName = availableSizes.find(s => s.id === selectedSizeId)?.name;
     const colorName = availableColors.find(c => c.id === selectedColorId)?.name;
-    
+
     if (sizeName) params.set('size', sizeName);
     if (colorName) params.set('color', colorName);
 
@@ -315,8 +310,8 @@ export default function ProductDetailClient({ product, relatedProducts = [], ini
           <span>/</span>
           {product.categories.length > 0 && (
             <>
-              <button 
-                onClick={() => router.push(`/portal/products?category=${product.categories[0].id}`)} 
+              <button
+                onClick={() => router.push(`/portal/products?category=${product.categories[0].id}`)}
                 className="hover:text-indigo-600 transition-colors text-gray-700"
               >
                 {product.categories[0].name}
@@ -375,7 +370,7 @@ export default function ProductDetailClient({ product, relatedProducts = [], ini
                     {product.store && (
                       <>
                         {product.categories.length > 0 && <span className="text-gray-300 mx-1">|</span>}
-                        <div 
+                        <div
                           onClick={() => router.push(`/portal/store/${product.store?.slug}`)}
                           className="flex items-center gap-2 text-sm text-gray-600 bg-gray-50 px-3 py-1.5 rounded-md cursor-pointer hover:bg-indigo-50 hover:text-indigo-600 transition-colors"
                         >
@@ -398,11 +393,10 @@ export default function ProductDetailClient({ product, relatedProducts = [], ini
                 <div className="flex items-center gap-2">
                   <button
                     onClick={handleShareProduct}
-                    className={`p-2 rounded-full transition-all duration-300 ${
-                      copied
+                    className={`p-2 rounded-full transition-all duration-300 ${copied
                         ? 'bg-green-50 text-green-500'
                         : 'hover:bg-blue-50 text-gray-400 hover:text-blue-500'
-                    }`}
+                      }`}
                     title="Chia sẻ sản phẩm"
                   >
                     <Share2 className="w-5 h-5" />
@@ -445,20 +439,13 @@ export default function ProductDetailClient({ product, relatedProducts = [], ini
                   </div>
                   <div className="flex flex-wrap gap-2">
                     {availableSizes.map(size => {
-                      const variantsForSize = variants.filter(v => v.sizeId === size.id);
-                      const stockForSize = variantsForSize.reduce((acc, v) => acc + v.stock, 0);
-                      const isDisabled = stockForSize === 0;
-                      
                       return (
                         <button
                           key={size.id}
-                          onClick={() => !isDisabled && setSelectedSizeId(size.id)}
-                          disabled={isDisabled}
+                          onClick={() => setSelectedSizeId(size.id)}
                           className={`min-w-[3.5rem] px-3 py-1.5 rounded-lg text-sm font-semibold transition-all duration-200 ${selectedSizeId === size.id
                             ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200 border-2 border-indigo-600'
-                            : isDisabled
-                              ? 'bg-gray-100 text-gray-400 border-2 border-gray-200 cursor-not-allowed opacity-60'
-                              : 'bg-white text-gray-700 border-2 border-gray-200 hover:border-indigo-600 hover:text-indigo-600'
+                            : 'bg-white text-gray-700 border-2 border-gray-200 hover:border-indigo-600 hover:text-indigo-600'
                             }`}
                         >
                           {size.name}
@@ -475,31 +462,25 @@ export default function ProductDetailClient({ product, relatedProducts = [], ini
                   <div className="flex justify-between items-center mb-2">
                     <span className="font-semibold text-gray-900 text-sm">Màu sắc</span>
                     {selectedSizeId && (
-                       <span className="text-xs text-gray-400 font-medium whitespace-nowrap">
-                         Còn {currentStock} sản phẩm
-                       </span>
+                      <span className="text-xs text-gray-400 font-medium whitespace-nowrap">
+                        Còn {currentStock} sản phẩm
+                      </span>
                     )}
                   </div>
                   <div className="flex flex-wrap gap-2">
                     {availableColors.map(color => {
-                      const variantsForColor = variants.filter(v => v.colorId === color.id && (!selectedSizeId || v.sizeId === selectedSizeId));
-                      const stockForColor = variantsForColor.reduce((acc, v) => acc + v.stock, 0);
-                      
                       return (
                         <button
                           key={color.id}
-                          onClick={() => stockForColor > 0 && setSelectedColorId(color.id)}
-                          disabled={stockForColor === 0}
+                          onClick={() => setSelectedColorId(color.id)}
                           className={`px-3 py-1.5 rounded-lg text-sm font-semibold transition-all duration-200 flex items-center gap-2 border ${selectedColorId === color.id
                             ? 'border-indigo-600 bg-indigo-50 text-indigo-700 shadow-sm'
-                            : stockForColor === 0
-                              ? 'border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed opacity-60'
-                              : 'border-gray-200 hover:border-indigo-600 text-gray-700'
+                            : 'border-gray-200 hover:border-indigo-600 text-gray-700'
                             }`}
                         >
                           {color.hexCode && (
                             <span
-                              className={`w-3.5 h-3.5 rounded-full border shadow-sm ${stockForColor === 0 ? 'border-gray-200 opacity-50' : 'border-gray-300'}`}
+                              className="w-3.5 h-3.5 rounded-full border shadow-sm border-gray-300"
                               style={{ backgroundColor: color.hexCode }}
                             />
                           )}
@@ -537,7 +518,7 @@ export default function ProductDetailClient({ product, relatedProducts = [], ini
 
                 <button
                   onClick={handleAddToCart}
-                  disabled={loadingCart || currentStock < 1}
+                  disabled={loadingCart}
                   className="flex-1 border-2 border-indigo-600 text-indigo-600 hover:bg-indigo-50 font-bold py-2.5 px-2 sm:px-4 rounded-xl transition-all active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
                 >
                   <ShoppingBag className="w-4 h-4" />
@@ -546,7 +527,7 @@ export default function ProductDetailClient({ product, relatedProducts = [], ini
 
                 <button
                   onClick={handleBuyNow}
-                  disabled={loadingCart || currentStock < 1}
+                  disabled={loadingCart}
                   className="flex-1 bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white font-bold py-2.5 px-3 rounded-xl shadow-lg shadow-orange-200 transition-all active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
                 >
                   MUA NGAY
@@ -603,13 +584,13 @@ export default function ProductDetailClient({ product, relatedProducts = [], ini
               </h3>
               {relatedProducts.length > 5 && (
                 <div className="flex items-center gap-2">
-                  <button 
+                  <button
                     onClick={() => scrollRelated('left')}
                     className="p-2 rounded-full bg-white border border-gray-200 text-gray-600 hover:bg-indigo-50 hover:text-indigo-600 transition-colors"
                   >
                     <ChevronLeft className="w-5 h-5" />
                   </button>
-                  <button 
+                  <button
                     onClick={() => scrollRelated('right')}
                     className="p-2 rounded-full bg-white border border-gray-200 text-gray-600 hover:bg-indigo-50 hover:text-indigo-600 transition-colors"
                   >
@@ -618,7 +599,7 @@ export default function ProductDetailClient({ product, relatedProducts = [], ini
                 </div>
               )}
             </div>
-            <div 
+            <div
               ref={relatedScrollRef}
               className="flex overflow-x-auto gap-3 sm:gap-5 pb-4 snap-x snap-mandatory [&::-webkit-scrollbar]:hidden"
               style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
@@ -685,11 +666,10 @@ export default function ProductDetailClient({ product, relatedProducts = [], ini
                               showToast('💖 Đã cập nhật yêu thích!', 'success');
                             });
                           }}
-                          className={`w-7 h-7 rounded-full flex items-center justify-center transition-all duration-200 backdrop-blur-sm ${
-                            isWishlisted
+                          className={`w-7 h-7 rounded-full flex items-center justify-center transition-all duration-200 backdrop-blur-sm ${isWishlisted
                               ? 'bg-rose-500 text-white shadow-md'
                               : 'bg-white/90 text-gray-500 hover:text-rose-500 shadow-sm'
-                          } hover:scale-110 active:scale-95`}
+                            } hover:scale-110 active:scale-95`}
                           title={isWishlisted ? 'Bỏ yêu thích' : 'Thêm vào yêu thích'}
                         >
                           <Heart className={`w-3 h-3 ${isWishlisted ? 'fill-current' : ''}`} />
@@ -804,21 +784,21 @@ export default function ProductDetailClient({ product, relatedProducts = [], ini
 
       {/* Image Modal */}
       {isImageModalOpen && product.imageUrl && (
-        <div 
+        <div
           className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 p-4"
           onClick={() => setIsImageModalOpen(false)}
         >
-          <button 
+          <button
             className="absolute top-4 right-4 text-white p-2 hover:bg-white/20 rounded-full transition-colors z-10"
             onClick={() => setIsImageModalOpen(false)}
           >
             <X className="w-8 h-8" />
           </button>
-          <img 
-            src={product.imageUrl} 
-            alt={product.name} 
+          <img
+            src={product.imageUrl}
+            alt={product.name}
             className="max-w-full max-h-full object-contain select-none"
-            onClick={(e) => e.stopPropagation()} 
+            onClick={(e) => e.stopPropagation()}
           />
         </div>
       )}

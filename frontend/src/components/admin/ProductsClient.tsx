@@ -110,7 +110,7 @@ export default function ProductsClient({ products, categories, userRole }: Props
   return (
     <>
       <div className="mb-8 flex items-center justify-right">
-        <ProductActions categories={categories} />
+        <ProductActions />
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
@@ -241,10 +241,10 @@ export default function ProductsClient({ products, categories, userRole }: Props
                     <td className="px-6 py-4">
                       <span
                         className={`px-3 py-1 rounded-full text-xs font-semibold ${product.stockQuantity === 0
-                          ? 'bg-red-100 text-red-700'
+                          ? 'text-red-700'
                           : product.stockQuantity < 10
-                            ? 'bg-orange-100 text-orange-700'
-                            : 'bg-green-100 text-green-700'
+                            ? 'text-orange-700'
+                            : 'text-green-700'
                           }`}
                       >
                         {product.stockQuantity}
@@ -266,7 +266,6 @@ export default function ProductsClient({ products, categories, userRole }: Props
                     <td className="px-6 py-4">
                       <ProductRowActions
                         product={product}
-                        allCategories={categories}
                       />
                     </td>
                   </tr>

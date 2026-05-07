@@ -96,9 +96,7 @@ export class CartService {
       throw new NotFoundException('Sản phẩm không có sẵn');
     }
 
-    if (product.stockQuantity < quantity) {
-      throw new BadRequestException('Vượt quá số lượng tồn kho');
-    }
+    // Stock check removed to allow ordering out of stock items
 
     // Get or create cart for user
     let cart = await this.prisma.cart.findUnique({
@@ -123,9 +121,7 @@ export class CartService {
 
     if (existingItem) {
       const newQuantity = existingItem.quantity + quantity;
-      if (product.stockQuantity < newQuantity) {
-        throw new BadRequestException('Tổng giỏ hàng vượt quá tồn kho');
-      }
+      // Stock check removed to allow ordering out of stock items
 
       await this.prisma.cartItem.update({
         where: { id: existingItem.id },
@@ -162,10 +158,7 @@ export class CartService {
       throw new NotFoundException('Cart item not found');
     }
 
-    // Check stock
-    if (cartItem.product.stockQuantity < quantity) {
-      throw new BadRequestException('Vượt quá số lượng tồn kho');
-    }
+    // Stock check removed to allow ordering out of stock items
 
     await this.prisma.cartItem.update({
       where: { id: itemId },

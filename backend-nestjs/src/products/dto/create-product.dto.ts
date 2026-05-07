@@ -15,6 +15,11 @@ class ProductVariantDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
+  id?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
   sizeId?: string;
 
   @ApiPropertyOptional()
@@ -38,6 +43,11 @@ export class CreateProductDto {
   @IsString()
   @IsNotEmpty()
   name: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  slug?: string;
 
   @ApiPropertyOptional({ example: 'SKU001' })
   @IsOptional()

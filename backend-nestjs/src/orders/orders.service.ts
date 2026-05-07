@@ -637,9 +637,7 @@ export class OrdersService {
         throw new BadRequestException('Cannot mix products from different stores in one order');
       }
 
-      if (product.stockQuantity < item.quantity) {
-        throw new BadRequestException(`Not enough stock for ${product.name}`);
-      }
+      // Admin stock check removed to allow ordering out of stock items
 
       let itemPrice = product.salePrice || product.originalPrice;
 
@@ -650,9 +648,9 @@ export class OrdersService {
             (variant.color?.name || null) === (item.color || null),
         );
 
-        if (!matchingVariant || matchingVariant.stock < item.quantity) {
+        if (!matchingVariant) {
           throw new BadRequestException(
-            `Not enough stock for variant ${item.size || ''} ${item.color || ''} of ${product.name}`.trim(),
+            `Variant ${item.size || ''} ${item.color || ''} of ${product.name} not found`.trim(),
           );
         }
 
@@ -1153,10 +1151,10 @@ export class OrdersService {
       }
     }
 
-    return this.prisma.order.update({
-      where: { id },
-      data: { isRead: true },
-    });
+    // Use raw query to avoid Prisma auto-updating updatedAt
+    await this.prisma.$executeRaw`UPDATE orders SET is_read = true WHERE id = ${id}`;
+
+    return { success: true };
   }
 
   async checkStock(productId: string, size: string, color: string, quantity: number) {
