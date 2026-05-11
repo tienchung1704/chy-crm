@@ -30,11 +30,11 @@ export default function IntegrationDetailPage() {
   const router = useRouter();
   const params = useParams();
   const platformId = (params.platform as string)?.toUpperCase();
-  
+
   const platformInfo = PLATFORMS.find(p => p.id === platformId);
 
   const [loading, setLoading] = useState(true);
-  const [selectedStoreId, setSelectedStoreId] = useState<string>(''); 
+  const [selectedStoreId, setSelectedStoreId] = useState<string>('');
 
   // Form states
   const [formApiKey, setFormApiKey] = useState('');
@@ -43,7 +43,7 @@ export default function IntegrationDetailPage() {
   const [formAccessToken, setFormAccessToken] = useState('');
   const [formIsActive, setFormIsActive] = useState(false);
   const [formMetadata, setFormMetadata] = useState<any>({});
-  
+
   const [isSaving, setIsSaving] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncMessage, setSyncMessage] = useState('');
@@ -68,7 +68,7 @@ export default function IntegrationDetailPage() {
       const data = await apiClientClient.get<Integration[]>('/integrations', {
         params: { storeId: selectedStoreId }
       });
-      
+
       const existing = (data || []).find(i => i.platform === platformId);
       if (existing) {
         setFormApiKey(existing.apiKey || '');
@@ -88,7 +88,7 @@ export default function IntegrationDetailPage() {
   const saveConfig = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSaving(true);
-    
+
     try {
       const payload = {
         platform: platformId,
@@ -121,10 +121,10 @@ export default function IntegrationDetailPage() {
     setSyncMessage('Đang đồng bộ sản phẩm...');
 
     try {
-      const data = await apiClientClient.post<any>('/integrations/pancake/sync-products', { 
-        storeId: selectedStoreId 
+      const data = await apiClientClient.post<any>('/integrations/pancake/sync-products', {
+        storeId: selectedStoreId
       });
-      
+
       setSyncMessage(data.message || 'Đồng bộ thành công!');
       setTimeout(() => setSyncMessage(''), 5000);
     } catch (error: any) {
@@ -146,7 +146,7 @@ export default function IntegrationDetailPage() {
 
     try {
       const data = await apiClientClient.post<any>('/integrations/pancake/sync-categories', {});
-      
+
       setSyncMessage(data.message || 'Đồng bộ danh mục thành công!');
       setTimeout(() => setSyncMessage(''), 5000);
     } catch (error: any) {
@@ -241,32 +241,31 @@ export default function IntegrationDetailPage() {
     } finally {
       setIsSyncing(false);
     }
-    /*
+  };
 
-    if (!confirm('Đồng bộ tất cả đơn hàng từ Pancake? (Chỉ lấy các đơn chưa có trong hệ thống)')) {
+  const syncPancakeAllOrders = async () => {
+    if (!confirm('Đồng bộ TẤT CẢ đơn hàng từ trước đến nay từ Pancake? Quá trình này có thể mất nhiều thời gian.')) {
       return;
     }
 
     setIsSyncing(true);
-    setSyncMessage('Đang quét và đồng bộ đơn hàng...');
+    setSyncMessage('Đang quét và đồng bộ TOÀN BỘ đơn hàng từ trước đến nay...');
 
     try {
-      const data = await apiClientClient.post<any>('/integrations/pancake/sync-all-orders', { 
-        storeId: selectedStoreId 
+      const data = await apiClientClient.post<any>('/integrations/pancake/sync-all-orders', {
+        storeId: selectedStoreId,
+        syncAll: true,
       });
-      
-      setSyncMessage(`Đã đồng bộ ${data.synced} đơn hàng mới! Tổng tiền: ${data.totalAmount.toLocaleString()}đ`);
+
+      setSyncMessage(`Đã đồng bộ ${data.synced} đơn hàng mới. Tổng tiền: ${(data.totalAmount || 0).toLocaleString()}đ`);
       setTimeout(() => setSyncMessage(''), 8000);
     } catch (error: any) {
       console.error(error);
-      setSyncMessage(error.response?.data?.message || 'Lỗi khi đồng bộ đơn hàng');
+      setSyncMessage(error.response?.data?.message || 'Lỗi khi đồng bộ toàn bộ đơn hàng');
       setTimeout(() => setSyncMessage(''), 5000);
     } finally {
       setIsSyncing(false);
     }
-  };
-
-    */
   };
 
   if (!platformInfo) {
@@ -278,7 +277,7 @@ export default function IntegrationDetailPage() {
   return (
     <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in zoom-in-95 duration-200">
       <div className="flex items-center gap-4 mb-6">
-        <button 
+        <button
           onClick={() => router.push('/admin/integrations')}
           className="p-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
         >
@@ -308,9 +307,9 @@ export default function IntegrationDetailPage() {
               <h3 className="font-semibold text-gray-800 text-base">Đồng bộ danh mục Pancake</h3>
               <p className="text-gray-500 text-sm mt-0.5">Cập nhật hệ thống bằng dữ liệu danh mục mới nhất từ Pancake.</p>
             </div>
-            <button 
-              onClick={syncPancakeCategories} 
-              disabled={isSyncingCategories} 
+            <button
+              onClick={syncPancakeCategories}
+              disabled={isSyncingCategories}
               className="px-5 py-2.5 whitespace-nowrap bg-white hover:bg-gray-50 border border-gray-200 text-gray-700 rounded-lg text-sm font-semibold transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isSyncingCategories ? (
@@ -324,9 +323,9 @@ export default function IntegrationDetailPage() {
               <h3 className="font-semibold text-gray-800 text-base">Đồng bộ sản phẩm Pancake</h3>
               <p className="text-gray-500 text-sm mt-0.5">Kéo toàn bộ sản phẩm từ Pancake và lưu vào cơ sở dữ liệu local.</p>
             </div>
-            <button 
-              onClick={syncPancakeProducts} 
-              disabled={isSyncing} 
+            <button
+              onClick={syncPancakeProducts}
+              disabled={isSyncing}
               className="px-5 py-2.5 whitespace-nowrap bg-gray-900 hover:bg-gray-800 text-white border border-gray-900 rounded-lg text-sm font-semibold transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
             >
               {isSyncing ? (
@@ -335,81 +334,110 @@ export default function IntegrationDetailPage() {
             </button>
           </div>
 
-          <div className="bg-white border border-gray-200 rounded-xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:border-gray-300 transition-colors shadow-sm">
-            <div>
-              <h3 className="font-semibold text-gray-800 text-base">Đồng bộ đơn hàng Pancake</h3>
-              <p className="text-gray-500 text-sm mt-0.5">Kéo đơn hàng từ Pancake, tự động tạo khách hàng và tính doanh số.</p>
+          <div className="bg-white border border-gray-200 rounded-xl p-6 hover:border-gray-300 transition-colors shadow-sm space-y-6">
+            <div className="flex flex-col gap-4">
+              <div>
+                <h3 className="font-semibold text-gray-800 text-xl flex items-center gap-2">
+                  📦 Đồng bộ đơn hàng Pancake
+                </h3>
+                <p className="text-gray-500 text-sm mt-1">
+                  Kéo đơn hàng từ Pancake, tự động tạo khách hàng và tính toán doanh số, hạng thành viên.
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center gap-3">
+                <button 
+                  onClick={syncPancakeAllOrders}
+                  disabled={isSyncing}
+                  className="px-6 py-2.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-lg text-sm font-bold transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+                >
+                  ✨ Đồng bộ tất cả đơn
+                </button>
+                <button 
+                  onClick={syncPancakeOrders} 
+                  disabled={isSyncing || selectedOrderDates.length === 0}
+                  className="px-6 py-2.5 bg-gray-900 hover:bg-gray-800 text-white border border-gray-900 rounded-lg text-sm font-bold transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+                >
+                  {isSyncing ? (
+                    <span className="flex items-center gap-2"><span className="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin"></span> Đang chạy...</span>
+                  ) : 'Đồng bộ ngày đã chọn'}
+                </button>
+              </div>
             </div>
-            <div className="w-full space-y-3 rounded-lg border border-gray-100 bg-gray-50 p-3 sm:order-last sm:basis-full">
-              <div className="flex flex-wrap gap-2">
-                {[
-                  { label: 'Hôm nay', date: getRelativeDate(0) },
-                  { label: 'Hôm qua', date: getRelativeDate(1) },
-                  { label: '3 ngày trước', date: getRelativeDate(3) },
-                  { label: '7 ngày trước', date: getRelativeDate(7) },
-                ].map(option => (
-                  <button
-                    key={option.label}
-                    type="button"
-                    onClick={() => addOrderDate(option.date)}
-                    className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-700 transition-colors hover:border-indigo-300 hover:text-indigo-700"
-                  >
-                    {option.label}
-                  </button>
-                ))}
+
+            <div className="w-full space-y-4 rounded-xl border border-gray-100 bg-gray-50 p-4">
+              <div className="flex flex-col gap-3">
+                <label className="text-xs font-bold text-gray-400 uppercase tracking-wider">Chọn ngày cần đồng bộ</label>
+                <div className="flex flex-wrap gap-2">
+                  {[
+                    { label: 'Hôm nay', date: getRelativeDate(0) },
+                    { label: 'Hôm qua', date: getRelativeDate(1) },
+                    { label: '3 ngày trước', date: getRelativeDate(3) },
+                    { label: '7 ngày trước', date: getRelativeDate(7) },
+                    { label: '30 ngày trước', date: getRelativeDate(30) },
+                  ].map(option => (
+                    <button
+                      key={option.label}
+                      type="button"
+                      onClick={() => addOrderDate(option.date)}
+                      className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-700 transition-colors hover:border-indigo-300 hover:text-indigo-700"
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
               </div>
 
-              <div className="flex flex-col gap-2 sm:flex-row">
-                <input
-                  type="date"
-                  value={customOrderDate}
-                  onChange={e => setCustomOrderDate(e.target.value)}
-                  className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500"
-                />
-                <input
-                  type="date"
-                  value={customOrderEndDate}
-                  onChange={e => setCustomOrderEndDate(e.target.value)}
-                  className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500"
-                />
-                <button
-                  type="button"
-                  onClick={() => {
-                    addOrderDateRange(customOrderDate, customOrderEndDate);
-                    setCustomOrderDate('');
-                    setCustomOrderEndDate('');
-                  }}
-                  className="rounded-lg bg-indigo-50 px-4 py-2 text-sm font-semibold text-indigo-700 transition-colors hover:bg-indigo-100"
-                >
-                  Thêm ngày
-                </button>
+              <div className="flex flex-col gap-3 pt-3 border-t border-gray-200/50">
+                <label className="text-xs font-bold text-gray-400 uppercase tracking-wider">Hoặc chọn khoảng ngày</label>
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <input
+                    type="date"
+                    value={customOrderDate}
+                    onChange={e => setCustomOrderDate(e.target.value)}
+                    className="flex-1 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                  <div className="flex items-center text-gray-400">đến</div>
+                  <input
+                    type="date"
+                    value={customOrderEndDate}
+                    onChange={e => setCustomOrderEndDate(e.target.value)}
+                    className="flex-1 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      addOrderDateRange(customOrderDate, customOrderEndDate);
+                      setCustomOrderDate('');
+                      setCustomOrderEndDate('');
+                    }}
+                    className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-indigo-700 shadow-sm"
+                  >
+                    Thêm khoảng ngày
+                  </button>
+                </div>
               </div>
 
               {selectedOrderDates.length > 0 && (
-                <div className="flex flex-wrap items-center gap-2">
-                  {selectedOrderDates.map(date => (
-                    <span key={date} className="inline-flex items-center gap-1 rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1 text-xs font-semibold text-indigo-700">
-                      {formatSelectedDate(date)}
-                      <button type="button" onClick={() => removeOrderDate(date)} className="text-indigo-400 hover:text-indigo-700">
-                        <X className="h-3.5 w-3.5" />
-                      </button>
-                    </span>
-                  ))}
-                  <button type="button" onClick={() => setSelectedOrderDates([])} className="text-xs font-semibold text-rose-600 hover:underline">
-                    Xóa tất cả
-                  </button>
+                <div className="flex flex-col gap-3 pt-3 border-t border-gray-200/50">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-gray-400 uppercase tracking-wider">Danh sách ngày đã chọn ({selectedOrderDates.length})</label>
+                    <button type="button" onClick={() => setSelectedOrderDates([])} className="text-xs font-bold text-rose-600 hover:text-rose-700 transition-colors">
+                      Xóa tất cả
+                    </button>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {selectedOrderDates.map(date => (
+                      <span key={date} className="inline-flex items-center gap-1.5 rounded-full border border-indigo-200 bg-white px-3 py-1 text-xs font-semibold text-indigo-700 shadow-sm">
+                        {formatSelectedDate(date)}
+                        <button type="button" onClick={() => removeOrderDate(date)} className="text-indigo-300 hover:text-indigo-600 transition-colors">
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
-            <button 
-              onClick={syncPancakeOrders} 
-              disabled={isSyncing || selectedOrderDates.length === 0}
-              className="px-5 py-2.5 whitespace-nowrap bg-gray-900 hover:bg-gray-800 text-white border border-gray-900 rounded-lg text-sm font-semibold transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
-            >
-              {isSyncing ? (
-                <span className="flex items-center gap-2"><span className="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin"></span> Đang chạy...</span>
-              ) : 'Đồng bộ đơn hàng'}
-            </button>
           </div>
         </div>
       )}
@@ -485,23 +513,23 @@ export default function IntegrationDetailPage() {
                   </button>
                 </div>
               </div>
-              
+
               <div className="pt-4 border-t border-gray-100">
                 <p className="font-semibold text-gray-800 mb-3">Cấu hình địa chỉ gửi mặc định (Tính phí ship)</p>
                 <div className="space-y-4">
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Tỉnh/Thành phố</label>
-                      <input type="text" placeholder="VD: Hà Nội" className="w-full border border-gray-300 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-indigo-500" value={formMetadata?.senderProvince || ''} onChange={e => setFormMetadata({...formMetadata, senderProvince: e.target.value})} required />
+                      <input type="text" placeholder="VD: Hà Nội" className="w-full border border-gray-300 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-indigo-500" value={formMetadata?.senderProvince || ''} onChange={e => setFormMetadata({ ...formMetadata, senderProvince: e.target.value })} required />
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Phường/Xã</label>
-                      <input type="text" placeholder="VD: Phường Dịch Vọng" className="w-full border border-gray-300 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-indigo-500" value={formMetadata?.senderWard || ''} onChange={e => setFormMetadata({...formMetadata, senderWard: e.target.value})} required />
+                      <input type="text" placeholder="VD: Phường Dịch Vọng" className="w-full border border-gray-300 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-indigo-500" value={formMetadata?.senderWard || ''} onChange={e => setFormMetadata({ ...formMetadata, senderWard: e.target.value })} required />
                     </div>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Địa chỉ chi tiết (Số nhà, Ngõ)</label>
-                    <input type="text" className="w-full border border-gray-300 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-indigo-500" value={formMetadata?.senderAddress || ''} onChange={e => setFormMetadata({...formMetadata, senderAddress: e.target.value})} required />
+                    <input type="text" className="w-full border border-gray-300 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-indigo-500" value={formMetadata?.senderAddress || ''} onChange={e => setFormMetadata({ ...formMetadata, senderAddress: e.target.value })} required />
                   </div>
                 </div>
               </div>

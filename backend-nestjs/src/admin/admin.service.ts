@@ -2,9 +2,12 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
+  ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateCustomerDto } from './dto/create-customer.dto';
+import { CreateStaffDto } from './dto/create-staff.dto';
+import * as bcrypt from 'bcryptjs';
 
 @Injectable()
 export class AdminService {
@@ -17,7 +20,11 @@ export class AdminService {
     const address = dto.address?.trim() || null;
 
     if (!name) {
-      throw new BadRequestException('Name is required');
+      throw new BadRequestException('Họ và tên không được để trống');
+    }
+
+    if (!phone) {
+      throw new BadRequestException('Số điện thoại không được để trống');
     }
 
     if (email) {
@@ -66,21 +73,11 @@ export class AdminService {
     return { success: true, customer };
   }
 
-  async getDashboardStats(user: any) {
-    const isModerator = user.role === 'MODERATOR';
-    let storeId: string | undefined;
-
-    if (isModerator) {
-      const store = await this.prisma.store.findUnique({
-        where: { ownerId: user.id },
-      });
-      storeId = store?.id;
-    }
-
-    const orderWhere: any = isModerator ? { storeId: storeId || 'no-access' } : {};
+  async getDashboardStats(user: any, effectiveStoreId: string | null) {
+    const orderWhere: any = effectiveStoreId ? { storeId: effectiveStoreId } : {};
     const customerWhere: any = { role: 'CUSTOMER' };
-    if (isModerator) {
-      customerWhere.orders = { some: { storeId: storeId || 'no-access' } };
+    if (effectiveStoreId) {
+      customerWhere.orders = { some: { storeId: effectiveStoreId } };
     }
 
     const [
@@ -115,7 +112,7 @@ export class AdminService {
       this.prisma.commissionLedger.aggregate({
         where: {
           status: 'PENDING',
-          ...(isModerator ? { order: { storeId: storeId || 'no-access' } } : {}),
+          ...(effectiveStoreId ? { order: { storeId: effectiveStoreId } } : {}),
         },
         _sum: { amount: true },
       }),
@@ -158,6 +155,7 @@ export class AdminService {
 
   async getCustomers(
     user: any,
+    effectiveStoreId: string | null,
     params?: {
       page?: number;
       limit?: number;
@@ -171,14 +169,10 @@ export class AdminService {
     const search = params?.search || '';
     const rank = params?.rank || '';
 
-    const isModerator = user.role === 'MODERATOR';
     const where: any = { role: 'CUSTOMER' };
 
-    if (isModerator && !params?.includeAll) {
-      const store = await this.prisma.store.findUnique({
-        where: { ownerId: user.id },
-      });
-      where.orders = { some: { storeId: store?.id || 'no-access' } };
+    if (effectiveStoreId && !params?.includeAll) {
+      where.orders = { some: { storeId: effectiveStoreId } };
     }
 
     if (search) {
@@ -231,12 +225,12 @@ export class AdminService {
     };
   }
 
-  async getDashboardMeta(user: any) {
+  async getDashboardMeta(user: any, effectiveStoreId: string | null) {
     let unreadCount = 0;
     let pendingStoresCount = 0;
     let isStoreActive = true;
 
-    if (user.role === 'ADMIN' || user.role === 'STAFF') {
+    if (user.role === 'ADMIN' || (user.role === 'STAFF' && !effectiveStoreId)) {
       const [uCount, pCount] = await Promise.all([
         this.prisma.order.count({ where: { isRead: false } }),
         this.prisma.store.count({
@@ -245,42 +239,34 @@ export class AdminService {
       ]);
       unreadCount = uCount;
       pendingStoresCount = pCount;
-    } else if (user.role === 'MODERATOR') {
-      const store = await this.prisma.store.findUnique({
-        where: { ownerId: user.id },
-      });
-      if (store) {
-        unreadCount = await this.prisma.order.count({
-          where: { storeId: store.id, isRead: false },
-        });
-        isStoreActive = store.isActive;
-      } else {
-        isStoreActive = false;
-      }
+    } else if (effectiveStoreId) {
+      const [uCount, store] = await Promise.all([
+        this.prisma.order.count({
+          where: { storeId: effectiveStoreId, isRead: false },
+        }),
+        this.prisma.store.findUnique({
+          where: { id: effectiveStoreId },
+          select: { isActive: true },
+        }),
+      ]);
+      unreadCount = uCount;
+      isStoreActive = store?.isActive ?? false;
     }
 
     return { unreadCount, pendingStoresCount, isStoreActive };
   }
 
-  async getCustomerDetail(id: string, user: any) {
-    const isModerator = user.role === 'MODERATOR';
-    let storeId: string | undefined;
-
-    if (isModerator) {
-      const store = await this.prisma.store.findUnique({
-        where: { ownerId: user.id },
-      });
-      storeId = store?.id || 'no-access';
-      
+  async getCustomerDetail(id: string, user: any, effectiveStoreId: string | null) {
+    if (effectiveStoreId) {
       const hasOrder = await this.prisma.order.findFirst({
-        where: { userId: id, storeId },
+        where: { userId: id, storeId: effectiveStoreId },
       });
       if (!hasOrder) {
         return null;
       }
     }
 
-    const orderWhere = isModerator ? { storeId } : {};
+    const orderWhere = effectiveStoreId ? { storeId: effectiveStoreId } : {};
 
     const customer = await this.prisma.user.findUnique({
       where: { id },
@@ -321,7 +307,7 @@ export class AdminService {
           take: 20,
         },
         commissionsEarned: {
-          where: isModerator ? { order: { storeId } } : {},
+          where: effectiveStoreId ? { order: { storeId: effectiveStoreId } } : {},
           select: {
             id: true, amount: true, percentage: true, level: true,
             status: true, createdAt: true,
@@ -342,7 +328,7 @@ export class AdminService {
           select: { 
             orders: { where: orderWhere }, 
             referees: true, 
-            commissionsEarned: { where: isModerator ? { order: { storeId } } : {} }, 
+            commissionsEarned: { where: effectiveStoreId ? { order: { storeId: effectiveStoreId } } : {} }, 
             userVouchers: true 
           },
         },
@@ -361,7 +347,7 @@ export class AdminService {
         _count: true,
       }),
       this.prisma.commissionLedger.aggregate({
-        where: { userId: id, status: 'PAID', ...(isModerator ? { order: { storeId } } : {}) },
+        where: { userId: id, status: 'PAID', ...(effectiveStoreId ? { order: { storeId: effectiveStoreId } } : {}) },
         _sum: { amount: true },
       }),
     ]);
@@ -395,7 +381,7 @@ export class AdminService {
     }
   }
 
-  async softDeleteCustomer(id: string) {
+  async softDeleteCustomer(id: string, user?: any, effectiveStoreId?: string | null) {
     const customer = await this.prisma.user.findUnique({
       where: { id },
       select: { role: true, isActive: true },
@@ -409,6 +395,16 @@ export class AdminService {
       throw new BadRequestException('Can only soft delete customers');
     }
 
+    // If MODERATOR, verify ownership
+    if (user?.role === 'MODERATOR' && effectiveStoreId) {
+      const hasOrder = await this.prisma.order.findFirst({
+        where: { userId: id, storeId: effectiveStoreId },
+      });
+      if (!hasOrder) {
+        throw new ForbiddenException('You can only ban customers associated with your store');
+      }
+    }
+
     await this.prisma.user.update({
       where: { id },
       data: { isActive: false },
@@ -417,10 +413,10 @@ export class AdminService {
     return { success: true, message: 'Customer has been banned (soft deleted)' };
   }
 
-  async hardDeleteCustomer(id: string) {
+  async hardDeleteCustomer(id: string, user?: any, effectiveStoreId?: string | null) {
     const customer = await this.prisma.user.findUnique({
       where: { id },
-      select: { role: true },
+      select: { id: true, role: true },
     });
 
     if (!customer) {
@@ -431,37 +427,39 @@ export class AdminService {
       throw new BadRequestException('Can only delete customers');
     }
 
+    // If MODERATOR, verify they have authority over this customer (e.g., customer has orders in their store)
+    if (user?.role === 'MODERATOR' && effectiveStoreId) {
+      const hasOrder = await this.prisma.order.findFirst({
+        where: { userId: id, storeId: effectiveStoreId },
+      });
+      if (!hasOrder) {
+        throw new ForbiddenException('You can only delete customers associated with your store');
+      }
+    }
+
+    return this.deleteUserPermanently(id);
+  }
+
+  private async deleteUserPermanently(userId: string) {
     // Delete related records first (cascade delete)
     await this.prisma.$transaction([
-      // Delete cart items
-      this.prisma.cartItem.deleteMany({ where: { cart: { userId: id } } }),
-      // Delete cart
-      this.prisma.cart.deleteMany({ where: { userId: id } }),
-      // Delete user vouchers
-      this.prisma.userVoucher.deleteMany({ where: { userId: id } }),
-      // Delete commission ledgers
-      this.prisma.commissionLedger.deleteMany({ where: { userId: id } }),
-      // Delete reviews
-      this.prisma.review.deleteMany({ where: { userId: id } }),
-      // Delete wishlist
-      this.prisma.wishlist.deleteMany({ where: { userId: id } }),
-      // Delete notifications
-      this.prisma.notification.deleteMany({ where: { userId: id } }),
-      // Delete OAuth accounts
-      this.prisma.oAuthAccount.deleteMany({ where: { userId: id } }),
-      // Update referees to remove referrer
+      this.prisma.cartItem.deleteMany({ where: { cart: { userId } } }),
+      this.prisma.cart.deleteMany({ where: { userId } }),
+      this.prisma.userVoucher.deleteMany({ where: { userId } }),
+      this.prisma.commissionLedger.deleteMany({ where: { userId } }),
+      this.prisma.review.deleteMany({ where: { userId } }),
+      this.prisma.wishlist.deleteMany({ where: { userId } }),
+      this.prisma.notification.deleteMany({ where: { userId } }),
+      this.prisma.oAuthAccount.deleteMany({ where: { userId } }),
       this.prisma.user.updateMany({
-        where: { referrerId: id },
+        where: { referrerId: userId },
         data: { referrerId: null },
       }),
-      // Delete orders (if allowed, or update to remove user reference)
-      // Note: You might want to keep orders for record keeping
-      // this.prisma.order.deleteMany({ where: { userId: id } }),
       // Finally delete the user
-      this.prisma.user.delete({ where: { id } }),
+      this.prisma.user.delete({ where: { id: userId } }),
     ]);
 
-    return { success: true, message: 'Customer has been permanently deleted' };
+    return { success: true, message: 'User has been permanently deleted' };
   }
 
   async getSystemConfig(key: string) {
@@ -476,6 +474,117 @@ export class AdminService {
       where: { key },
       create: { key, value },
       update: { value },
+    });
+  }
+
+
+  async getStoreStaff(storeId?: string) {
+    const where: any = { role: 'STAFF' };
+    if (storeId) {
+      where.staffStoreId = storeId;
+    }
+
+    return this.prisma.user.findMany({
+      where,
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        phone: true,
+        staffStoreId: true,
+        staffPermissions: true,
+        createdAt: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async removeStaff(staffId: string, moderatorStoreId?: string) {
+    const staff = await this.prisma.user.findUnique({
+      where: { id: staffId },
+      select: { role: true, staffStoreId: true },
+    });
+
+    if (!staff || staff.role !== 'STAFF') {
+      throw new BadRequestException('Staff member not found');
+    }
+
+    if (moderatorStoreId && staff.staffStoreId !== moderatorStoreId) {
+      throw new ForbiddenException('You can only remove staff from your own store');
+    }
+
+    return this.deleteUserPermanently(staffId);
+  }
+
+  async createStaff(dto: CreateStaffDto) {
+    const { name, email, phone, password, storeId } = dto;
+
+    if (!storeId) {
+      throw new BadRequestException('Vui lòng chọn cửa hàng cho nhân viên');
+    }
+
+    // Check if email already exists
+    if (email) {
+      const existingEmail = await this.prisma.user.findUnique({ where: { email: email.toLowerCase() } });
+      if (existingEmail) {
+        throw new ConflictException('Email already exists');
+      }
+    }
+
+    // Check if phone already exists
+    const existingPhone = await this.prisma.user.findUnique({ where: { phone } });
+    if (existingPhone) {
+      throw new ConflictException('Phone number already exists');
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const staffPermissions = [
+      'CUSTOMERS_VIEW', 'CUSTOMERS_MANAGE',
+      'ORDERS_VIEW', 'ORDERS_MANAGE',
+      'PRODUCTS_VIEW', 'PRODUCTS_MANAGE',
+      'CATEGORIES_VIEW', 'CATEGORIES_MANAGE'
+    ];
+
+    return this.prisma.user.create({
+      data: {
+        name,
+        email: email?.toLowerCase(),
+        phone,
+        password: hashedPassword,
+        role: 'STAFF',
+        staffStoreId: storeId || null,
+        staffPermissions,
+        onboardingComplete: true,
+        referralCode: await this.generateUniqueReferralCode(),
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        phone: true,
+        role: true,
+        staffStoreId: true,
+        staffPermissions: true,
+      },
+    });
+  }
+
+  async assignStaff(dto: { userId: string; storeId: string }) {
+    const { userId, storeId } = dto;
+    const staffPermissions = [
+      'CUSTOMERS_VIEW', 'CUSTOMERS_MANAGE',
+      'ORDERS_VIEW', 'ORDERS_MANAGE',
+      'PRODUCTS_VIEW', 'PRODUCTS_MANAGE',
+      'CATEGORIES_VIEW', 'CATEGORIES_MANAGE'
+    ];
+
+    return this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        role: 'STAFF',
+        staffStoreId: storeId,
+        staffPermissions,
+      },
     });
   }
 }

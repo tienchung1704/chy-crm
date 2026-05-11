@@ -12,13 +12,27 @@ function fmt(amount: number) {
 
 function fmtDate(d: string | Date) {
   if (!d) return '—';
-  return new Intl.DateTimeFormat('vi-VN', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(new Date(d));
+  const date = new Date(d);
+
+  if (isNaN(date.getTime()) && typeof d === 'string') {
+    // Try to handle DD/MM/YYYY HH:mm or HH:mm DD/MM/YYYY
+    const match = d.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2}):(\d{1,2}))?/) ||
+      d.match(/^(\d{1,2}):(\d{1,2})\s+(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+    if (match) return d; // If it matches a common readable format but isn't ISO, just return it as is
+    return d; // Return raw string as fallback
+  }
+
+  try {
+    return new Intl.DateTimeFormat('vi-VN', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    }).format(date);
+  } catch (e) {
+    return String(d);
+  }
 }
 
 const statusMap: Record<string, { cls: string; label: string }> = {
@@ -520,8 +534,8 @@ export default async function OrderDetailPage(props: {
                               {update.location && (
                                 <p className="text-xs text-gray-400 mt-0.5">{update.location}</p>
                               )}
-                              {update.update_at && (
-                                <p className="text-xs text-gray-400 mt-1">{fmtDate(update.update_at)}</p>
+                              {(update.update_at || update.update_time || update.time) && (
+                                <p className="text-xs text-gray-400 mt-1">{fmtDate(update.update_at || update.update_time || update.time)}</p>
                               )}
                             </div>
                           </div>
@@ -648,44 +662,6 @@ export default async function OrderDetailPage(props: {
                   <InfoRow label="Phường/Xã" value={order.shippingWard} />
                   <InfoRow label="Tỉnh/TP" value={order.shippingProvince} />
                 </>
-              )}
-            </div>
-          </div>
-
-          {/* Payment Info */}
-          <div className="bg-white rounded-xl shadow-sm p-6">
-            <h2 className="text-xl font-bold text-gray-800 mb-4">
-              Thanh toán
-            </h2>
-            <div className="space-y-3">
-              <div>
-                <p className="text-xs text-gray-500 mb-0.5">Phương thức</p>
-                <p className="font-medium text-gray-800 text-sm">
-                  {order.paymentMethod || (isPancake ? 'Thanh toán qua Pancake' : 'Chưa xác định')}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs text-gray-500 mb-0.5">Trạng thái</p>
-                <span className={`inline-block px-3 py-1 rounded-full text-sm font-semibold ${pst.cls}`}>
-                  {pst.label}
-                </span>
-              </div>
-              {order.paidAt && (
-                <InfoRow label="Thanh toán lúc" value={fmtDate(order.paidAt)} />
-              )}
-
-              {/* Bank transfer images */}
-              {isPancake && payment.bankTransferImages && payment.bankTransferImages.length > 0 && (
-                <div className="mt-3 pt-3 border-t border-gray-200">
-                  <p className="text-xs text-gray-500 mb-2">Hình ảnh chuyển khoản</p>
-                  <div className="flex gap-2 flex-wrap">
-                    {payment.bankTransferImages.map((img: string, idx: number) => (
-                      <a key={idx} href={img} target="_blank" rel="noreferrer">
-                        <img src={img} alt={`CK ${idx + 1}`} className="w-20 h-20 rounded-lg object-cover border" />
-                      </a>
-                    ))}
-                  </div>
-                </div>
               )}
             </div>
           </div>

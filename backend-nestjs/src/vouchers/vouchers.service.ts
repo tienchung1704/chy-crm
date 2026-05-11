@@ -356,11 +356,18 @@ export class VouchersService implements OnModuleInit {
           configValues = [configData.value];
         }
 
-        const configMinOrder = configData?.minOrderValue || 0;
+        // Get min order values array
+        let configMinOrderValues = configValues.map(() => configData?.minOrderValue || 0);
+        if (configData?.minOrderValues && Array.isArray(configData.minOrderValues)) {
+          configMinOrderValues = configData.minOrderValues;
+        }
         
-        // Determine amount based on claim count (if count exceeds array, use the last value)
+        // Determine amount and min order based on claim count (if count exceeds array, use the last value)
         const voucherAmount = configValues[userClaimCount] || configValues[configValues.length - 1];
-        const voucherCode = `QR-DEFAULT-${voucherAmount}`;
+        const voucherMinOrder = configMinOrderValues[userClaimCount] ?? configMinOrderValues[configMinOrderValues.length - 1] ?? 0;
+        
+        // Include minOrderValue in the code to allow different constraints for the same amount
+        const voucherCode = `QR-DEFAULT-${voucherAmount}-${voucherMinOrder}`;
 
         let defaultVoucher = await this.prisma.voucher.findUnique({
           where: { code: voucherCode },
@@ -371,11 +378,11 @@ export class VouchersService implements OnModuleInit {
             data: {
               code: voucherCode,
               name: `Voucher QR ${voucherAmount.toLocaleString('vi-VN')}đ`,
-              description: `Giảm ${voucherAmount.toLocaleString('vi-VN')}đ cho đơn hàng từ ${configMinOrder.toLocaleString('vi-VN')}đ`,
+              description: `Giảm ${voucherAmount.toLocaleString('vi-VN')}đ cho đơn hàng từ ${voucherMinOrder.toLocaleString('vi-VN')}đ`,
               campaignCategory: 'GAMIFICATION',
               type: 'FIXED_AMOUNT',
               value: voucherAmount,
-              minOrderValue: configMinOrder,
+              minOrderValue: voucherMinOrder,
               perCustomerLimit: 1,
               isActive: true,
             },
@@ -474,17 +481,21 @@ export class VouchersService implements OnModuleInit {
   /**
    * Create a dedicated voucher for a specific order (Admin only)
    */
-  async createOrderVoucher(data: {
-    orderId: string; 
-    name?: string;
-    type?: 'FIXED_AMOUNT' | 'PERCENT' | 'FREESHIP' | 'STACK';
-    value?: number; 
-    maxDiscount?: number;
-    minOrderValue?: number;
-    durationDays?: number;
-    perCustomerLimit?: number;
-    stackTiers?: any;
-  }) {
+  async createOrderVoucher(
+    data: {
+      orderId: string; 
+      name?: string;
+      type?: 'FIXED_AMOUNT' | 'PERCENT' | 'FREESHIP' | 'STACK';
+      value?: number; 
+      maxDiscount?: number;
+      minOrderValue?: number;
+      durationDays?: number;
+      perCustomerLimit?: number;
+      stackTiers?: any;
+    },
+    user?: any,
+    effectiveStoreId?: string | null,
+  ) {
     const { orderId, name, type, value, maxDiscount, minOrderValue, durationDays, perCustomerLimit, stackTiers } = data;
 
     // Find the order
@@ -495,6 +506,10 @@ export class VouchersService implements OnModuleInit {
 
     if (!order) {
       throw new NotFoundException('Không tìm thấy đơn hàng');
+    }
+
+    if (user && user.role !== 'ADMIN' && effectiveStoreId && order.storeId !== effectiveStoreId) {
+      throw new BadRequestException('Bạn chỉ có thể tạo voucher cho đơn hàng thuộc cửa hàng của mình');
     }
 
     // Check if this order already has a dedicated voucher
@@ -515,8 +530,10 @@ export class VouchersService implements OnModuleInit {
         where: { key: 'qr_voucher_default' },
       });
       const configData = config?.value as any;
-      voucherValue = configData?.value || 50000;
-      voucherMinOrder = voucherMinOrder ?? configData?.minOrderValue ?? 0;
+      
+      // Fallback to first mốc if array exists, otherwise old single value
+      voucherValue = configData?.values?.[0] ?? configData?.value ?? 50000;
+      voucherMinOrder = voucherMinOrder ?? configData?.minOrderValues?.[0] ?? configData?.minOrderValue ?? 0;
     }
 
     const voucherType = type || 'FIXED_AMOUNT';
@@ -556,9 +573,12 @@ export class VouchersService implements OnModuleInit {
   /**
    * Get voucher info for a specific order
    */
-  async getOrderVoucher(orderCode: string) {
-    const voucher = await this.prisma.voucher.findUnique({
-      where: { code: `QR-ORDER-${orderCode}` },
+  async getOrderVoucher(orderCode: string, user?: any, effectiveStoreId?: string | null) {
+    const voucher = await this.prisma.voucher.findFirst({
+      where: { 
+        code: `QR-ORDER-${orderCode}`,
+        ...(effectiveStoreId ? { storeId: effectiveStoreId } : {}),
+      },
     });
 
     return { exists: !!voucher, voucher: voucher || null };
@@ -567,12 +587,10 @@ export class VouchersService implements OnModuleInit {
   /**
    * Get all order-specific vouchers for admin management
    */
-  async getOrderVouchersList(user?: any) {
+  async getOrderVouchersList(user?: any, effectiveStoreId?: string | null) {
     let storeFilter: any = {};
-    if (user?.role === 'MODERATOR') {
-      const storeId = await this.getStoreIdForUser(user);
-      if (!storeId) return [];
-      storeFilter = { storeId };
+    if (effectiveStoreId) {
+      storeFilter = { storeId: effectiveStoreId };
     }
 
     const vouchers = await this.prisma.voucher.findMany({
@@ -744,13 +762,11 @@ export class VouchersService implements OnModuleInit {
     return store?.id || null;
   }
 
-  async findAllAdmin(excludeGamification: boolean = false, user?: any) {
+  async findAllAdmin(excludeGamification: boolean = false, user?: any, effectiveStoreId?: string | null) {
     let storeFilter: any = {};
 
-    if (user?.role === 'MODERATOR') {
-      const storeId = await this.getStoreIdForUser(user);
-      if (!storeId) return [];
-      storeFilter = { storeId };
+    if (effectiveStoreId) {
+      storeFilter = { storeId: effectiveStoreId };
     }
 
     return this.prisma.voucher.findMany({
@@ -777,7 +793,7 @@ export class VouchersService implements OnModuleInit {
     });
   }
 
-  async create(data: any, user?: any) {
+  async create(data: any, user?: any, effectiveStoreId?: string | null) {
     const formattedData = { ...data };
     
     if (formattedData.validFrom === '') formattedData.validFrom = null;
@@ -786,10 +802,12 @@ export class VouchersService implements OnModuleInit {
     if (formattedData.validFrom) formattedData.validFrom = new Date(formattedData.validFrom);
     if (formattedData.validTo) formattedData.validTo = new Date(formattedData.validTo);
 
-    // Auto-assign storeId for MODERATOR
-    if (user?.role === 'MODERATOR' && !formattedData.storeId) {
-      const storeId = await this.getStoreIdForUser(user);
-      if (storeId) formattedData.storeId = storeId;
+    // Mutation Anti-Spoofing: If not admin, force storeId
+    if (user && user.role !== 'ADMIN') {
+      if (!effectiveStoreId) {
+        throw new BadRequestException('User has no assigned store');
+      }
+      formattedData.storeId = effectiveStoreId;
     }
 
     return this.prisma.voucher.create({
@@ -800,7 +818,7 @@ export class VouchersService implements OnModuleInit {
     });
   }
 
-  async update(id: string, data: any, user?: any) {
+  async update(id: string, data: any, user?: any, effectiveStoreId?: string | null) {
     const voucher = await this.prisma.voucher.findUnique({
       where: { id },
     });
@@ -809,12 +827,8 @@ export class VouchersService implements OnModuleInit {
       throw new NotFoundException('Voucher not found');
     }
 
-    // MODERATOR can only update their own store's vouchers
-    if (user?.role === 'MODERATOR') {
-      const storeId = await this.getStoreIdForUser(user);
-      if (voucher.storeId !== storeId) {
-        throw new NotFoundException('Voucher not found');
-      }
+    if (user && user.role !== 'ADMIN' && effectiveStoreId && voucher.storeId !== effectiveStoreId) {
+      throw new NotFoundException('Voucher not found or access denied');
     }
 
     const formattedData = { ...data };
@@ -831,7 +845,7 @@ export class VouchersService implements OnModuleInit {
     });
   }
 
-  async remove(id: string, user?: any) {
+  async remove(id: string, user?: any, effectiveStoreId?: string | null) {
     const voucher = await this.prisma.voucher.findUnique({
       where: { id },
     });
@@ -840,12 +854,8 @@ export class VouchersService implements OnModuleInit {
       throw new NotFoundException('Voucher not found');
     }
 
-    // MODERATOR can only delete their own store's vouchers
-    if (user?.role === 'MODERATOR') {
-      const storeId = await this.getStoreIdForUser(user);
-      if (voucher.storeId !== storeId) {
-        throw new NotFoundException('Voucher not found');
-      }
+    if (user && user.role !== 'ADMIN' && effectiveStoreId && voucher.storeId !== effectiveStoreId) {
+      throw new NotFoundException('Voucher not found or access denied');
     }
 
     // Hard delete if it is already inactive
@@ -925,12 +935,10 @@ export class VouchersService implements OnModuleInit {
   /**
    * Get all referral vouchers for admin management
    */
-  async getReferralVouchersList(user?: any) {
+  async getReferralVouchersList(user?: any, effectiveStoreId?: string | null) {
     let storeFilter: any = {};
-    if (user?.role === 'MODERATOR') {
-      const storeId = await this.getStoreIdForUser(user);
-      if (!storeId) return [];
-      storeFilter = { storeId };
+    if (effectiveStoreId) {
+      storeFilter = { storeId: effectiveStoreId };
     }
 
     return this.prisma.voucher.findMany({
@@ -953,8 +961,8 @@ export class VouchersService implements OnModuleInit {
   /**
    * Create a referral voucher (force campaignCategory = REFERRAL)
    */
-  async createReferralVoucher(data: any, user?: any) {
-    return this.create({ ...data, campaignCategory: 'REFERRAL' }, user);
+  async createReferralVoucher(data: any, user?: any, effectiveStoreId?: string | null) {
+    return this.create({ ...data, campaignCategory: 'REFERRAL' }, user, effectiveStoreId);
   }
 
   /**

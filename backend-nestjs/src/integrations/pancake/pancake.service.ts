@@ -67,7 +67,6 @@ export class PancakeService {
   }
 
   private async getPancakeConfig(storeId?: string, shopId?: string) {
-    // Only get from database, no fallback to env
     const whereClause: any = { platform: 'PANCAKE', isActive: true };
     if (storeId) whereClause.storeId = storeId;
     if (shopId) whereClause.shopId = shopId;
@@ -93,9 +92,6 @@ export class PancakeService {
     return { shopId: configShopId, apiKey };
   }
 
-  /**
-   * Fetch orders from Pancake by phone number
-   */
   async fetchOrdersByPhone(phone: string, storeId?: string) {
     const config = await this.getPancakeConfig(storeId);
     if (!config) return [];
@@ -115,7 +111,6 @@ export class PancakeService {
 
       const data = await response.json();
       if (data.success && Array.isArray(data.data)) {
-        this.logger.log(`[Pancake] Found ${data.data.length} orders for phone: ${phone}`);
         return data.data;
       }
       
@@ -185,10 +180,7 @@ export class PancakeService {
           headers: { 'Content-Type': 'application/json' },
         });
 
-        if (!response.ok) {
-          this.logger.error(`[Pancake] Failed to fetch orders page ${page} by date. Status: ${response.status}`);
-          break;
-        }
+        if (!response.ok) break;
 
         const data = await response.json();
         const pageOrders = Array.isArray(data.data) ? data.data : [];
@@ -215,7 +207,6 @@ export class PancakeService {
         shouldContinue = hasMoreByPagination && (!pageHadOlderOrder || pageHadInRangeOrder);
         page++;
       } catch (error) {
-        this.logger.error('[Pancake] Error fetching orders by date:', error);
         break;
       }
     }
@@ -223,9 +214,6 @@ export class PancakeService {
     return Array.from(orders.values());
   }
 
-  /**
-   * Fetch single order detail
-   */
   async fetchOrderDetail(orderId: number, storeId?: string) {
     const config = await this.getPancakeConfig(storeId);
     if (!config) return null;
@@ -237,22 +225,15 @@ export class PancakeService {
         headers: { 'Content-Type': 'application/json' }
       });
 
-      if (!response.ok) {
-        this.logger.error(`[Pancake] Failed to fetch order detail #${orderId}`);
-        return null;
-      }
+      if (!response.ok) return null;
 
       const data = await response.json();
       return data.success ? data.data : null;
     } catch (error) {
-      this.logger.error(`[Pancake] Error fetching order detail:`, error);
       return null;
     }
   }
 
-  /**
-   * Extract items metadata from order
-   */
   private extractItemsMetadata(items: any[]) {
     if (!items || items.length === 0) return [];
     return items.map(item => ({
@@ -267,7 +248,7 @@ export class PancakeService {
       productDisplayId: item.variation_info?.product_display_id || null,
       barcode: item.variation_info?.barcode || null,
       weight: item.variation_info?.weight || 0,
-      fields: item.variation_info?.fields || [],  // variant attributes (size, color, etc.)
+      fields: item.variation_info?.fields || [],
       detail: item.variation_info?.detail || null,
       discountEachProduct: item.discount_each_product || 0,
       isDiscountPercent: item.is_discount_percent || false,
@@ -280,9 +261,6 @@ export class PancakeService {
     }));
   }
 
-  /**
-   * Extract customer info from order detail
-   */
   private extractCustomerInfo(orderDetail: any) {
     const customer = orderDetail?.customer;
     const shippingAddr = orderDetail?.shipping_address;
@@ -318,23 +296,87 @@ export class PancakeService {
     };
   }
 
-  /**
-   * Sync orders for a user
-   */
+  private parseDate(value?: string | null): string | null {
+    if (!value) return null;
+
+    const normalized = value.trim();
+    let toParse = normalized;
+    
+    // Handle ISO-like strings (e.g., 2026-05-07T04:38:46.664424 or 2026-05-07T04:38:46Z)
+    if (/^\d{4}-\d{2}-\d{2}[T\s]\d{2}:\d{2}:\d{2}/.test(normalized)) {
+      // Normalize to ISO format with T separator
+      toParse = normalized.replace(' ', 'T');
+      
+      // Truncate fractional seconds to 3 digits for consistent parsing
+      toParse = toParse.replace(/(\.\d{3})\d+/, '$1');
+      
+      // If no timezone info, assume it's GMT+0 (Pancake default)
+      if (!toParse.includes('Z') && !/[+-]\d{2}:?\d{2}$/.test(toParse)) {
+        toParse = toParse + 'Z';
+      }
+      
+      const parsed = new Date(toParse);
+      if (!Number.isNaN(parsed.getTime())) {
+        // Convert GMT+0 to GMT+7 by adding 7 hours
+        const vietnamTime = new Date(parsed.getTime() + 7 * 60 * 60 * 1000);
+        return vietnamTime.toISOString();
+      }
+    }
+
+    const dateTimeMatch = /^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?$/.exec(normalized) ||
+      /^(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?\s+(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(normalized);
+
+    if (dateTimeMatch) {
+      const isDateFirst = normalized.includes('/') && (normalized.indexOf('/') < normalized.indexOf(':') || normalized.indexOf(':') === -1);
+      let day, month, year, hour, minute, second;
+      if (isDateFirst) {
+        [, day, month, year, hour = '00', minute = '00', second = '00'] = dateTimeMatch;
+      } else {
+        [, hour, minute, second = '00', day, month, year] = dateTimeMatch;
+      }
+      
+      // Pad single digits
+      const pad = (v: any) => String(v).padStart(2, '0');
+      // Create date string in ISO format with Vietnam timezone offset
+      const isoWithOffset = `${year}-${pad(month)}-${pad(day)}T${pad(hour)}:${pad(minute)}:${pad(second)}+07:00`;
+      const dateObj = new Date(isoWithOffset);
+      return Number.isNaN(dateObj.getTime()) ? null : dateObj.toISOString();
+    }
+    return normalized;
+  }
+
+  private normalizeCourierUpdates(updates: any[]) {
+    if (!updates || !Array.isArray(updates)) return [];
+    return updates.map(u => {
+      if (typeof u === 'string') {
+        const timeMatch = u.match(/^(\d{1,2}\/\d{1,2}\/\d{4}\s+\d{1,2}:\d{1,2}(?::\d{1,2})?)/);
+        const altTimeMatch = u.match(/^(\d{1,2}:\d{1,2}(?::\d{1,2})?\s+\d{1,2}\/\d{1,2}\/\d{4})/);
+        const isoTimeMatch = u.match(/^(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}(?::\d{2})?)/);
+        const timeStr = timeMatch?.[1] || altTimeMatch?.[1] || isoTimeMatch?.[1];
+        const status = timeStr ? u.substring(timeStr.length).replace(/^[:\s-]+/, '') : u;
+        return {
+          status: status || 'Cập nhật',
+          note: null,
+          address: null,
+          update_at: this.parseDate(timeStr) || new Date().toISOString(),
+        };
+      }
+      const timeField = u.updated_at || u.update_at || u.update_time || u.time || u.inserted_at || u.created_at;
+      return {
+        status: u.status || u.key || 'Cập nhật',
+        note: u.note || null,
+        address: u.address || u.location || null,
+        update_at: this.parseDate(timeField) || timeField || new Date().toISOString(),
+      };
+    });
+  }
+
   async syncOrdersForUser(phone: string, userId: string, storeId?: string) {
     this.logger.log(`[Pancake] Starting sync for userId: ${userId}, phone: ${phone}`);
-
     const integrations = await this.getActivePancakeIntegrations(storeId);
-    if (integrations.length === 0) {
-      this.logger.warn(`[Pancake] No active integration found for syncOrdersForUser`);
-      return 0;
-    }
-
+    if (integrations.length === 0) return 0;
     const searchTerms = this.buildPhoneSearchTerms(phone);
-    if (searchTerms.length === 0) {
-      this.logger.warn(`[Pancake] Phone is empty after normalization, skip sync for userId: ${userId}`);
-      return 0;
-    }
+    if (searchTerms.length === 0) return 0;
 
     let totalNewSpent = 0;
     let syncedCount = 0;
@@ -344,31 +386,20 @@ export class PancakeService {
 
     for (const integration of integrations) {
       const orderMap = new Map<string, any>();
-
       for (const searchTerm of searchTerms) {
         const orders = await this.fetchOrdersByPhone(searchTerm, integration.storeId);
-        for (const order of orders) {
-          orderMap.set(String(order.id), order);
-        }
+        for (const order of orders) orderMap.set(String(order.id), order);
       }
-
       totalFetchedOrders += orderMap.size;
-
       for (const pOrder of orderMap.values()) {
         const dedupeKey = `${integration.storeId}:${pOrder.id}`;
-        if (processedOrders.has(dedupeKey)) {
-          continue;
-        }
+        if (processedOrders.has(dedupeKey)) continue;
         processedOrders.add(dedupeKey);
-
         try {
           const result = await this.syncSingleOrder(pOrder, integration.storeId, userId);
-
           if (result.synced) {
             totalNewSpent += result.amount;
             syncedCount++;
-
-            // Try to sync profile from the first successful order
             if (!customerInfoSynced) {
               const orderDetail = await this.fetchOrderDetail(pOrder.id, integration.storeId);
               if (orderDetail) {
@@ -385,1446 +416,571 @@ export class PancakeService {
         }
       }
     }
-
-    if (totalFetchedOrders === 0) {
-      this.logger.log(`[Pancake] No orders to sync for phone: ${phone}`);
-      return 0;
-    }
-
-    this.logger.log(`[Pancake] Sync completed. Orders: ${syncedCount}, Amount: ${totalNewSpent}`);
     return totalNewSpent;
   }
 
-  /**
-   * Sync user profile from Pancake data
-   */
   private async syncUserProfile(userId: string, custInfo: any) {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) return;
-
     const updateData: Record<string, any> = {};
-
-    if (!user.name || user.name === user.phone) {
-      if (custInfo.name) updateData.name = custInfo.name;
-    }
-    if (!user.email && custInfo.email) {
-      updateData.email = custInfo.email;
-    }
-    if (!user.gender && custInfo.gender) {
-      updateData.gender = custInfo.gender;
-    }
+    if (!user.name || user.name === user.phone) if (custInfo.name) updateData.name = custInfo.name;
+    if (!user.email && custInfo.email) updateData.email = custInfo.email;
+    if (!user.gender && custInfo.gender) updateData.gender = custInfo.gender;
     if (!user.dob && custInfo.dob) {
       let dateObj = new Date(custInfo.dob);
       if (isNaN(dateObj.getTime()) && (custInfo.dob.includes('/') || custInfo.dob.includes('-'))) {
         const parts = custInfo.dob.split(/[/|-]/);
-        if (parts.length === 3) {
-          dateObj = new Date(`${parts[2]}-${parts[1]}-${parts[0]}`);
-        }
+        if (parts.length === 3) dateObj = new Date(`${parts[2]}-${parts[1]}-${parts[0]}`);
       }
-      if (!isNaN(dateObj.getTime())) {
-        updateData.dob = dateObj;
-      }
+      if (!isNaN(dateObj.getTime())) updateData.dob = dateObj;
     }
-    if (!user.address && custInfo.fullAddress) {
-      updateData.address = custInfo.fullAddress;
-    }
-    if (!user.addressStreet && custInfo.street) {
-      updateData.addressStreet = custInfo.street;
-    }
-    if (!user.addressProvince && custInfo.province) {
-      updateData.addressProvince = custInfo.province;
-    }
-    if (!user.addressWard && custInfo.ward) {
-      updateData.addressWard = custInfo.ward;
-    }
+    if (!user.address && custInfo.fullAddress) updateData.address = custInfo.fullAddress;
+    if (!user.addressStreet && custInfo.street) updateData.addressStreet = custInfo.street;
+    if (!user.addressProvince && custInfo.province) updateData.addressProvince = custInfo.province;
+    if (!user.addressWard && custInfo.ward) updateData.addressWard = custInfo.ward;
     updateData.addressDistrict = null;
-
     if (Object.keys(updateData).length > 0) {
-      await this.prisma.user.update({
-        where: { id: userId },
-        data: updateData,
-      });
-      this.logger.log(`[Pancake] User profile synced`);
+      await this.prisma.user.update({ where: { id: userId }, data: updateData });
     }
   }
 
-  /**
-   * Recalculate user totalSpent from actual completed/delivered orders and update rank
-   */
   private async updateUserRankAndSpent(userId: string, _addedSpent?: number) {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) return;
-
-    // Recalculate totalSpent from actual orders in creditable statuses
     const result = await this.prisma.order.aggregate({
-      where: {
-        userId,
-        status: { in: ['COMPLETED', 'DELIVERED', 'PAYMENT_COLLECTED'] },
-      },
+      where: { userId, status: { in: ['COMPLETED', 'DELIVERED', 'PAYMENT_COLLECTED'] } },
       _sum: { totalAmount: true },
     });
-
     const newTotalSpent = result._sum.totalAmount || 0;
-
-    await this.prisma.user.update({
-      where: { id: userId },
-      data: { totalSpent: newTotalSpent },
-    });
-
+    await this.prisma.user.update({ where: { id: userId }, data: { totalSpent: newTotalSpent } });
     await this.usersService.updateUserRank(userId);
-    this.logger.log(`[Pancake] User ${userId} totalSpent recalculated: ${newTotalSpent}`);
   }
 
-  /**
-   * Fetch categories from Pancake
-   */
   async fetchCategories(storeId?: string) {
     const config = await this.getPancakeConfig(storeId);
     if (!config) return [];
-
     try {
       const url = `https://pos.pages.fm/api/v1/shops/${config.shopId}/categories?api_key=${config.apiKey}`;
-      
-      this.logger.log(`[Pancake] Fetching categories from: ${url.replace(config.apiKey, '***')}`);
-      
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: { 'Content-Type': 'application/json' }
-      });
-
-      this.logger.log(`[Pancake] Response status: ${response.status}`);
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        this.logger.error(`[Pancake] Failed to fetch categories. Status: ${response.status}, Body: ${errorText}`);
-        return [];
-      }
-
+      const response = await fetch(url, { method: 'GET', headers: { 'Content-Type': 'application/json' } });
+      if (!response.ok) return [];
       const data = await response.json();
-      this.logger.log(`[Pancake] Response data:`, JSON.stringify(data).substring(0, 200));
-      
-      if (data.success && Array.isArray(data.data)) {
-        this.logger.log(`[Pancake] Fetched ${data.data.length} root categories`);
-        return data.data;
-      }
-      
-      this.logger.warn(`[Pancake] Unexpected response format:`, data);
-      return [];
+      return data.success && Array.isArray(data.data) ? data.data : [];
     } catch (error) {
-      this.logger.error('[Pancake] Error fetching categories:', error);
       return [];
     }
   }
 
-  /**
-   * Sync all categories
-   */
   async syncAllCategories(storeId?: string) {
-    this.logger.log('[Pancake] Starting category sync...');
-    
     const categories = await this.fetchCategories(storeId);
-    if (categories.length === 0) {
-      this.logger.log('[Pancake] No categories to sync');
-      return { synced: 0, errors: 0 };
-    }
-
+    if (categories.length === 0) return { synced: 0, errors: 0 };
     let totalSynced = 0;
     let totalErrors = 0;
-
     for (const category of categories) {
       try {
         await this.syncCategoryRecursive(category, null);
         totalSynced++;
       } catch (error) {
-        this.logger.error(`[Pancake] Error syncing category ${category.id}:`, error);
         totalErrors++;
       }
     }
-
-    this.logger.log(`[Pancake] Category sync completed. Synced: ${totalSynced}, Errors: ${totalErrors}`);
     return { synced: totalSynced, errors: totalErrors };
   }
 
-  /**
-   * Recursively sync category and children
-   */
   private async syncCategoryRecursive(pCategory: any, parentId: string | null) {
-    const slug = pCategory.text
-      .toLowerCase()
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .replace(/[d�]/g, 'd')
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '')
-      + `-${pCategory.id}`;
-
-    const existingCategory = await this.prisma.category.findFirst({
-      where: {
-        OR: [
-          { externalId: String(pCategory.id) },
-          { slug }
-        ]
-      }
-    });
-
-    const categoryData = {
-      name: pCategory.text,
-      slug,
-      parentId,
-      externalId: String(pCategory.id),
-      isActive: true,
-    };
-
+    const slug = pCategory.text.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[dđ]/g, 'd').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') + `-${pCategory.id}`;
+    const existingCategory = await this.prisma.category.findFirst({ where: { OR: [{ externalId: String(pCategory.id) }, { slug }] } });
+    const categoryData = { name: pCategory.text, slug, parentId, externalId: String(pCategory.id), isActive: true };
     let category;
     if (existingCategory) {
-      category = await this.prisma.category.update({
-        where: { id: existingCategory.id },
-        data: categoryData
-      });
-      this.logger.log(`[Pancake] Updated category: ${category.name}`);
+      category = await this.prisma.category.update({ where: { id: existingCategory.id }, data: categoryData });
     } else {
-      category = await this.prisma.category.create({
-        data: categoryData
-      });
-      this.logger.log(`[Pancake] Created category: ${category.name}`);
+      category = await this.prisma.category.create({ data: categoryData });
     }
-
     if (pCategory.nodes && Array.isArray(pCategory.nodes) && pCategory.nodes.length > 0) {
-      for (const childCategory of pCategory.nodes) {
-        try {
-          await this.syncCategoryRecursive(childCategory, category.id);
-        } catch (error) {
-          this.logger.error(`[Pancake] Error syncing child category:`, error);
-        }
-      }
+      for (const childCategory of pCategory.nodes) await this.syncCategoryRecursive(childCategory, category.id);
     }
-
     return category;
   }
 
-  /**
-   * Fetch products from Pancake
-   */
   async fetchProducts(page = 1, pageSize = 100, storeId?: string) {
     const config = await this.getPancakeConfig(storeId);
     if (!config) return { variations: [], hasMore: false, total: 0 };
-
     try {
       const url = `https://pos.pages.fm/api/v1/shops/${config.shopId}/products/variations?api_key=${config.apiKey}&page=${page}&page_size=${pageSize}`;
-      
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: { 'Content-Type': 'application/json' }
-      });
-
-      if (!response.ok) {
-        this.logger.error('[Pancake] Failed to fetch product variations');
-        return { variations: [], hasMore: false, total: 0 };
-      }
-
+      const response = await fetch(url, { method: 'GET', headers: { 'Content-Type': 'application/json' } });
+      if (!response.ok) return { variations: [], hasMore: false, total: 0 };
       const data = await response.json();
-      
       if (data.success && Array.isArray(data.data)) {
-        const variations = data.data;
-        const totalEntries = data.total_entries || 0;
-        const totalPages = data.total_pages || 0;
-        const currentPage = data.page_number || page;
-        
-        this.logger.log(`[Pancake] Fetched ${variations.length} variations from page ${currentPage}/${totalPages}`);
-        
-        const hasMore = currentPage < totalPages;
-        
-        return { 
-          variations, 
-          hasMore,
-          total: totalEntries,
-          currentPage,
-          totalPages
-        };
+        return { variations: data.data, hasMore: (data.page_number || page) < (data.total_pages || 0), total: data.total_entries || 0 };
       }
-      
       return { variations: [], hasMore: false, total: 0 };
     } catch (error) {
-      this.logger.error('[Pancake] Error fetching product variations:', error);
       return { variations: [], hasMore: false, total: 0 };
     }
   }
 
-  /**
-   * Extract product info (name, color, size)
-   */
   private extractProductInfo(productName: string, itemFields?: any[]) {
-    let baseName = productName;
+    let baseName = productName.replace(/_+/g, ' ');
     let color = null;
     let size = null;
-    
-    baseName = baseName.replace(/_+/g, ' ');
-
     if (Array.isArray(itemFields)) {
-      const sizeField = itemFields.find((field: any) => {
-        const fieldName = String(field?.name || '').toLowerCase();
-        return fieldName.includes('size') || fieldName.includes('kich') || fieldName.includes('kích');
-      });
-      const colorField = itemFields.find((field: any) => {
-        const fieldName = String(field?.name || '').toLowerCase();
-        return fieldName.includes('color') || fieldName.includes('mau') || fieldName.includes('màu');
-      });
-
-      if (!size && sizeField?.value) {
-        size = String(sizeField.value).trim().toUpperCase();
-      }
-      if (!color && colorField?.value) {
-        color = String(colorField.value).trim();
-      }
+      const sizeField = itemFields.find(f => { const n = String(f?.name || '').toLowerCase(); return n.includes('size') || n.includes('kich') || n.includes('kích'); });
+      const colorField = itemFields.find(f => { const n = String(f?.name || '').toLowerCase(); return n.includes('color') || n.includes('mau') || n.includes('màu'); });
+      if (sizeField?.value) size = String(sizeField.value).trim().toUpperCase();
+      if (colorField?.value) color = String(colorField.value).trim();
     }
-    
-    const sizeValuePattern = /\s+(?:Size|size|ize)\s+([X]{1,3}L|2XL|3XL|[LMS]|Freesize|Free\s*size)\b|\s+([X]{1,3}L|[LMS]|Freesize|Free\s*size)\b(?=\s*$)/gi;
-    const sizeMatches = Array.from(baseName.matchAll(sizeValuePattern));
-    if (sizeMatches.length > 0 && !size) {
-      const lastMatch = sizeMatches[sizeMatches.length - 1];
-      size = (lastMatch[1] || lastMatch[2] || '').toUpperCase().trim();
-    }
-    
-    baseName = baseName.replace(/\s+Size\s+[X]{1,3}L\b/gi, ' ');
-    baseName = baseName.replace(/\s+size\s+[X]{1,3}L\b/gi, ' ');
-    baseName = baseName.replace(/\s+ize\s+[X]{1,3}L\b/gi, ' ');
-    baseName = baseName.replace(/\s+Size\s+[LMS]\b/gi, ' ');
-    baseName = baseName.replace(/\s+size\s+[LMS]\b/gi, ' ');
-    baseName = baseName.replace(/\s+ize\s+[LMS]\b/gi, ' ');
-    baseName = baseName.replace(/\s+[X]{1,3}L\s*$/gi, '');
-    baseName = baseName.replace(/\s+[LMS]\s*$/gi, '');
-    baseName = baseName.replace(/\s+Size\b/gi, ' ');
-    baseName = baseName.replace(/\s+size\b/gi, ' ');
-    baseName = baseName.replace(/\s+ize\b/gi, ' ');
-    baseName = baseName.trim();
-    
+    const sizePattern = /\s+(?:Size|size|ize)\s+([X]{1,3}L|2XL|3XL|[LMS]|Freesize|Free\s*size)\b|\s+([X]{1,3}L|[LMS]|Freesize|Free\s*size)\b(?=\s*$)/gi;
+    const matches = Array.from(baseName.matchAll(sizePattern));
+    if (matches.length > 0 && !size) size = (matches[matches.length - 1][1] || matches[matches.length - 1][2] || '').toUpperCase().trim();
+    baseName = baseName.replace(/\s+(?:Size|size|ize)\s+[X]{1,3}L\b/gi, ' ').replace(/\s+(?:Size|size|ize)\s+[LMS]\b/gi, ' ').replace(/\s+[X]{1,3}L\s*$/gi, '').replace(/\s+[LMS]\s*$/gi, '').replace(/\s+(?:Size|size|ize)\b/gi, ' ').trim();
     const colorPattern = /(Đen|Đỏ|Xanh|Trắng|Hồng|Be|Tím|Vàng|Nâu|Xám|Cam)\b/gi;
     const colorMatches = Array.from(baseName.matchAll(colorPattern));
-    if (colorMatches.length > 0 && !color) {
-      color = colorMatches[0][1];
-    }
-    
-    baseName = baseName.replace(/\bm�u\s*/gi, ' ').trim();
-    
-    if (color) {
-      const removeColorPattern = new RegExp(`\\b${color}\\b`, 'gi');
-      baseName = baseName.replace(removeColorPattern, ' ').trim();
-    }
-    
-    baseName = baseName
-      .replace(/\s+/g, ' ')
-      .replace(/\b�u\b/gi, '')
-      .replace(/\bSo\s+/gi, 'So ')
-      .replace(/\biza\b/gi, 'Lisa')
-      .replace(/\baina\b/gi, 'Amina')
-      .trim();
-    
-    const typoMap: Record<string, string> = {
-      'CAELLIA': 'CAMELLIA',
-      'CAMELIA': 'CAMELLIA',
-      'CAELIA': 'CAMELLIA',
-      'KYI': 'KYLI',
-    };
-    
-    for (const [typo, correct] of Object.entries(typoMap)) {
-      const regex = new RegExp(`\\b${typo}\\b`, 'gi');
-      baseName = baseName.replace(regex, correct);
-    }
-    
-    baseName = baseName
-      .replace(/^[\s-]+|[\s-]+$/g, '')
-      .replace(/\s+/g, ' ')
-      .trim();
-    
-    baseName = baseName
-      .toLowerCase()
-      .split(' ')
-      .map(word => {
-        if (word.length === 0) return '';
-        if (word === 'so') return 'So';
-        return word.charAt(0).toUpperCase() + word.slice(1);
-      })
-      .join(' ');
-    
+    if (colorMatches.length > 0 && !color) color = colorMatches[0][1];
+    if (color) baseName = baseName.replace(new RegExp(`\\b${color}\\b`, 'gi'), ' ').trim();
+    baseName = baseName.replace(/\s+/g, ' ').trim();
     return { baseName, color, size };
   }
 
-  /**
-   * Sync all products
-   */
   async syncAllProducts(storeId?: string) {
-    this.logger.log('[Pancake] Starting full product sync...');
-    
     let store = null;
-    if (storeId) {
-      store = await this.prisma.store.findUnique({ where: { id: storeId } });
-    } else {
-      const integration = await this.prisma.storeIntegration.findFirst({
-        where: { platform: 'PANCAKE', isActive: true },
-        include: { store: true }
-      });
+    if (storeId) store = await this.prisma.store.findUnique({ where: { id: storeId } });
+    else {
+      const integration = await this.prisma.storeIntegration.findFirst({ where: { platform: 'PANCAKE', isActive: true }, include: { store: true } });
       store = integration?.store;
     }
-
-    if (!store) {
-      this.logger.error('[Pancake] No store found for product sync');
-      return { synced: 0, errors: 0, total: 0 };
-    }
+    if (!store) return { synced: 0, errors: 0, total: 0 };
 
     let page = 1;
     let totalSynced = 0;
     let totalErrors = 0;
     let hasMore = true;
-    let totalVariations = 0;
-
     const productMap = new Map<string, any[]>();
 
     while (hasMore) {
-      const { variations, hasMore: more, total } = await this.fetchProducts(page, 100, store.id);
+      const { variations, hasMore: more } = await this.fetchProducts(page, 100, store.id);
       hasMore = more;
-      
-      if (page === 1 && total > 0) {
-        totalVariations = total;
-        this.logger.log(`[Pancake] Total variations to sync: ${total}`);
-      }
-
-      if (variations.length === 0) {
-        this.logger.log('[Pancake] No more variations to fetch');
-        break;
-      }
-
+      if (variations.length === 0) break;
       for (const variation of variations) {
-        const productName = variation.product?.name || 'Unknown';
-        const { baseName } = this.extractProductInfo(productName);
-        
+        const { baseName } = this.extractProductInfo(variation.product?.name || 'Unknown');
         if (!baseName) continue;
-        
-        if (!productMap.has(baseName)) {
-          productMap.set(baseName, []);
-        }
+        if (!productMap.has(baseName)) productMap.set(baseName, []);
         productMap.get(baseName)!.push(variation);
       }
-
-      this.logger.log(`[Pancake] Fetched page ${page}: ${variations.length} variations`);
       page++;
-
-      if (page > 100) {
-        this.logger.warn('[Pancake] Reached page limit (100), stopping sync');
-        break;
-      }
+      if (page > 100) break;
     }
 
-    this.logger.log(`[Pancake] Grouped ${totalVariations} variations into ${productMap.size} unique products`);
-
-    let processedCount = 0;
-    for (const [pancakeProductId, variations] of productMap.entries()) {
+    for (const [baseName, variations] of productMap.entries()) {
       try {
         await this.syncProductFromVariations(variations, store.id);
         totalSynced++;
-        processedCount++;
-        
-        if (processedCount % 10 === 0) {
-          this.logger.log(`[Pancake] Progress: ${processedCount}/${productMap.size} products synced`);
-        }
       } catch (error) {
-        this.logger.error(`[Pancake] Error syncing product ${pancakeProductId}:`, error);
         totalErrors++;
       }
     }
-
-    this.logger.log(`[Pancake] Product sync completed. Total synced: ${totalSynced}, Errors: ${totalErrors}`);
-
-    // Fire admin notification for product sync
-    if (totalSynced > 0) {
-      await this.adminNotificationsService.createNotification({
-        type: 'ORDER',
-        title: `Đồng bộ sản phẩm từ Pancake`,
-        message: `Đã đồng bộ ${totalSynced} sản phẩm thành công${totalErrors > 0 ? `, ${totalErrors} lỗi` : ''}`,
-        link: '/admin/products',
-        metadata: { synced: totalSynced, errors: totalErrors, total: productMap.size },
-      });
-    }
-
     return { synced: totalSynced, errors: totalErrors, total: productMap.size };
   }
 
-  /**
-   * Sync product from variations
-   */
   private async syncProductFromVariations(variations: any[], storeId: string) {
     if (variations.length === 0) return;
-
     const firstVariation = variations[0];
     const productData = firstVariation.product;
-    
-    if (!productData) {
-      this.logger.warn(`[Pancake] Variation ${firstVariation.id} has no product data, skipping`);
-      return;
-    }
+    if (!productData) return;
 
     const { baseName } = this.extractProductInfo(productData.name);
     const pancakeProductId = baseName.toLowerCase().replace(/\s+/g, '-');
-
-    const slug = baseName
-      .toLowerCase()
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .replace(/[d�]/g, 'd')
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '');
-
-    const totalStock = variations.reduce((sum: number, v: any) => {
-      const stock = Math.max(0, v.remain_quantity || 0);
-      return sum + stock;
-    }, 0);
-
-    let mainImage = productData.image || null;
-    if (!mainImage && firstVariation.images && firstVariation.images.length > 0) {
-      mainImage = firstVariation.images[0];
-    }
-
+    const slug = baseName.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[dđ]/g, 'd').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+    const totalStock = variations.reduce((sum, v) => sum + Math.max(0, v.remain_quantity || 0), 0);
+    let mainImage = productData.image || (firstVariation.images?.[0]) || null;
     const retailPrice = firstVariation.retail_price || 0;
     const salePrice = firstVariation.price_at_counter || retailPrice;
 
-    const existingProduct = await this.prisma.product.findFirst({
-      where: { externalId: pancakeProductId }
-    });
-
-    const productPayload = {
-      name: baseName,
-      slug,
-      sku: productData.display_id || null,
-      externalId: pancakeProductId,
-      imageUrl: mainImage,
-      description: productData.note_product || productData.note || null,
-      originalPrice: retailPrice,
-      salePrice,
-      stockQuantity: totalStock,
-      weight: 500,
-      isActive: productData.is_published !== false,
-      storeId,
-    };
+    const existingProduct = await this.prisma.product.findFirst({ where: { externalId: pancakeProductId } });
+    const productPayload = { name: baseName, slug, sku: productData.display_id || null, externalId: pancakeProductId, imageUrl: mainImage, description: productData.note_product || productData.note || null, originalPrice: retailPrice, salePrice, stockQuantity: totalStock, weight: 500, isActive: productData.is_published !== false, storeId };
 
     let product;
-    if (existingProduct) {
-      product = await this.prisma.product.update({
-        where: { id: existingProduct.id },
-        data: productPayload
-      });
-      this.logger.log(`[Pancake] Updated product: ${product.name}`);
-    } else {
-      product = await this.prisma.product.create({
-        data: productPayload
-      });
-      this.logger.log(`[Pancake] Created product: ${product.name}`);
-    }
+    if (existingProduct) product = await this.prisma.product.update({ where: { id: existingProduct.id }, data: productPayload });
+    else product = await this.prisma.product.create({ data: productPayload });
 
-    if (productData.categories && Array.isArray(productData.categories) && productData.categories.length > 0) {
-      const categoryIds = productData.categories
-        .map((cat: any) => {
-          if (typeof cat === 'number') return cat;
-          if (typeof cat === 'object' && cat !== null && cat.id) return cat.id;
-          return null;
-        })
-        .filter((id: any) => id !== null);
-      
-      if (categoryIds.length > 0) {
-        await this.syncProductCategories(product.id, categoryIds);
-      }
+    if (productData.categories && Array.isArray(productData.categories)) {
+      const categoryIds = productData.categories.map((cat: any) => typeof cat === 'number' ? cat : (cat?.id || null)).filter((id: any) => id !== null);
+      if (categoryIds.length > 0) await this.syncProductCategories(product.id, categoryIds);
     }
-
     await this.syncProductVariations(product.id, variations);
-
-    return product;
   }
 
-  /**
-   * Sync product categories
-   */
   private async syncProductCategories(productId: string, pancakeCategoryIds: number[]) {
-    if (!pancakeCategoryIds || pancakeCategoryIds.length === 0) return;
-
-    const categories = await this.prisma.category.findMany({
-      where: {
-        externalId: {
-          in: pancakeCategoryIds.map(id => String(id))
-        }
-      }
-    });
-
-    if (categories.length === 0) {
-      this.logger.log(`[Pancake] No matching categories found`);
-      return;
-    }
-
-    const product = await this.prisma.product.findUnique({
-      where: { id: productId },
-      include: { categories: true }
-    });
-
+    const categories = await this.prisma.category.findMany({ where: { externalId: { in: pancakeCategoryIds.map(id => String(id)) } } });
+    if (categories.length === 0) return;
+    const product = await this.prisma.product.findUnique({ where: { id: productId }, include: { categories: true } });
     if (!product) return;
-
     const categoryIdsToConnect = categories.map(c => c.id);
     const existingCategoryIds = product.categories.map(c => c.id);
     const categoriesToAdd = categoryIdsToConnect.filter(id => !existingCategoryIds.includes(id));
-
     if (categoriesToAdd.length > 0) {
-      await this.prisma.product.update({
-        where: { id: productId },
-        data: {
-          categories: {
-            connect: categoriesToAdd.map(id => ({ id }))
-          }
-        }
-      });
-      this.logger.log(`[Pancake] Linked ${categoriesToAdd.length} categories to product`);
+      await this.prisma.product.update({ where: { id: productId }, data: { categories: { connect: categoriesToAdd.map(id => ({ id })) } } });
     }
   }
 
-  /**
-   * Sync product variations
-   */
   private async syncProductVariations(productId: string, variations: any[]) {
-    // Track which size+color combos we've already processed to aggregate stock
     const variantMap = new Map<string, { sizeId: string | null; colorId: string | null; price: number | null; stock: number }>();
-
     for (const variation of variations) {
-      const productName = variation.product?.name || '';
-      const { color, size } = this.extractProductInfo(productName, variation.fields);
-      
+      const { color, size } = this.extractProductInfo(variation.product?.name || '', variation.fields);
       if (!size && !color) continue;
-
-      let sizeId: string | null = null;
+      let sizeId = null, colorId = null;
       if (size) {
         let sizeRecord = await this.prisma.size.findUnique({ where: { name: size } });
-        if (!sizeRecord) {
-          sizeRecord = await this.prisma.size.create({ data: { name: size } });
-        }
+        if (!sizeRecord) sizeRecord = await this.prisma.size.create({ data: { name: size } });
         sizeId = sizeRecord.id;
       }
-
-      let colorId: string | null = null;
       if (color) {
         let colorRecord = await this.prisma.color.findUnique({ where: { name: color } });
-        if (!colorRecord) {
-          colorRecord = await this.prisma.color.create({ data: { name: color } });
-        }
+        if (!colorRecord) colorRecord = await this.prisma.color.create({ data: { name: color } });
         colorId = colorRecord.id;
       }
-
-      const stock = Math.max(0, variation.remain_quantity || 0);
-      const price = variation.price_at_counter || variation.retail_price || null;
+      const stock = Math.max(0, variation.remain_quantity || 0), price = variation.price_at_counter || variation.retail_price || null;
       const key = `${sizeId || 'null'}_${colorId || 'null'}`;
-
       if (variantMap.has(key)) {
-        // Aggregate stock for duplicate size+color combos
-        const existing = variantMap.get(key)!;
-        existing.stock += stock;
-        if (price && (!existing.price || price > existing.price)) {
-          existing.price = price;
-        }
-      } else {
-        variantMap.set(key, { sizeId, colorId, price, stock });
-      }
+        const e = variantMap.get(key)!; e.stock += stock; if (price && (!e.price || price > e.price)) e.price = price;
+      } else variantMap.set(key, { sizeId, colorId, price, stock });
     }
-
-    // Now upsert each unique variant
     for (const [, variant] of variantMap) {
       try {
-        const existingVariant = await this.prisma.productVariant.findFirst({
-          where: {
-            productId,
-            sizeId: variant.sizeId,
-            colorId: variant.colorId,
-          }
-        });
-
-        if (existingVariant) {
-          await this.prisma.productVariant.update({
-            where: { id: existingVariant.id },
-            data: { price: variant.price, stock: variant.stock }
-          });
-        } else {
-          await this.prisma.productVariant.create({
-            data: {
-              productId,
-              sizeId: variant.sizeId,
-              colorId: variant.colorId,
-              price: variant.price,
-              stock: variant.stock,
-            }
-          });
-        }
+        const existingVariant = await this.prisma.productVariant.findFirst({ where: { productId, sizeId: variant.sizeId, colorId: variant.colorId } });
+        if (existingVariant) await this.prisma.productVariant.update({ where: { id: existingVariant.id }, data: { price: variant.price, stock: variant.stock } });
+        else await this.prisma.productVariant.create({ data: { productId, sizeId: variant.sizeId, colorId: variant.colorId, price: variant.price, stock: variant.stock } });
       } catch (error: any) {
-        // Handle race condition: if unique constraint still fails, try update
         if (error.code === 'P2002') {
-          const existing = await this.prisma.productVariant.findFirst({
-            where: { productId, sizeId: variant.sizeId, colorId: variant.colorId }
-          });
-          if (existing) {
-            await this.prisma.productVariant.update({
-              where: { id: existing.id },
-              data: { price: variant.price, stock: variant.stock }
-            });
-          }
-        } else {
-          throw error;
+          const existing = await this.prisma.productVariant.findFirst({ where: { productId, sizeId: variant.sizeId, colorId: variant.colorId } });
+          if (existing) await this.prisma.productVariant.update({ where: { id: existing.id }, data: { price: variant.price, stock: variant.stock } });
         }
       }
     }
   }
 
-  /**
-   * Sync all orders from Pancake
-   */
-  async syncAllOrders(storeId?: string, startDate?: string, endDate?: string, dates?: string[]) {
-    this.logger.log('[Pancake] Starting date-based order sync...');
-
+  async syncAllOrders(storeId?: string, startDate?: string, endDate?: string, dates?: string[], syncAll?: boolean) {
     const integrations = await this.getActivePancakeIntegrations(storeId);
-    if (integrations.length === 0) {
-      this.logger.warn('[Pancake] No active integration found for syncAllOrders');
-      return { synced: 0, errors: 0, total: 0, totalAmount: 0 };
-    }
-
-    const dateRanges = dates && dates.length > 0
-      ? Array.from(new Set(dates)).map(date => this.buildDateRange(date))
-      : startDate && endDate
-        ? [{ start: new Date(startDate), end: new Date(endDate) }]
-        : [this.buildDateRange(new Date().toISOString().slice(0, 10))];
-
-    let totalSynced = 0;
-    let totalErrors = 0;
-    let totalAmount = 0;
-    let totalFetched = 0;
+    if (integrations.length === 0) return { synced: 0, errors: 0, total: 0, totalAmount: 0 };
+    const dateRanges = syncAll ? [{ start: new Date('2010-01-01'), end: new Date() }] : dates && dates.length > 0 ? Array.from(new Set(dates)).map(date => this.buildDateRange(date)) : startDate && endDate ? [{ start: new Date(startDate), end: new Date(endDate) }] : [this.buildDateRange(new Date().toISOString().slice(0, 10))];
+    let totalSynced = 0, totalErrors = 0, totalAmount = 0, totalFetched = 0;
     const processedOrders = new Set<string>();
-
     for (const integration of integrations) {
       for (const range of dateRanges) {
         const orders = await this.fetchOrdersByDateRangeForIntegration(integration, range.start, range.end);
         totalFetched += orders.length;
-
         for (const order of orders) {
           const dedupeKey = `${integration.storeId}:${order.id}`;
-          if (processedOrders.has(dedupeKey)) {
-            continue;
-          }
+          if (processedOrders.has(dedupeKey)) continue;
           processedOrders.add(dedupeKey);
-
           try {
             const result = await this.syncSingleOrder(order, integration.storeId);
-            if (result.synced) {
-              totalAmount += result.amount;
-              totalSynced++;
-            }
-          } catch (error) {
-            this.logger.error(`[Pancake] Error syncing order ${order.id}:`, error);
-            totalErrors++;
-          }
-
-          await new Promise(resolve => setTimeout(resolve, 50));
+            if (result.synced) { totalAmount += result.amount; totalSynced++; }
+          } catch (error) { totalErrors++; }
+          await new Promise(r => setTimeout(r, 50));
         }
       }
     }
-
-    this.logger.log(`[Pancake] Date-based sync completed. Fetched: ${totalFetched}, Synced: ${totalSynced}, Errors: ${totalErrors}, Total Amount: ${totalAmount}`);
-
-    // Fire admin notification for order sync
     if (totalSynced > 0) {
-      await this.adminNotificationsService.createNotification({
-        type: 'ORDER',
-        title: `Đồng bộ đơn hàng từ Pancake`,
-        message: `Đã đồng bộ ${totalSynced}/${totalFetched} đơn hàng, tổng ${new Intl.NumberFormat('vi-VN').format(totalAmount)} VND${totalErrors > 0 ? ` (${totalErrors} lỗi)` : ''}`,
-        link: '/admin/orders',
-        metadata: { synced: totalSynced, errors: totalErrors, total: totalFetched, totalAmount },
-      });
+      await this.adminNotificationsService.createNotification({ type: 'ORDER', title: `Đồng bộ đơn hàng từ Pancake`, message: `Đã đồng bộ ${totalSynced}/${totalFetched} đơn hàng, tổng ${new Intl.NumberFormat('vi-VN').format(totalAmount)} VND`, link: '/admin/orders', metadata: { synced: totalSynced, errors: totalErrors, total: totalFetched, totalAmount } });
     }
-
-    return { 
-      synced: totalSynced, 
-      errors: totalErrors, 
-      total: totalFetched,
-      totalAmount 
-    };
+    return { synced: totalSynced, errors: totalErrors, total: totalFetched, totalAmount };
   }
 
-  /**
-   * Sync single order from Pancake
-   */
   async syncSingleOrder(pOrder: any, storeId: string, targetUserId?: string) {
     const orderCode = `PCK-${pOrder.id}`;
-    
-    const existing = await this.prisma.order.findUnique({
-      where: { orderCode }
-    });
-
+    const existing = await this.prisma.order.findUnique({ where: { orderCode } });
     const phone = pOrder.bill_phone_number || pOrder.shipping_address?.phone_number;
-    if (!phone) {
-      this.logger.warn(`[Pancake] Order ${orderCode} has no phone number, skipping`);
-      return { synced: false, amount: 0 };
-    }
-
+    if (!phone) return { synced: false, amount: 0 };
     const phoneSearchTerms = this.buildPhoneSearchTerms(phone);
-
-    let user = targetUserId
-      ? await this.prisma.user.findUnique({
-          where: { id: targetUserId },
-        })
-      : await this.prisma.user.findFirst({
-          where: {
-            phone: {
-              in: phoneSearchTerms,
-            },
-          },
-        });
-
-    if (!user) {
-      this.logger.log(`[Pancake] No existing user for phone ${phone}, creating order without userId`);
-    }
-
-    // Update user email/name if missing
+    let user = targetUserId ? await this.prisma.user.findUnique({ where: { id: targetUserId } }) : await this.prisma.user.findFirst({ where: { phone: { in: phoneSearchTerms } } });
+    
     if (user && (!user.email && pOrder.bill_email)) {
-      await this.prisma.user.update({
-        where: { id: user.id },
-        data: { email: pOrder.bill_email },
-      });
+      await this.prisma.user.update({ where: { id: user.id }, data: { email: pOrder.bill_email } });
     }
 
-    const orderDetail = await this.fetchOrderDetail(pOrder.id, storeId);
-    const detailData = orderDetail || pOrder;
-
-    const itemsMeta = this.extractItemsMetadata(detailData.items || pOrder.items || []);
-
-    // --- Financial calculations ---
-    const subtotal = detailData.total_price || pOrder.total_price || 0;
-    const shippingFee = detailData.shipping_fee || pOrder.shipping_fee || 0;
-    const partnerFee = detailData.partner_fee || pOrder.partner_fee || 0;
-    const discount = detailData.total_discount || pOrder.total_discount || 0;
-    const surcharge = detailData.surcharge || pOrder.surcharge || 0;
-    const totalAmount = subtotal - discount + shippingFee + surcharge;
-
-    if (totalAmount <= 0) {
-      this.logger.log(`[Pancake] Order ${orderCode} has 0 amount, skipping`);
-      return { synced: false, amount: 0 };
-    }
-
-    // --- Payment info ---
-    const cod = detailData.cod || pOrder.cod || 0;
-    const cash = detailData.cash || pOrder.cash || 0;
-    const transferMoney = detailData.transfer_money || pOrder.transfer_money || 0;
-    const chargedByMomo = detailData.charged_by_momo || pOrder.charged_by_momo || 0;
-    const chargedByVnpay = detailData.charged_by_vnpay || pOrder.charged_by_vnpay || 0;
-    const chargedByCard = detailData.charged_by_card || pOrder.charged_by_card || 0;
-    const chargedByQrpay = detailData.charged_by_qrpay || pOrder.charged_by_qrpay || 0;
-    const chargedByFundiin = detailData.charged_by_fundiin || pOrder.charged_by_fundiin || 0;
-    const chargedByKredivo = detailData.charged_by_kredivo || pOrder.charged_by_kredivo || 0;
-    const moneyToCollect = detailData.money_to_collect || pOrder.money_to_collect || 0;
-    const totalPaid = cod + cash + transferMoney + chargedByMomo + chargedByVnpay + chargedByCard + chargedByQrpay + chargedByFundiin + chargedByKredivo;
-
-    // --- Status mapping ---
-    const status = this.mapPancakeOrderStatus(detailData.status || pOrder.status);
-    const paymentStatus = totalPaid >= totalAmount ? 'PAID' : totalPaid > 0 ? 'PARTIALLY_PAID' : 'UNPAID';
-
-    // --- Shipping address ---
-    const shippingAddr = detailData.shipping_address || pOrder.shipping_address;
+    const detailData = (await this.fetchOrderDetail(pOrder.id, storeId)) || pOrder;
+    const subtotal = detailData.total_price || pOrder.total_price || 0, 
+          shippingFee = detailData.shipping_fee || pOrder.shipping_fee || 0, 
+          discount = detailData.total_discount || pOrder.total_discount || 0, 
+          surcharge = detailData.surcharge || pOrder.surcharge || 0, 
+          totalAmount = subtotal - discount + shippingFee + surcharge;
     
-    // --- Partner / Shipping provider ---
-    const partner = detailData.partner || pOrder.partner || null;
+    if (totalAmount <= 0) return { synced: false, amount: 0 };
 
-    // --- Order items ---
+    const cod = detailData.cod || 0, cash = detailData.cash || 0, transferMoney = detailData.transfer_money || 0, 
+          totalPaid = cod + cash + transferMoney + (detailData.charged_by_momo || 0) + (detailData.charged_by_vnpay || 0) + 
+                     (detailData.charged_by_card || 0) + (detailData.charged_by_qrpay || 0) + (detailData.charged_by_fundiin || 0) + 
+                     (detailData.charged_by_kredivo || 0);
+    
+    const status = this.mapPancakeOrderStatus(detailData.status || pOrder.status), 
+          paymentStatus = totalPaid >= totalAmount && totalAmount > 0 ? 'PAID' : totalPaid > 0 ? 'PARTIALLY_PAID' : 'UNPAID';
+    
+    const shippingAddr = detailData.shipping_address || pOrder.shipping_address, 
+          partner = detailData.partner || pOrder.partner || null;
+    
     const orderItemsData = [];
-    const items = detailData.items || pOrder.items || [];
-    
-    for (const item of items) {
-      const itemName = item.variation_info?.name || item.name || '';
-      const price = item.variation_info?.retail_price || item.price || 0;
-      const quantity = item.quantity || 1;
-      const itemFields = item.variation_info?.fields || [];
-      const parsedProductInfo = this.extractProductInfo(itemName, itemFields);
-      const normalizedExternalId = parsedProductInfo.baseName.toLowerCase().replace(/\s+/g, '-');
-
-      const baseName = itemName
-        .replace(/\s+size\s+[smlxSMLX]+/gi, '')
-        .replace(/\s+màu\s+\w+/gi, '')
-        .replace(/\s+[smlxSMLX]$/gi, '')
-        .trim();
-      const matchName = parsedProductInfo.baseName || baseName;
-      if (!matchName) {
-        continue;
-      }
-
-      const matchingProduct = await this.prisma.product.findFirst({
-        where: {
-          storeId,
-          OR: [
-            { externalId: normalizedExternalId },
-            { name: matchName },
-            { name: { contains: matchName } },
-            { name: { contains: baseName } },
-          ]
-        }
+    for (const item of (detailData.items || pOrder.items || [])) {
+      const { baseName, color, size } = this.extractProductInfo(item.variation_info?.name || item.name || '', item.variation_info?.fields);
+      if (!baseName) continue;
+      
+      const matchingProduct = await this.prisma.product.findFirst({ 
+        where: { storeId, OR: [{ externalId: baseName.toLowerCase().replace(/\s+/g, '-') }, { name: { contains: baseName } }] } 
       });
-
+      
       if (matchingProduct) {
-        orderItemsData.push({
-          productId: matchingProduct.id,
-          quantity,
-          price,
-          isGift: item.is_bonus_product || false,
-          size: parsedProductInfo.size || null,
-          color: parsedProductInfo.color || null,
+        orderItemsData.push({ 
+          productId: matchingProduct.id, 
+          quantity: item.quantity || 1, 
+          price: item.variation_info?.retail_price || item.price || 0, 
+          isGift: item.is_bonus_product || false, 
+          size, 
+          color 
         });
       }
     }
 
-    // --- Build comprehensive metadata ---
     const metadata: Record<string, any> = {
-      // Product items detail
-      items: itemsMeta,
-      
-      // Pancake order identifiers
+      items: this.extractItemsMetadata(detailData.items || pOrder.items || []),
       pancakeOrderId: pOrder.id,
       pancakeDisplayId: detailData.display_id || pOrder.display_id || null,
       pancakeStatus: detailData.status ?? pOrder.status,
       pancakeStatusName: detailData.status_name || pOrder.status_name || null,
-
-      // Timestamps from Pancake
-      pancakeCreatedAt: detailData.inserted_at || pOrder.inserted_at || null,
-      pancakeUpdatedAt: detailData.updated_at || pOrder.updated_at || null,
-      
-      // Customer info
+      pancakeCreatedAt: this.parseDate(detailData.inserted_at || pOrder.inserted_at) || null,
+      pancakeUpdatedAt: this.parseDate(detailData.updated_at || pOrder.updated_at) || null,
       customer: {
         name: pOrder.bill_full_name || detailData.bill_full_name || null,
         phone: pOrder.bill_phone_number || detailData.bill_phone_number || null,
         email: pOrder.bill_email || detailData.bill_email || null,
-        fbId: detailData.customer?.fb_id || pOrder.customer?.fb_id || null,
-        pancakeCustomerId: detailData.customer?.id || pOrder.customer?.id || null,
+        fbId: detailData.customer?.fb_id || null,
+        pancakeCustomerId: detailData.customer?.id || null,
       },
-
-      // Full shipping address
       shippingAddress: shippingAddr ? {
         fullName: shippingAddr.full_name || null,
         phoneNumber: shippingAddr.phone_number || null,
         address: shippingAddr.address || null,
         fullAddress: shippingAddr.full_address || null,
-        provinceId: shippingAddr.province_id || null,
-        districtId: shippingAddr.district_id || null,
-        communeId: shippingAddr.commune_id || null,
-        countryCode: shippingAddr.country_code || null,
-        postCode: shippingAddr.post_code || null,
       } : null,
-
-      // Shipping partner (ĐVVC)
       partner: partner ? {
         partnerId: partner.partner_id || null,
         trackingCode: partner.extend_code || null,
-        totalFee: partner.total_fee || 0,
-        cod: partner.cod || 0,
         deliveryName: partner.delivery_name || null,
         deliveryPhone: partner.delivery_tel || null,
-        pickedUpAt: partner.picked_up_at || null,
-        paidAt: partner.paid_at || null,
+        totalFee: partner.total_fee || null,
+        cod: partner.cod || null,
         sortCode: partner.sort_code || null,
-        updatedAt: partner.updated_at || null,
-        courierUpdates: partner.extend_update || [],
+        pickedUpAt: partner.picked_up_at ? this.parseDate(partner.picked_up_at) : null,
+        paidAt: partner.paid_at ? this.parseDate(partner.paid_at) : null,
+        courierUpdates: this.normalizeCourierUpdates(partner.partner_shipping_updates || partner.extend_update || detailData.partner_shipping_updates || []),
       } : null,
-
-      // Payment breakdown
       payment: {
-        cod,
-        cash,
-        transferMoney,
-        chargedByMomo,
-        chargedByVnpay,
-        chargedByCard,
-        chargedByQrpay,
-        chargedByFundiin,
-        chargedByKredivo,
-        moneyToCollect,
         totalPaid,
-        prepaidByPoint: detailData.prepaid_by_point || pOrder.prepaid_by_point || null,
-        bankTransferImages: detailData.bank_transfer_images || pOrder.bank_transfer_images || [],
-        paymentHistories: detailData.payment_purchase_histories || pOrder.payment_purchase_histories || [],
-        bankPayments: detailData.bank_payments || pOrder.bank_payments || null,
+        cod: detailData.cod || 0,
+        cash: detailData.cash || 0,
+        transferMoney: detailData.transfer_money || 0,
+        chargedByMomo: detailData.charged_by_momo || 0,
+        chargedByVnpay: detailData.charged_by_vnpay || 0,
+        chargedByCard: detailData.charged_by_card || 0,
+        chargedByQrpay: detailData.charged_by_qrpay || 0,
+        chargedByFundiin: detailData.charged_by_fundiin || 0,
+        chargedByKredivo: detailData.charged_by_kredivo || 0,
+        prepaidByPoint: detailData.prepaid_by_point || null,
+        bankTransferImages: detailData.bank_transfer_images || null,
+        moneyToCollect: detailData.money_to_collect || 0,
       },
-
-      // Financial summary
-      financial: {
-        subtotal,
-        discount,
-        shippingFee,
-        partnerFee,
-        surcharge,
-        totalAmount,
-        isFreeShipping: detailData.is_free_shipping || pOrder.is_free_shipping || false,
-        customerPayFee: detailData.customer_pay_fee || pOrder.customer_pay_fee || false,
-      },
-
-      // Order source / channel info
+      financial: { subtotal, discount, shippingFee, surcharge, totalAmount },
       source: {
-        conversationId: pOrder.conversation_id || detailData.conversation_id || null,
-        pageId: pOrder.page_id || detailData.page_id || null,
-        postId: pOrder.post_id || detailData.post_id || null,
-        adId: pOrder.ad_id || detailData.ad_id || null,
-        accountId: pOrder.account || detailData.account || null,
-        accountName: pOrder.account_name || detailData.account_name || null,
-        isFromEcommerce: detailData.is_from_ecommerce || pOrder.is_from_ecommerce || false,
-        marketplaceId: detailData.marketplace_id || pOrder.marketplace_id || null,
-        isLivestream: detailData.is_livestream || pOrder.is_livestream || false,
-        receivedAtShop: detailData.received_at_shop || pOrder.received_at_shop || false,
+        accountName: detailData.account_name || null,
+        pageId: detailData.page_id || null,
+        postId: detailData.post_id || null,
+        isFromEcommerce: detailData.is_from_ecommerce || false,
+        isLivestream: detailData.is_livestream || false,
+        receivedAtShop: detailData.received_at_shop || false,
       },
-
-      // UTM tracking
-      utm: {
-        source: pOrder.p_utm_source || null,
-        medium: pOrder.p_utm_medium || null,
-        campaign: pOrder.p_utm_campaign || null,
-        term: pOrder.p_utm_term || null,
-        content: pOrder.p_utm_content || null,
-      },
-
-      // Notes
-      note: pOrder.note || detailData.note || null,
-      notePrint: pOrder.note_print || detailData.note_print || null,
-
-      // Warehouse info
-      warehouseId: detailData.warehouse_id || pOrder.warehouse_id || null,
-      warehouseInfo: detailData.warehouse_info || pOrder.warehouse_info || null,
-
-      // Order tags
-      tags: detailData.tags || pOrder.tags || [],
-
-      // Reports by phone
-      reportsByPhone: detailData.reports_by_phone || pOrder.reports_by_phone || null,
-
-      // Status history
-      statusHistory: detailData.status_history || pOrder.status_history || [],
-
-      // Staff assignments
-      creator: detailData.creator || pOrder.creator || null,
-      marketer: detailData.marketer || pOrder.marketer || null,
-      assigningSeller: detailData.assigning_seller || pOrder.assigning_seller || null,
-      assigningCare: detailData.assigning_care || pOrder.assigning_care || null,
-
-      // Tracking link
-      trackingLink: detailData.tracking_link || pOrder.tracking_link || null,
+      warehouseInfo: detailData.warehouse_info ? {
+        name: detailData.warehouse_info.name || null,
+        phone_number: detailData.warehouse_info.phone_number || null,
+        address: detailData.warehouse_info.address || null,
+        full_address: detailData.warehouse_info.full_address || null,
+      } : null,
+      tags: detailData.tags && Array.isArray(detailData.tags) ? detailData.tags : [],
+      creator: detailData.creator ? {
+        id: detailData.creator.id || null,
+        name: detailData.creator.name || null,
+        email: detailData.creator.email || null,
+        fbId: detailData.creator.fb_id || null,
+      } : null,
+      marketer: detailData.marketer ? {
+        id: detailData.marketer.id || null,
+        name: detailData.marketer.name || null,
+        email: detailData.marketer.email || null,
+        fbId: detailData.marketer.fb_id || null,
+      } : null,
+      assigningSeller: detailData.assigning_seller ? {
+        id: detailData.assigning_seller.id || null,
+        name: detailData.assigning_seller.name || null,
+        email: detailData.assigning_seller.email || null,
+        fbId: detailData.assigning_seller.fb_id || null,
+      } : null,
+      assigningCare: detailData.assigning_care ? {
+        id: detailData.assigning_care.id || null,
+        name: detailData.assigning_care.name || null,
+        email: detailData.assigning_care.email || null,
+        fbId: detailData.assigning_care.fb_id || null,
+      } : null,
+      reportsByPhone: detailData.reports_by_phone || null,
+      trackingLink: detailData.tracking_link || null,
     };
 
-    // Use Pancake's original order creation/update time when the API provides it.
     const pancakeCreatedAt = detailData.inserted_at || pOrder.inserted_at;
-    const orderCreatedAt = pancakeCreatedAt ? new Date(pancakeCreatedAt) : new Date();
-    const pancakeUpdatedAt = detailData.updated_at || pOrder.updated_at || partner?.updated_at || null;
+    const orderCreatedAt = this.parsePancakeDate(pancakeCreatedAt) || new Date();
+    const pancakeUpdatedAt = detailData.updated_at || pOrder.updated_at || null;
     const orderUpdatedAt = this.parsePancakeDate(pancakeUpdatedAt) || new Date();
-
+    
     let order;
-    const shouldAttachUserToExistingOrder =
-      !!existing &&
-      !!user &&
-      (!existing.userId || existing.userId === user.id);
-
-    if (existing) {
-      // Delete old items so we can recreate them
-      await this.prisma.orderItem.deleteMany({
-        where: { orderId: existing.id }
-      });
-
-      order = await this.prisma.order.update({
-        where: { id: existing.id },
-        data: {
-          ...(shouldAttachUserToExistingOrder ? { userId: user!.id } : {}),
-          shippingName: shippingAddr?.full_name || pOrder.bill_full_name || null,
-          shippingPhone: shippingAddr?.phone_number || pOrder.bill_phone_number || null,
-          shippingStreet: shippingAddr?.address || null,
-          shippingWard: shippingAddr?.commune_id || null,
-          shippingProvince: shippingAddr?.province_id || null,
-          subtotal,
-          discountAmount: discount,
-          shippingFee,
-          totalAmount,
-          status,
-          paymentStatus,
-          note: pOrder.note || detailData.note || null,
-          customerNote: pOrder.note_print || detailData.note_print || null,
-          metadata,
-          storeId,
-          updatedAt: orderUpdatedAt,
-          items: orderItemsData.length > 0 ? {
-            create: orderItemsData
-          } : undefined,
-        }
-      });
-      this.logger.log(`[Pancake] Updated order: ${orderCode}, amount: ${totalAmount}, paid: ${totalPaid}`);
-
-      if (existing.userId && user && existing.userId !== user.id) {
-        this.logger.warn(
-          `[Pancake] Order ${orderCode} already belongs to another user (${existing.userId}), skip re-attaching to ${user.id}`,
-        );
+    try {
+      if (existing) {
+        await this.prisma.orderItem.deleteMany({ where: { orderId: existing.id } });
+        order = await this.prisma.order.update({
+          where: { id: existing.id },
+          data: {
+            userId: existing.userId || user?.id || null,
+            shippingName: shippingAddr?.full_name || pOrder.bill_full_name || null,
+            shippingPhone: shippingAddr?.phone_number || pOrder.bill_phone_number || null,
+            shippingStreet: shippingAddr?.address || null,
+            subtotal,
+            discountAmount: discount,
+            shippingFee,
+            totalAmount,
+            status,
+            paymentStatus,
+            metadata,
+            storeId,
+            updatedAt: orderUpdatedAt,
+            items: orderItemsData.length > 0 ? { create: orderItemsData } : undefined,
+          }
+        });
+      } else {
+        order = await this.prisma.order.create({
+          data: {
+            userId: user?.id || null,
+            orderCode,
+            source: 'PANCAKE',
+            shippingName: shippingAddr?.full_name || pOrder.bill_full_name || null,
+            shippingPhone: shippingAddr?.phone_number || pOrder.bill_phone_number || null,
+            shippingStreet: shippingAddr?.address || null,
+            subtotal,
+            discountAmount: discount,
+            shippingFee,
+            totalAmount,
+            status,
+            paymentStatus,
+            metadata,
+            storeId,
+            createdAt: orderCreatedAt,
+            updatedAt: orderUpdatedAt,
+            items: orderItemsData.length > 0 ? { create: orderItemsData } : undefined,
+          }
+        });
       }
-    } else {
-      order = await this.prisma.order.create({
-        data: {
-          userId: user?.id || null,
-          orderCode,
-          source: 'PANCAKE',
-          shippingName: shippingAddr?.full_name || pOrder.bill_full_name || null,
-          shippingPhone: shippingAddr?.phone_number || pOrder.bill_phone_number || null,
-          shippingStreet: shippingAddr?.address || null,
-          shippingWard: shippingAddr?.commune_id || null,
-          shippingProvince: shippingAddr?.province_id || null,
-          subtotal,
-          discountAmount: discount,
-          shippingFee,
-          totalAmount,
-          status,
-          paymentStatus,
-          note: pOrder.note || detailData.note || null,
-          customerNote: pOrder.note_print || detailData.note_print || null,
-          metadata,
-          storeId,
-          createdAt: orderCreatedAt,
-          updatedAt: orderUpdatedAt,
-          items: orderItemsData.length > 0 ? {
-            create: orderItemsData
-          } : undefined,
-        }
-      });
-      this.logger.log(`[Pancake] Synced order: ${orderCode}, amount: ${totalAmount}, paid: ${totalPaid}`);
+    } catch (err) {
+      this.logger.error(`[Pancake] Error ${existing ? 'updating' : 'creating'} order ${orderCode}: ${err.message}`);
+      return { synced: false, amount: 0, error: err.message };
     }
 
-    const isCreditableStatus = status === 'COMPLETED' || status === 'DELIVERED';
-    const wasCreditableStatus = existing && (existing.status === 'COMPLETED' || existing.status === 'DELIVERED');
-
-    const shouldCreditOrder =
-      isCreditableStatus &&
-      user &&
-      (
-        !existing ||
-        !wasCreditableStatus ||
-        (!existing.userId && order.userId === user.id)
-      );
-
-    if (shouldCreditOrder) {
-      await this.updateUserRankAndSpent(user.id, totalAmount);
-    }
-
-    const shouldDeductOrder =
-      !isCreditableStatus &&
-      wasCreditableStatus &&
-      user &&
-      existing.userId === user.id;
-
-    if (shouldDeductOrder) {
-      await this.updateUserRankAndSpent(user.id, -totalAmount);
-    }
-
-    return { synced: true, amount: totalAmount, orderId: order.id, isUpdate: !!existing, status: order.status, paymentStatus: order.paymentStatus };
+    const isCreditable = status === 'COMPLETED' || status === 'DELIVERED', wasCreditable = existing && (existing.status === 'COMPLETED' || existing.status === 'DELIVERED');
+    if (isCreditable && user && (!existing || !wasCreditable)) await this.updateUserRankAndSpent(user.id, totalAmount);
+    else if (!isCreditable && wasCreditable && user) await this.updateUserRankAndSpent(user.id, -totalAmount);
+    
+    return { synced: true, amount: totalAmount, orderId: order.id, isUpdate: !!existing, status: order.status };
   }
 
   private parsePancakeDate(value?: string | Date | null): Date | null {
     if (!value) return null;
-    if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value;
-
-    const parsed = new Date(value);
-    return Number.isNaN(parsed.getTime()) ? null : parsed;
-  }
-
-  /**
-   * Map Pancake order status to our OrderStatus enum
-   * Pancake statuses: 0=New, 17=WaitConfirm, 11=Restocking, 12=WaitPrint, 13=Printed,
-   * 20=Purchased, 1=Confirmed, 8=Packaging, 9=WaitPickup, 2=Shipped,
-   * 3=Received, 16=CollectedMoney, 4=Returning, 15=PartialReturn, 5=Returned, 6=Canceled, 7=Deleted
-   */
-  private mapPancakeOrderStatus(pancakeStatus: number | string): OrderStatus {
-    const statusNum = typeof pancakeStatus === 'string' ? parseInt(pancakeStatus) : pancakeStatus;
-    
-    const statusMap: Record<number, OrderStatus> = {
-      0:  OrderStatus.PENDING,              // Mới
-      17: OrderStatus.PENDING,              // Chờ xác nhận
-      11: OrderStatus.WAITING_FOR_GOODS,    // Chờ hàng
-      20: OrderStatus.CONFIRMED,            // Đã đặt hàng
-      1:  OrderStatus.CONFIRMED,            // Đã xác nhận
-      12: OrderStatus.CONFIRMED,            // Chờ in
-      13: OrderStatus.CONFIRMED,            // Đã in
-      8:  OrderStatus.PACKAGING,            // Đang đóng hàng
-      9:  OrderStatus.WAITING_FOR_SHIPPING, // Chờ chuyển hàng
-      2:  OrderStatus.SHIPPED,              // Đã gửi hàng
-      3:  OrderStatus.DELIVERED,            // Đã nhận
-      16: OrderStatus.PAYMENT_COLLECTED,    // Đã thu tiền
-      4:  OrderStatus.RETURNING,            // Đang hoàn
-      15: OrderStatus.RETURNING,            // Hoàn một phần
-      5:  OrderStatus.REFUNDED,             // Đã hoàn
-      6:  OrderStatus.CANCELLED,            // Đã hủy
-      7:  OrderStatus.CANCELLED,            // Đã xóa
-    };
-
-    return statusMap[statusNum] || OrderStatus.PENDING;
-  }
-
-  /**
-   * Handle webhook event from Pancake
-   */
-  async handleWebhookEvent(payload: any, shopId?: string) {
-    this.logger.log(`[Pancake Webhook] Processing event type: ${payload.type || 'unknown'} for shopId: ${shopId || 'unknown'}`);
-
-    const eventType = payload.type || payload.event_type;
-    const eventData = payload.data || payload;
-
-    switch (eventType) {
-      case 'orders':
-      case 'order':
-        return await this.handleOrderWebhook(eventData, shopId);
-
-      case 'customers':
-      case 'customer':
-        return await this.handleCustomerWebhook(eventData, shopId);
-
-      case 'products':
-      case 'product':
-        return await this.handleProductWebhook(eventData, shopId);
-
-      case 'variations_warehouses':
-      case 'inventory':
-        return await this.handleInventoryWebhook(eventData, shopId);
-
-      default:
-        this.logger.warn(`[Pancake Webhook] Unknown event type: ${eventType}`);
-        return { processed: false, reason: 'Unknown event type' };
-    }
-  }
-
-  /**
-   * Handle order webhook from Pancake
-   */
-  private async handleOrderWebhook(orderData: any, shopId?: string) {
-    this.logger.log(`[Pancake Webhook] Processing order: ${orderData.id}`);
-
-    try {
-      const whereClause: any = { platform: 'PANCAKE', isActive: true };
-      if (shopId) whereClause.shopId = shopId;
-
-      const integration = await this.prisma.storeIntegration.findFirst({
-        where: whereClause,
-        include: { store: true }
-      });
-
-      if (!integration || !integration.store) {
-        this.logger.error('[Pancake Webhook] No active store integration found');
-        return { processed: false, reason: 'No active store' };
-      }
-
-      const result = await this.syncSingleOrder(orderData, integration.store.id);
-
-      // Fire admin notification for new/updated order from Pancake webhook
-      if (result.synced) {
-        const orderCode = `PCK-${orderData.id}`;
-        const existingOrder = await this.prisma.order.findFirst({ where: { orderCode } });
-        let messageStr = `Giá trị: ${new Intl.NumberFormat('vi-VN').format(result.amount || 0)} VND`;
-        if (result.status) {
-          messageStr += ` • Trạng thái: ${result.status}`;
-        }
-
-        await this.adminNotificationsService.createNotification({
-          type: 'ORDER',
-          title: `Đơn hàng ${orderCode} ${result.isUpdate ? 'cập nhật' : 'mới'}`,
-          message: messageStr,
-          link: existingOrder ? `/admin/orders/${existingOrder.id}` : '/admin/orders',
-          metadata: { orderCode, amount: result.amount, action: result.isUpdate ? 'updated' : 'created', status: result.status },
-        });
-      }
-
-      return {
-        processed: true,
-        action: result.synced ? (result.isUpdate ? 'updated' : 'created') : 'skipped',
-        orderCode: `PCK-${orderData.id}`,
-        amount: result.amount,
-      };
-    } catch (error) {
-      this.logger.error(`[Pancake Webhook] Error processing order:`, error);
-      throw error;
-    }
-  }
-
-  /**
-   * Handle customer webhook from Pancake
-   */
-  private async handleCustomerWebhook(customerData: any, shopId?: string) {
-    this.logger.log(`[Pancake Webhook] Processing customer: ${customerData.id}`);
-
-    try {
-      const phone = customerData.phone_number || customerData.phone;
-      if (!phone) {
-        return { processed: false, reason: 'No phone number' };
-      }
-
-      let user = await this.prisma.user.findFirst({
-        where: { phone }
-      });
-
-      if (!user) {
-        // DON'T create user - will be created when they actually register/login
-        this.logger.log(`[Pancake Webhook] No existing user for phone ${phone}, skipping`);
-        return { processed: false, reason: 'User not registered yet' };
+    if (value instanceof Date) return isNaN(value.getTime()) ? null : value;
+    const n = value.trim();
+    let tp = n;
+    if (/^\d{4}-\d{2}-\d{2}[T\s]\d{2}:\d{2}:\d{2}/.test(n)) {
+      if (!n.includes('Z') && !/[+-]\d{2}:?\d{2}$/.test(n)) {
+        tp = n.replace(' ', 'T') + 'Z';
       } else {
-        const updateData: any = {};
-        if (customerData.name && !user.name) updateData.name = customerData.name;
-        if (customerData.email && !user.email) updateData.email = customerData.email;
-
-        if (Object.keys(updateData).length > 0) {
-          await this.prisma.user.update({
-            where: { id: user.id },
-            data: updateData
-          });
-          this.logger.log(`[Pancake Webhook] Updated user: ${user.id}`);
-          return { processed: true, action: 'updated', userId: user.id };
-        }
-
-        return { processed: true, action: 'skipped', userId: user.id };
+        tp = n.replace(' ', 'T');
       }
-    } catch (error) {
-      this.logger.error(`[Pancake Webhook] Error processing customer:`, error);
-      throw error;
+      // Truncate fractional seconds to 3 digits
+      tp = tp.replace(/(\.\d{3})\d+(Z?)$/, '$1$2');
+    }
+    const p = new Date(tp);
+    return isNaN(p.getTime()) ? null : p;
+  }
+
+  private mapPancakeOrderStatus(pancakeStatus: number | string): OrderStatus {
+    const s = typeof pancakeStatus === 'string' ? parseInt(pancakeStatus) : pancakeStatus;
+    const m: Record<number, OrderStatus> = { 0: OrderStatus.PENDING, 17: OrderStatus.PENDING, 11: OrderStatus.WAITING_FOR_GOODS, 20: OrderStatus.CONFIRMED, 1: OrderStatus.CONFIRMED, 12: OrderStatus.CONFIRMED, 13: OrderStatus.CONFIRMED, 8: OrderStatus.PACKAGING, 9: OrderStatus.WAITING_FOR_SHIPPING, 2: OrderStatus.SHIPPED, 3: OrderStatus.DELIVERED, 16: OrderStatus.PAYMENT_COLLECTED, 4: OrderStatus.RETURNING, 15: OrderStatus.RETURNING, 5: OrderStatus.REFUNDED, 6: OrderStatus.CANCELLED, 7: OrderStatus.CANCELLED };
+    return m[s] || OrderStatus.PENDING;
+  }
+
+  async handleWebhookEvent(payload: any, shopId?: string) {
+    const type = payload.type || payload.event_type, data = payload.data || payload;
+    switch (type) {
+      case 'orders': case 'order': return await this.handleOrderWebhook(data, shopId);
+      case 'customers': case 'customer': return await this.handleCustomerWebhook(data, shopId);
+      case 'products': case 'product': return await this.handleProductWebhook(data, shopId);
+      case 'variations_warehouses': case 'inventory': return await this.handleInventoryWebhook(data, shopId);
+      default: return { processed: false };
     }
   }
 
-  /**
-   * Handle product webhook from Pancake
-   */
+  private async handleOrderWebhook(orderData: any, shopId?: string) {
+    const integration = await this.prisma.storeIntegration.findFirst({ where: { platform: 'PANCAKE', isActive: true, ...(shopId ? { shopId } : {}) }, include: { store: true } });
+    if (!integration?.store) return { processed: false };
+    const result = await this.syncSingleOrder(orderData, integration.store.id);
+    if (result.synced) {
+      const orderCode = `PCK-${orderData.id}`, existing = await this.prisma.order.findFirst({ where: { orderCode } });
+      await this.adminNotificationsService.createNotification({ type: 'ORDER', title: `Đơn hàng ${orderCode} ${result.isUpdate ? 'cập nhật' : 'mới'}`, message: `Giá trị: ${new Intl.NumberFormat('vi-VN').format(result.amount || 0)} VND`, link: existing ? `/admin/orders/${existing.id}` : '/admin/orders' });
+    }
+    return { processed: true };
+  }
+
+  private async handleCustomerWebhook(customerData: any, shopId?: string) {
+    const phone = customerData.phone_number || customerData.phone;
+    if (!phone) return { processed: false };
+    const user = await this.prisma.user.findFirst({ where: { phone } });
+    if (!user) return { processed: false };
+    const update: any = {};
+    if (customerData.name && !user.name) update.name = customerData.name;
+    if (customerData.email && !user.email) update.email = customerData.email;
+    if (Object.keys(update).length > 0) await this.prisma.user.update({ where: { id: user.id }, data: update });
+    return { processed: true };
+  }
+
   private async handleProductWebhook(productData: any, shopId?: string) {
-    this.logger.log(`[Pancake Webhook] Processing product update: ${productData.id || 'unknown'}`);
-
-    try {
-      const whereClause: any = { platform: 'PANCAKE', isActive: true };
-      if (shopId) whereClause.shopId = shopId;
-
-      const integration = await this.prisma.storeIntegration.findFirst({
-        where: whereClause,
-      });
-
-      if (!integration || !integration.storeId) {
-        return { processed: false, reason: 'No active store integration' };
-      }
-
-      // Trigger full product sync asynchronously (runs in background)
-      this.syncAllProducts(integration.storeId).catch(err => {
-        this.logger.error(`[Pancake Webhook] Error in background product sync:`, err);
-      });
-      
-      return { processed: true, action: 'background_sync_started', productId: productData.id };
-    } catch (error) {
-      this.logger.error(`[Pancake Webhook] Error handling product webhook:`, error);
-      throw error;
-    }
+    const integration = await this.prisma.storeIntegration.findFirst({ where: { platform: 'PANCAKE', isActive: true, ...(shopId ? { shopId } : {}) } });
+    if (integration?.storeId) this.syncAllProducts(integration.storeId).catch(() => {});
+    return { processed: true };
   }
 
-  /**
-   * Handle inventory webhook from Pancake
-   */
   private async handleInventoryWebhook(inventoryData: any, shopId?: string) {
-    this.logger.log(`[Pancake Webhook] Processing inventory update: ${inventoryData.variation_id || 'unknown'}`);
-
-    try {
-      const whereClause: any = { platform: 'PANCAKE', isActive: true };
-      if (shopId) whereClause.shopId = shopId;
-
-      const integration = await this.prisma.storeIntegration.findFirst({
-        where: whereClause,
-      });
-
-      if (!integration || !integration.storeId) {
-        return { processed: false, reason: 'No active store integration' };
-      }
-
-      // Trigger full product sync asynchronously to recalculate all stock
-      this.syncAllProducts(integration.storeId).catch(err => {
-        this.logger.error(`[Pancake Webhook] Error in background inventory sync:`, err);
-      });
-      
-      return { processed: true, action: 'background_sync_started', variationId: inventoryData.variation_id };
-    } catch (error) {
-      this.logger.error(`[Pancake Webhook] Error processing inventory:`, error);
-      throw error;
-    }
+    const integration = await this.prisma.storeIntegration.findFirst({ where: { platform: 'PANCAKE', isActive: true, ...(shopId ? { shopId } : {}) } });
+    if (integration?.storeId) this.syncAllProducts(integration.storeId).catch(() => {});
+    return { processed: true };
   }
 
-  /**
-   * Configure webhook on Pancake
-   */
   async configureWebhook(webhookUrl: string, webhookTypes: string[] = ['orders', 'customers'], storeId?: string) {
     const config = await this.getPancakeConfig(storeId);
-    if (!config) {
-      throw new Error('Pancake configuration not found');
-    }
-
-    try {
-      const url = `https://pos.pages.fm/api/v1/shops/${config.shopId}?api_key=${config.apiKey}`;
-      
-      const response = await fetch(url, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          shop: {
-            webhook_enable: true,
-            webhook_url: webhookUrl,
-            webhook_types: webhookTypes,
-            webhook_headers: {
-              'X-API-KEY': config.apiKey,
-              'Content-Type': 'application/json'
-            }
-          }
-        })
-      });
-
-      const data = await response.json();
-
-      if (data.success) {
-        this.logger.log(`[Pancake] Webhook configured successfully: ${webhookUrl}`);
-        return { success: true, webhookUrl, webhookTypes };
-      } else {
-        this.logger.error(`[Pancake] Failed to configure webhook:`, data);
-        throw new Error('Failed to configure webhook');
-      }
-    } catch (error) {
-      this.logger.error(`[Pancake] Error configuring webhook:`, error);
-      throw error;
-    }
+    if (!config) throw new Error('Pancake configuration not found');
+    const response = await fetch(`https://pos.pages.fm/api/v1/shops/${config.shopId}?api_key=${config.apiKey}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ shop: { webhook_enable: true, webhook_url: webhookUrl, webhook_types: webhookTypes, webhook_headers: { 'X-API-KEY': config.apiKey, 'Content-Type': 'application/json' } } }) });
+    const data = await response.json();
+    if (data.success) return { success: true, webhookUrl };
+    throw new Error('Failed to configure webhook');
   }
 
-  /**
-   * Get webhook configuration from Pancake
-   */
   async getWebhookConfig(storeId?: string) {
     const config = await this.getPancakeConfig(storeId);
-    if (!config) {
-      throw new Error('Pancake configuration not found');
+    if (!config) throw new Error('Pancake configuration not found');
+    const response = await fetch(`https://pos.pages.fm/api/v1/shops/${config.shopId}?api_key=${config.apiKey}`, { method: 'GET', headers: { 'Content-Type': 'application/json' } });
+    const data = await response.json();
+    if (data.success && data.data) {
+      const s = data.data; return { enabled: s.webhook_enable || false, url: s.webhook_url || null, types: s.webhook_types || [] };
     }
-
-    try {
-      const url = `https://pos.pages.fm/api/v1/shops/${config.shopId}?api_key=${config.apiKey}`;
-      
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      });
-
-      const data = await response.json();
-
-      if (data.success && data.data) {
-        const shop = data.data;
-        return {
-          enabled: shop.webhook_enable || false,
-          url: shop.webhook_url || null,
-          types: shop.webhook_types || [],
-          email: shop.webhook_email || null,
-        };
-      }
-
-      return null;
-    } catch (error) {
-      this.logger.error(`[Pancake] Error fetching webhook config:`, error);
-      throw error;
-    }
+    return null;
   }
 }

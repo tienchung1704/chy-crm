@@ -5,16 +5,16 @@ import { PrismaService } from '../prisma/prisma.service';
 export class CategoriesService {
   constructor(private prisma: PrismaService) {}
 
-  async create(data: any, user?: any) {
+  async create(data: any, user?: any, effectiveStoreId?: string | null) {
     let storeId = null;
     
-    if (user && user.role === 'MODERATOR') {
-      const store = await this.prisma.store.findUnique({
-        where: { ownerId: user.id },
-      });
-      if (store) {
-        storeId = store.id;
+    if (user && user.role !== 'ADMIN') {
+      if (!effectiveStoreId) {
+        throw new NotFoundException('User has no assigned store');
       }
+      storeId = effectiveStoreId;
+    } else if (data.storeId) {
+      storeId = data.storeId;
     }
 
     const slug = data.slug || data.name.toLowerCase().replace(/ /g, '-');
@@ -40,9 +40,13 @@ export class CategoriesService {
   async findAll(isAdmin: boolean = false, storeId?: string) {
     const where: any = isAdmin ? {} : { isActive: true };
     if (storeId) {
-      where.storeId = storeId;
+      // Filter categories that EITHER belong to the store OR have products belonging to the store
+      where.OR = [
+        { storeId: storeId },
+        { products: { some: { storeId: storeId } } }
+      ];
     }
-    return this.prisma.category.findMany({
+    const categories = await this.prisma.category.findMany({
       where,
       include: {
         parent: { select: { name: true } },
@@ -53,6 +57,31 @@ export class CategoriesService {
       },
       orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
     });
+
+    // If storeId is provided, we need to adjust the product count to be store-specific
+    if (storeId) {
+      const categoriesWithStoreCount = await Promise.all(
+        categories.map(async (cat) => {
+          const storeProductCount = await this.prisma.product.count({
+            where: {
+              storeId: storeId,
+              categories: { some: { id: cat.id } },
+              isActive: true,
+            },
+          });
+          return {
+            ...cat,
+            _count: {
+              ...cat._count,
+              products: storeProductCount,
+            },
+          };
+        })
+      );
+      return categoriesWithStoreCount;
+    }
+
+    return categories;
   }
 
   async findOne(id: string) {
@@ -78,14 +107,23 @@ export class CategoriesService {
     return category;
   }
 
-  async update(id: string, data: any) {
+  async update(id: string, data: any, user?: any, effectiveStoreId?: string | null) {
+    const existing = await this.prisma.category.findUnique({ where: { id } });
+    if (!existing) {
+      throw new NotFoundException('Category not found');
+    }
+
+    if (user && user.role !== 'ADMIN' && effectiveStoreId && existing.storeId !== effectiveStoreId) {
+      throw new NotFoundException('Category not found or access denied');
+    }
+
     return this.prisma.category.update({
       where: { id },
       data,
     });
   }
 
-  async remove(id: string) {
+  async remove(id: string, user?: any, effectiveStoreId?: string | null) {
     // Check if category exists
     const category = await this.prisma.category.findUnique({
       where: { id },
@@ -94,6 +132,10 @@ export class CategoriesService {
 
     if (!category) {
       throw new NotFoundException('Category not found');
+    }
+
+    if (user && user.role !== 'ADMIN' && effectiveStoreId && category.storeId !== effectiveStoreId) {
+      throw new NotFoundException('Category not found or access denied');
     }
 
     // Cascade delete children is handled by Prisma if configured, 

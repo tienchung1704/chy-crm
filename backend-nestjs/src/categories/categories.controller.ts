@@ -1,14 +1,19 @@
-import { Controller, Get, Post, Patch, Delete, Param, Body, Query, UseGuards, Req } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Param, Body, Query, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { CategoriesService } from './categories.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
+import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { Public } from '../auth/decorators/public.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { Permissions } from '../auth/decorators/permissions.decorator';
+import { Permission } from '../auth/enums/permissions.enum';
+import { GetUser } from '../auth/decorators/get-user.decorator';
+import { GetEffectiveStoreId } from '../auth/decorators/get-effective-store-id.decorator';
 
 @ApiTags('Categories')
 @Controller('categories')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
 export class CategoriesController {
   constructor(private readonly categoriesService: CategoriesService) {}
 
@@ -21,10 +26,15 @@ export class CategoriesController {
 
   @Post()
   @Roles('ADMIN', 'STAFF', 'MODERATOR')
+  @Permissions(Permission.CATEGORIES_MANAGE)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Create new category' })
-  create(@Body() data: any, @Req() req: any) {
-    return this.categoriesService.create(data, req.user);
+  create(
+    @Body() data: any,
+    @GetUser() user: any,
+    @GetEffectiveStoreId() effectiveStoreId: string | null,
+  ) {
+    return this.categoriesService.create(data, user, effectiveStoreId);
   }
 
   @Get(':id')
@@ -35,18 +45,29 @@ export class CategoriesController {
   }
 
   @Patch(':id')
-  @Roles('ADMIN', 'STAFF')
+  @Roles('ADMIN', 'STAFF', 'MODERATOR')
+  @Permissions(Permission.CATEGORIES_MANAGE)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Update category (Admin only)' })
-  update(@Param('id') id: string, @Body() data: any) {
-    return this.categoriesService.update(id, data);
+  @ApiOperation({ summary: 'Update category' })
+  update(
+    @Param('id') id: string,
+    @Body() data: any,
+    @GetUser() user: any,
+    @GetEffectiveStoreId() effectiveStoreId: string | null,
+  ) {
+    return this.categoriesService.update(id, data, user, effectiveStoreId);
   }
 
   @Delete(':id')
-  @Roles('ADMIN', 'STAFF')
+  @Roles('ADMIN', 'STAFF', 'MODERATOR')
+  @Permissions(Permission.CATEGORIES_MANAGE)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Delete category (Admin only)' })
-  remove(@Param('id') id: string) {
-    return this.categoriesService.remove(id);
+  @ApiOperation({ summary: 'Delete category' })
+  remove(
+    @Param('id') id: string,
+    @GetUser() user: any,
+    @GetEffectiveStoreId() effectiveStoreId: string | null,
+  ) {
+    return this.categoriesService.remove(id, user, effectiveStoreId);
   }
 }

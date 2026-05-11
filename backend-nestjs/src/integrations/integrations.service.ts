@@ -5,12 +5,10 @@ import { PrismaService } from '../prisma/prisma.service';
 export class IntegrationsService {
   constructor(private prisma: PrismaService) {}
 
-  async findAll(user: any, storeId?: string) {
+  async findAll(user: any, effectiveStoreId: string | null, storeId?: string) {
     let targetStoreId = storeId;
-    if (user.role === 'MODERATOR') {
-      const store = await this.prisma.store.findUnique({ where: { ownerId: user.id } });
-      if (!store) return [];
-      targetStoreId = store.id;
+    if (effectiveStoreId) {
+      targetStoreId = effectiveStoreId;
     } else if (!storeId) {
       // For ADMIN fetching without specific storeId, only get global integrations
       // Global integrations are attached to a store owned by an ADMIN
@@ -39,20 +37,16 @@ export class IntegrationsService {
     });
   }
 
-  async upsert(user: any, data: any) {
+  async upsert(user: any, effectiveStoreId: string | null, data: any) {
     const { platform, storeId, ...config } = data;
 
     let targetStoreId = storeId;
 
-    if (user.role === 'MODERATOR') {
-      const store = await this.prisma.store.findUnique({ where: { ownerId: user.id } });
-      if (!store) {
-        throw new UnauthorizedException('You do not own a store.');
+    if (user.role !== 'ADMIN') {
+      if (!effectiveStoreId) {
+        throw new UnauthorizedException('User has no assigned store.');
       }
-      if (storeId && storeId !== store.id) {
-        throw new UnauthorizedException('You can only modify your own store integrations.');
-      }
-      targetStoreId = store.id;
+      targetStoreId = effectiveStoreId;
     }
 
     if (targetStoreId) {

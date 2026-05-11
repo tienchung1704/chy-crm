@@ -122,4 +122,9 @@ export class CreateProductDto {
   @IsArray()
   @Type(() => ProductVariantDto)
   variants?: ProductVariantDto[];
+
+  @ApiPropertyOptional({ description: 'Store ID - required for ADMIN, auto-assigned for MODERATOR' })
+  @IsOptional()
+  @IsString()
+  storeId?: string;
 }

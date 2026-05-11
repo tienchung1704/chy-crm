@@ -17,7 +17,6 @@ export default function CustomerActions() {
     phone: '',
     gender: '',
     dob: '',
-    address: '',
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -26,7 +25,15 @@ export default function CustomerActions() {
     setError('');
 
     try {
-      await apiClientClient.post('/admin/customers', form);
+      // Clean data: remove empty strings for optional fields to avoid backend validation errors
+      const cleanedData = Object.fromEntries(
+        Object.entries(form).filter(([key, value]) => {
+          if (['name', 'phone'].includes(key)) return true; // Required fields
+          return value !== ''; // Skip empty optional fields
+        })
+      );
+
+      await apiClientClient.post('/admin/customers', cleanedData);
       setShowModal(false);
       setForm({
         name: '',
@@ -34,11 +41,10 @@ export default function CustomerActions() {
         phone: '',
         gender: '',
         dob: '',
-        address: '',
       });
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Loi khong xac dinh');
+      setError(err instanceof Error ? err.message : 'Lỗi không xác định');
     } finally {
       setLoading(false);
     }
@@ -63,7 +69,7 @@ export default function CustomerActions() {
         >
           <div className="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between p-6 border-b border-gray-200">
-              <h2 className="text-xl font-bold text-gray-800">Them khach hang moi</h2>
+              <h2 className="text-xl font-bold text-gray-800">Tạo khách hàng mới</h2>
               <button
                 className="text-gray-400 hover:text-gray-600 text-2xl leading-none"
                 onClick={() => setShowModal(false)}
@@ -84,7 +90,7 @@ export default function CustomerActions() {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="new-name">
-                    Ho va ten *
+                    Họ và tên *
                   </label>
                   <input
                     id="new-name"
@@ -113,12 +119,13 @@ export default function CustomerActions() {
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="new-phone">
-                      So dien thoai
+                      Số điện thoại *
                     </label>
                     <input
                       id="new-phone"
                       type="tel"
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      required
                       value={form.phone}
                       onChange={(e) => setForm({ ...form, phone: e.target.value })}
                       placeholder="0912345678"
@@ -129,7 +136,7 @@ export default function CustomerActions() {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="new-gender">
-                      Gioi tinh
+                      Giới tính
                     </label>
                     <Select
                       value={form.gender}
@@ -146,7 +153,7 @@ export default function CustomerActions() {
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="new-dob">
-                      Ngay sinh
+                      Ngày sinh
                     </label>
                     <input
                       id="new-dob"
@@ -157,20 +164,6 @@ export default function CustomerActions() {
                     />
                   </div>
                 </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="new-address">
-                    Dia chi
-                  </label>
-                  <textarea
-                    id="new-address"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    rows={2}
-                    value={form.address}
-                    onChange={(e) => setForm({ ...form, address: e.target.value })}
-                    placeholder="số nhà, đường, xã, tỉnh"
-                  />
-                </div>
               </div>
 
               <div className="flex items-center justify-end gap-3 p-6 border-t border-gray-200">
@@ -179,7 +172,7 @@ export default function CustomerActions() {
                   className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium transition-colors"
                   onClick={() => setShowModal(false)}
                 >
-                  Huy
+                  Huỷ
                 </button>
                 <button
                   type="submit"
@@ -187,7 +180,7 @@ export default function CustomerActions() {
                   disabled={loading}
                   id="save-customer-btn"
                 >
-                  {loading ? 'Dang luu...' : 'Luu khach hang'}
+                  {loading ? 'Đang lưu...' : 'Tạo'}
                 </button>
               </div>
             </form>

@@ -33,10 +33,23 @@ function fmt(amount: number) {
 
 function fmtDate(d: string | Date) {
   if (!d) return '—';
-  return new Intl.DateTimeFormat('vi-VN', {
-    day: '2-digit', month: '2-digit', year: 'numeric',
-    hour: '2-digit', minute: '2-digit',
-  }).format(new Date(d));
+  const date = new Date(d);
+  
+  if (isNaN(date.getTime()) && typeof d === 'string') {
+    const match = d.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2}):(\d{1,2}))?/) ||
+                  d.match(/^(\d{1,2}):(\d{1,2})\s+(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+    if (match) return d;
+    return d;
+  }
+
+  try {
+    return new Intl.DateTimeFormat('vi-VN', {
+      day: '2-digit', month: '2-digit', year: 'numeric',
+      hour: '2-digit', minute: '2-digit',
+    }).format(date);
+  } catch (e) {
+    return String(d);
+  }
 }
 
 export default function TrackingModal({ isOpen, onClose }: TrackingModalProps) {
@@ -291,8 +304,8 @@ export default function TrackingModal({ isOpen, onClose }: TrackingModalProps) {
                                 {update.location && (
                                   <p className="text-xs text-gray-400 mt-0.5">{update.location}</p>
                                 )}
-                                {update.update_at && (
-                                  <p className="text-xs text-gray-400 mt-1">{fmtDate(update.update_at)}</p>
+                                {(update.update_at || update.update_time || update.time) && (
+                                  <p className="text-xs text-gray-400 mt-1">{fmtDate(update.update_at || update.update_time || update.time)}</p>
                                 )}
                               </div>
                             </div>

@@ -327,7 +327,7 @@ export default async function PortalVouchersPage() {
                 {storeName === 'Voucher toàn sàn' ? (
                   <h3 className="text-lg font-bold text-gray-800">{storeName}</h3>
                 ) : (
-                  <a href={`/portal/store/${storeSlug}`} className="text-lg font-bold text-gray-800 hover:text-indigo-600 transition-colors flex items-center gap-2">
+                  <a href={`/portal/stores/${storeSlug}`} className="text-lg font-bold text-gray-800 hover:text-indigo-600 transition-colors flex items-center gap-2">
                     {storeName} <span className="text-sm font-normal text-indigo-600">Xem Shop →</span>
                   </a>
                 )}

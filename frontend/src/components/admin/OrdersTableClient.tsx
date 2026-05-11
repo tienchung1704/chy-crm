@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { ArrowDown, ArrowUp, ArrowUpDown } from 'lucide-react';
+import { ArrowDown, ArrowUp, ArrowUpDown, Copy, Check } from 'lucide-react';
 import ExportQRButton from './ExportQRButton';
 import CreateOrderButton from './CreateOrderButton';
 import OrderSearchInput from './OrderSearchInput';
@@ -46,9 +46,8 @@ function OrderDateSortHeader({ field, label }: { field: 'createdAt' | 'updatedAt
   return (
     <Link
       href={`/admin/orders?${params.toString()}`}
-      className={`inline-flex items-center gap-1.5 rounded-md px-1.5 py-1 -ml-1.5 transition-colors ${
-        isActive ? 'text-blue-600 hover:bg-blue-50' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700'
-      }`}
+      className={`inline-flex items-center gap-1.5 rounded-md px-1.5 py-1 -ml-1.5 transition-colors ${isActive ? 'text-blue-600 hover:bg-blue-50' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700'
+        }`}
       title={`Sắp xếp ${label.toLowerCase()} ${nextSort === 'desc' ? 'mới nhất' : 'cũ nhất'}`}
     >
       <Icon className="w-3.5 h-3.5" />
@@ -64,6 +63,13 @@ interface OrdersTableClientProps {
 
 export default function OrdersTableClient({ orders, statusCounts }: OrdersTableClientProps) {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  const handleCopy = (code: string) => {
+    navigator.clipboard.writeText(code);
+    setCopiedId(code);
+    setTimeout(() => setCopiedId(null), 2000);
+  };
 
   const allSelected = orders.length > 0 && selectedIds.size === orders.length;
 
@@ -107,7 +113,7 @@ export default function OrdersTableClient({ orders, statusCounts }: OrdersTableC
           <CreateOrderButton />
         </div>
       </div>
-      
+
       <OrderStatusFilter counts={statusCounts} />
 
       {/* Table */}
@@ -127,15 +133,23 @@ export default function OrdersTableClient({ orders, statusCounts }: OrdersTableC
             const isPancake = order.source === 'PANCAKE';
             const metadata = order.metadata as any;
             if (isPancake && metadata?.items && Array.isArray(metadata.items) && metadata.items.length > 0) {
-              const item = metadata.items[0];
-              firstItemDisplay = `${item.name} x ${item.quantity || 1}`;
+              if (metadata.items.length > 1) {
+                firstItemDisplay = 'Nhiều sản phẩm';
+              } else {
+                const item = metadata.items[0];
+                firstItemDisplay = `${item.name} x ${item.quantity || 1}`;
+              }
             } else if (order.items && order.items.length > 0) {
-              const item = order.items[0];
-              firstItemDisplay = `${item.product?.name || 'Sản phẩm'} x ${item.quantity}`;
+              if (order.items.length > 1) {
+                firstItemDisplay = 'Nhiều sản phẩm';
+              } else {
+                const item = order.items[0];
+                firstItemDisplay = `${item.product?.name || 'Sản phẩm'} x ${item.quantity}`;
+              }
             }
 
             return (
-              <div key={`mob-${order.id}`} className={`p-4 flex flex-col gap-3 transition-all duration-200 ${isUnread ? 'bg-gray-100/60' : 'bg-white'} ${isChecked ? '!bg-indigo-50/60' : ''}`}>
+              <div key={`mob-${order.id}`} className={`p-4 flex flex-col gap-3 transition-all duration-200 ${isUnread ? 'bg-rose-50' : 'bg-white'} ${isChecked ? '!bg-indigo-50/60' : ''}`}>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <input
@@ -144,11 +158,19 @@ export default function OrdersTableClient({ orders, statusCounts }: OrdersTableC
                       onChange={() => toggleOne(order.id)}
                       className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
                     />
-                    {isUnread && <span className="w-2 h-2 rounded-full bg-blue-600 animate-pulse flex-shrink-0" />}
-                    <span className={`font-mono text-sm font-bold ${isUnread ? 'text-blue-700' : 'text-gray-900'}`}>
-                      #{order.orderCode}
-                    </span>
+                    <div className="flex items-center gap-1.5 group cursor-pointer" onClick={() => handleCopy(order.orderCode)}>
+                      <span className={`font-mono text-sm font-bold text-blue-600`}>
+                        #{order.orderCode}
+                      </span>
+                      {copiedId === order.orderCode ? (
+                        <Check className="w-3 h-3 text-green-500" />
+                      ) : (
+                        <Copy className="w-3 h-3 text-blue-600" />
+                      )}
+                    </div>
                   </div>
+                  {isUnread && <span className="w-2 h-2 rounded-full bg-blue-600 animate-pulse flex-shrink-0" />}
+
                   <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold shadow-sm ${st.cls}`}>
                     {st.label}
                   </span>
@@ -163,7 +185,7 @@ export default function OrdersTableClient({ orders, statusCounts }: OrdersTableC
                   </div>
                 </div>
 
-                <div className="text-[13px] font-medium text-gray-600 bg-gray-50 p-2 rounded-lg truncate">
+                <div className={`text-[13px] font-medium p-2 rounded-lg truncate ${firstItemDisplay === 'Nhiều sản phẩm' ? 'text-sky-500 font-bold bg-sky-50 border border-sky-100' : 'text-gray-600 bg-gray-50'}`}>
                   {firstItemDisplay}
                 </div>
 
@@ -234,17 +256,25 @@ export default function OrdersTableClient({ orders, statusCounts }: OrdersTableC
 
                 const metadata = order.metadata as any;
                 if (isPancake && metadata?.items && Array.isArray(metadata.items) && metadata.items.length > 0) {
-                  const item = metadata.items[0];
-                  firstItemDisplay = `${item.name} x ${item.quantity || 1}`;
+                  if (metadata.items.length > 1) {
+                    firstItemDisplay = 'Nhiều sản phẩm';
+                  } else {
+                    const item = metadata.items[0];
+                    firstItemDisplay = `${item.name} x ${item.quantity || 1}`;
+                  }
                 } else if (order.items && order.items.length > 0) {
-                  const item = order.items[0];
-                  firstItemDisplay = `${item.product?.name || 'Sản phẩm'} x ${item.quantity}`;
+                  if (order.items.length > 1) {
+                    firstItemDisplay = 'Nhiều sản phẩm';
+                  } else {
+                    const item = order.items[0];
+                    firstItemDisplay = `${item.product?.name || 'Sản phẩm'} x ${item.quantity}`;
+                  }
                 }
 
                 return (
                   <tr
                     key={order.id}
-                    className={`transition-colors hover:bg-gray-50/50 ${isUnread ? 'bg-indigo-50/30' : ''} ${isChecked ? '!bg-indigo-50/60' : ''}`}
+                    className={`transition-colors hover:bg-gray-50/50 ${isUnread ? 'bg-rose-50' : ''} ${isChecked ? '!bg-indigo-50/60' : ''}`}
                   >
                     <td className="px-4 py-3">
                       <input
@@ -257,9 +287,16 @@ export default function OrdersTableClient({ orders, statusCounts }: OrdersTableC
                     <td className="px-4 py-3 whitespace-nowrap">
                       <div className="flex items-center gap-2">
                         {isUnread && <span className="w-2 h-2 rounded-full bg-indigo-500 flex-shrink-0" title="Đơn hàng chưa đọc" />}
-                        <span className={`font-mono font-medium ${isUnread ? 'text-gray-900 font-bold' : 'text-gray-800'}`}>
-                          {order.orderCode}
-                        </span>
+                        <div className="flex items-center gap-2 group cursor-pointer" onClick={() => handleCopy(order.orderCode)}>
+                          <span className={`font-mono font-bold text-blue-600`}>
+                            {order.orderCode}
+                          </span>
+                          {copiedId === order.orderCode ? (
+                            <Check className="w-3.5 h-3.5 text-green-500" />
+                          ) : (
+                            <Copy className="w-3.5 h-3.5 text-blue-600" />
+                          )}
+                        </div>
                       </div>
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap">
@@ -277,7 +314,7 @@ export default function OrdersTableClient({ orders, statusCounts }: OrdersTableC
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap">
                       <div className="flex items-center gap-2 max-w-[200px]">
-                        <span className={`truncate text-gray-800 ${isUnread ? 'font-bold text-gray-900' : ''}`} title={firstItemDisplay}>
+                        <span className={`truncate ${firstItemDisplay === 'Nhiều sản phẩm' ? 'text-sky-500 font-bold' : 'text-gray-800'}`} title={firstItemDisplay}>
                           {firstItemDisplay}
                         </span>
                       </div>

@@ -15,7 +15,11 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { GetUser } from '../auth/decorators/get-user.decorator';
+import { GetEffectiveStoreId } from '../auth/decorators/get-effective-store-id.decorator';
 import { Public } from '../auth/decorators/public.decorator';
+import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { Permissions } from '../auth/decorators/permissions.decorator';
+import { Permission } from '../auth/enums/permissions.enum';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { CreateAdminOrderDto } from './dto/create-admin-order.dto';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
@@ -37,17 +41,20 @@ export class OrdersController {
   }
 
   @Post('admin')
-  @UseGuards(RolesGuard)
+  @UseGuards(RolesGuard, PermissionsGuard)
   @Roles('ADMIN', 'STAFF', 'MODERATOR')
+  @Permissions(Permission.ORDERS_MANAGE)
   @ApiOperation({ summary: 'Create order from admin' })
   createAdminOrder(
     @GetUser('id') userId: string,
     @GetUser('role') role: string,
+    @GetEffectiveStoreId() effectiveStoreId: string | null,
     @Body() createOrderDto: CreateAdminOrderDto,
   ) {
     return this.ordersService.createAdminOrder({
       actorId: userId,
       actorRole: role,
+      effectiveStoreId,
       createOrderDto,
     });
   }
@@ -60,12 +67,14 @@ export class OrdersController {
   }
 
   @Get('admin')
-  @UseGuards(RolesGuard)
+  @UseGuards(RolesGuard, PermissionsGuard)
   @Roles('ADMIN', 'STAFF', 'MODERATOR')
+  @Permissions(Permission.ORDERS_VIEW)
   @ApiOperation({ summary: 'Get all orders for admin/staff' })
   async findAdminOrders(
     @GetUser('id') userId: string,
     @GetUser('role') role: string,
+    @GetEffectiveStoreId() effectiveStoreId: string | null,
     @Query('page') page?: number,
     @Query('status') status?: string,
     @Query('search') search?: string,
@@ -78,6 +87,7 @@ export class OrdersController {
     return this.ordersService.findAdminOrders({
       userId,
       role,
+      effectiveStoreId,
       page: page ? Number(page) : undefined,
       status,
       search,
@@ -90,41 +100,47 @@ export class OrdersController {
   }
 
   @Get(':id')
+  @UseGuards(RolesGuard, PermissionsGuard)
   @ApiOperation({ summary: 'Get order detail' })
   @ApiResponse({ status: 200, description: 'Order retrieved successfully' })
   async findOne(
     @Param('id') id: string,
     @GetUser('id') userId: string,
     @GetUser('role') role: string,
+    @GetEffectiveStoreId() effectiveStoreId: string | null,
   ) {
-    return this.ordersService.findOne(id, userId, role);
+    return this.ordersService.findOne(id, userId, role, effectiveStoreId);
   }
 
   @Patch(':id/status')
-  @UseGuards(RolesGuard)
+  @UseGuards(RolesGuard, PermissionsGuard)
   @Roles('ADMIN', 'STAFF', 'MODERATOR')
+  @Permissions(Permission.ORDERS_MANAGE)
   @ApiOperation({ summary: 'Update order status' })
   @ApiResponse({ status: 200, description: 'Order status updated' })
   updateStatus(
     @Param('id') id: string,
     @GetUser('id') userId: string,
     @GetUser('role') role: string,
+    @GetEffectiveStoreId() effectiveStoreId: string | null,
     @Body() updateDto: UpdateOrderStatusDto,
   ) {
-    return this.ordersService.updateStatus(id, updateDto, userId, role);
+    return this.ordersService.updateStatus(id, updateDto, userId, role, effectiveStoreId);
   }
 
   @Patch(':id/read')
-  @UseGuards(RolesGuard)
+  @UseGuards(RolesGuard, PermissionsGuard)
   @Roles('ADMIN', 'STAFF', 'MODERATOR')
+  @Permissions(Permission.ORDERS_VIEW)
   @ApiOperation({ summary: 'Mark order as read' })
   @ApiResponse({ status: 200, description: 'Order marked as read' })
   markAsRead(
     @Param('id') id: string,
     @GetUser('id') userId: string,
     @GetUser('role') role: string,
+    @GetEffectiveStoreId() effectiveStoreId: string | null,
   ) {
-    return this.ordersService.markAsRead(id, userId, role);
+    return this.ordersService.markAsRead(id, userId, role, effectiveStoreId);
   }
 
   @Post('check-stock')
@@ -215,15 +231,16 @@ export class OrdersController {
   }
 
   @Delete(':id')
-  @UseGuards(RolesGuard)
-  @Roles('ADMIN')
-  @ApiOperation({ summary: 'Hard delete order (Admin only)' })
+  @UseGuards(RolesGuard, PermissionsGuard)
+  @Roles('ADMIN', 'MODERATOR')
+  @ApiOperation({ summary: 'Hard delete order (Admin/Owner only)' })
   @ApiResponse({ status: 200, description: 'Order deleted permanently' })
   hardDelete(
     @Param('id') id: string,
     @GetUser('id') userId: string,
     @GetUser('role') role: string,
+    @GetEffectiveStoreId() effectiveStoreId: string | null,
   ) {
-    return this.ordersService.hardDelete(id, userId, role);
+    return this.ordersService.hardDelete(id, userId, role, effectiveStoreId);
   }
 }

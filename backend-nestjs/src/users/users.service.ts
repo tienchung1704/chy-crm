@@ -62,6 +62,13 @@ export class UsersService {
         onboardingComplete: true,
         isActive: true,
         createdAt: true,
+        store: {
+          select: { id: true, name: true, slug: true }
+        },
+        staffStoreId: true,
+        staffStore: {
+          select: { id: true, name: true, slug: true }
+        }
       },
     });
   }

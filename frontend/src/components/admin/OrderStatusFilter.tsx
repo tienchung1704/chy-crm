@@ -16,11 +16,11 @@ const mainStatuses = {
   PAYMENT_COLLECTED: 'Đã thu tiền',
   COMPLETED: 'Hoàn thành',
   RETURNING: 'Đang hoàn',
+  CANCELLED: 'Đã hủy',
 };
 
 const extraStatuses = {
   EXCHANGING: 'Đang đổi',
-  CANCELLED: 'Đã hủy',
   REFUNDED: 'Hoàn trả',
 };
 

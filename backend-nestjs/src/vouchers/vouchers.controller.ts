@@ -2,15 +2,19 @@ import { Controller, Get, Post, Body, Patch, Delete, Param, UseGuards, Query } f
 import { VouchersService } from './vouchers.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
+import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { Permissions } from '../auth/decorators/permissions.decorator';
+import { Permission } from '../auth/enums/permissions.enum';
 import { GetUser } from '../auth/decorators/get-user.decorator';
+import { GetEffectiveStoreId } from '../auth/decorators/get-effective-store-id.decorator';
 import { Public } from '../auth/decorators/public.decorator';
 import { ClaimQRVoucherDto } from './dto/claim-qr-voucher.dto';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 
 @ApiTags('Vouchers')
 @Controller('vouchers')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
 export class VouchersController {
   constructor(private readonly vouchersService: VouchersService) {}
 
@@ -23,21 +27,27 @@ export class VouchersController {
 
   @Get('order-vouchers')
   @Roles('ADMIN', 'STAFF', 'MODERATOR')
+  @Permissions(Permission.VOUCHERS_MANAGE)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get all order-specific vouchers' })
-  async getOrderVouchersList(@GetUser() user: any) {
-    return this.vouchersService.getOrderVouchersList(user);
+  async getOrderVouchersList(
+    @GetUser() user: any,
+    @GetEffectiveStoreId() effectiveStoreId: string | null,
+  ) {
+    return this.vouchersService.getOrderVouchersList(user, effectiveStoreId);
   }
 
   @Get('admin')
   @Roles('ADMIN', 'STAFF', 'MODERATOR')
+  @Permissions(Permission.VOUCHERS_MANAGE)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get all vouchers for Admin' })
   async findAllAdmin(
     @GetUser() user: any,
+    @GetEffectiveStoreId() effectiveStoreId: string | null,
     @Query('excludeGamification') excludeGamification?: string,
   ) {
-    return this.vouchersService.findAllAdmin(excludeGamification === 'true', user);
+    return this.vouchersService.findAllAdmin(excludeGamification === 'true', user, effectiveStoreId);
   }
 
   @Get('user/my-vouchers')
@@ -49,14 +59,19 @@ export class VouchersController {
 
   @Get('referral-vouchers')
   @Roles('ADMIN', 'STAFF', 'MODERATOR')
+  @Permissions(Permission.VOUCHERS_MANAGE)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get all referral vouchers for admin' })
-  async getReferralVouchersList(@GetUser() user: any) {
-    return this.vouchersService.getReferralVouchersList(user);
+  async getReferralVouchersList(
+    @GetUser() user: any,
+    @GetEffectiveStoreId() effectiveStoreId: string | null,
+  ) {
+    return this.vouchersService.getReferralVouchersList(user, effectiveStoreId);
   }
 
   @Get('referral-rewards-config')
   @Roles('ADMIN', 'STAFF', 'MODERATOR')
+  @Permissions(Permission.VOUCHERS_MANAGE)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get referral reward tiers config' })
   async getReferralRewardConfig() {
@@ -72,10 +87,15 @@ export class VouchersController {
 
   @Get('order-voucher/:orderCode')
   @Roles('ADMIN', 'STAFF', 'MODERATOR')
+  @Permissions(Permission.VOUCHERS_MANAGE)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get voucher info for a specific order' })
-  async getOrderVoucher(@Param('orderCode') orderCode: string) {
-    return this.vouchersService.getOrderVoucher(orderCode);
+  async getOrderVoucher(
+    @Param('orderCode') orderCode: string,
+    @GetUser() user: any,
+    @GetEffectiveStoreId() effectiveStoreId: string | null,
+  ) {
+    return this.vouchersService.getOrderVoucher(orderCode, user, effectiveStoreId);
   }
 
   // --- :id routes MUST be last among GETs ---
@@ -88,10 +108,15 @@ export class VouchersController {
 
   @Post()
   @Roles('ADMIN', 'STAFF', 'MODERATOR')
+  @Permissions(Permission.VOUCHERS_MANAGE)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Create a new voucher' })
-  async create(@GetUser() user: any, @Body() data: any) {
-    return this.vouchersService.create(data, user);
+  async create(
+    @GetUser() user: any,
+    @GetEffectiveStoreId() effectiveStoreId: string | null,
+    @Body() data: any,
+  ) {
+    return this.vouchersService.create(data, user, effectiveStoreId);
   }
 
   @Post('send-otp')
@@ -121,6 +146,7 @@ export class VouchersController {
 
   @Post('manual-verify')
   @Roles('ADMIN', 'STAFF', 'MODERATOR')
+  @Permissions(Permission.VOUCHERS_MANAGE)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Trigger manual voucher verification' })
   async manualVerifyVouchers() {
@@ -129,9 +155,12 @@ export class VouchersController {
 
   @Post('create-order-voucher')
   @Roles('ADMIN', 'STAFF', 'MODERATOR')
+  @Permissions(Permission.VOUCHERS_MANAGE)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Create a dedicated voucher for a specific order' })
   async createOrderVoucher(
+    @GetUser() user: any,
+    @GetEffectiveStoreId() effectiveStoreId: string | null,
     @Body() data: { 
       orderId: string; 
       name?: string;
@@ -144,19 +173,24 @@ export class VouchersController {
       stackTiers?: any;
     }
   ) {
-    return this.vouchersService.createOrderVoucher(data);
+    return this.vouchersService.createOrderVoucher(data, user, effectiveStoreId);
   }
 
   @Post('referral-voucher')
   @Roles('ADMIN', 'STAFF', 'MODERATOR')
+  @Permissions(Permission.VOUCHERS_MANAGE)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Create a referral voucher' })
-  async createReferralVoucher(@GetUser() user: any, @Body() data: any) {
-    return this.vouchersService.createReferralVoucher(data, user);
+  async createReferralVoucher(
+    @GetUser() user: any,
+    @GetEffectiveStoreId() effectiveStoreId: string | null,
+    @Body() data: any,
+  ) {
+    return this.vouchersService.createReferralVoucher(data, user, effectiveStoreId);
   }
 
   @Post('referral-rewards-config')
-  @Roles('ADMIN', 'STAFF', 'MODERATOR')
+  @Roles('ADMIN')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Save referral reward tiers config' })
   async saveReferralRewardConfig(@Body() data: { tiers: any[] }) {
@@ -165,18 +199,28 @@ export class VouchersController {
 
   @Patch(':id')
   @Roles('ADMIN', 'STAFF', 'MODERATOR')
+  @Permissions(Permission.VOUCHERS_MANAGE)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Update a voucher' })
-  async update(@GetUser() user: any, @Param('id') id: string, @Body() data: any) {
-    return this.vouchersService.update(id, data, user);
+  async update(
+    @GetUser() user: any,
+    @GetEffectiveStoreId() effectiveStoreId: string | null,
+    @Param('id') id: string,
+    @Body() data: any,
+  ) {
+    return this.vouchersService.update(id, data, user, effectiveStoreId);
   }
 
   @Delete(':id')
   @Roles('ADMIN', 'STAFF', 'MODERATOR')
+  @Permissions(Permission.VOUCHERS_MANAGE)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Delete a voucher' })
-  async remove(@GetUser() user: any, @Param('id') id: string) {
-    return this.vouchersService.remove(id, user);
+  async remove(
+    @GetUser() user: any,
+    @GetEffectiveStoreId() effectiveStoreId: string | null,
+    @Param('id') id: string,
+  ) {
+    return this.vouchersService.remove(id, user, effectiveStoreId);
   }
 }
-

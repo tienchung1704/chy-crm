@@ -12,7 +12,7 @@ export default function QRConfigPage() {
   const [saving, setSaving] = useState(false);
   const [config, setConfig] = useState({
     values: [50000, 40000, 30000, 20000, 10000],
-    minOrderValue: 0,
+    minOrderValues: [0, 0, 0, 0, 0],
     displayText: 'Quét mã QR để nhận ngay voucher trị giá 50K',
     lockDurationDays: 7,
     expirationDays: 90,
@@ -32,6 +32,19 @@ export default function QRConfigPage() {
           configData.values = [configData.value];
           delete configData.value;
         }
+        
+        // Migration: if old config has 'minOrderValue' instead of 'minOrderValues', convert it
+        if (configData.minOrderValue !== undefined && !configData.minOrderValues) {
+          configData.minOrderValues = (configData.values || []).map(() => configData.minOrderValue);
+          delete configData.minOrderValue;
+        }
+
+        // Ensure arrays match length
+        if (configData.values && (!configData.minOrderValues || configData.minOrderValues.length !== configData.values.length)) {
+          const oldMin = configData.minOrderValues?.[0] || 0;
+          configData.minOrderValues = configData.values.map((_: any, i: number) => configData.minOrderValues?.[i] ?? oldMin);
+        }
+
         setConfig({ ...config, ...configData });
       }
     } catch (e) {
@@ -90,35 +103,67 @@ export default function QRConfigPage() {
                     </p>
                   </div>
                   <button
-                    onClick={() => setConfig({ ...config, values: [...config.values, 10000] })}
+                    onClick={() => setConfig({ 
+                      ...config, 
+                      values: [...config.values, 10000],
+                      minOrderValues: [...config.minOrderValues, config.minOrderValues[config.minOrderValues.length - 1] || 0]
+                    })}
                     className="px-3 py-1.5 text-xs font-semibold bg-blue-100 text-blue-700 hover:bg-blue-200 rounded-lg transition-colors"
                   >
                     + Thêm mốc
                   </button>
                 </div>
                 
-                <div className="space-y-2">
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3 px-2 mb-1">
+                    <div className="w-16"></div>
+                    <div className="flex-1 text-xs font-bold text-gray-500 text-center">Giá trị Voucher</div>
+                    <div className="flex-1 text-xs font-bold text-gray-500 text-center">Đơn tối thiểu</div>
+                    <div className="w-10"></div>
+                  </div>
                   {config.values.map((val, idx) => (
-                    <div key={idx} className="flex items-center gap-3">
-                      <div className="w-24 text-sm font-medium text-gray-600">Lần {idx + 1}:</div>
-                      <input
-                        type="number"
-                        value={val}
-                        onChange={(e) => {
-                          const newValues = [...config.values];
-                          newValues[idx] = Number(e.target.value);
-                          setConfig({ ...config, values: newValues });
-                        }}
-                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none font-semibold"
-                        placeholder="VD: 50000"
-                      />
+                    <div key={idx} className="flex items-center gap-3 bg-white p-2 rounded-lg border border-gray-100 shadow-sm">
+                      <div className="w-16 text-sm font-bold text-blue-600">Lần {idx + 1}:</div>
+                      <div className="flex-1">
+                        <div className="relative">
+                          <input
+                            type="number"
+                            value={val}
+                            onChange={(e) => {
+                              const newValues = [...config.values];
+                              newValues[idx] = Number(e.target.value);
+                              setConfig({ ...config, values: newValues });
+                            }}
+                            className="w-full pl-3 pr-8 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm font-semibold"
+                            placeholder="Voucher"
+                          />
+                          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-gray-400">đ</span>
+                        </div>
+                      </div>
+                      <div className="flex-1">
+                        <div className="relative">
+                          <input
+                            type="number"
+                            value={config.minOrderValues[idx] || 0}
+                            onChange={(e) => {
+                              const newMinValues = [...config.minOrderValues];
+                              newMinValues[idx] = Number(e.target.value);
+                              setConfig({ ...config, minOrderValues: newMinValues });
+                            }}
+                            className="w-full pl-3 pr-8 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm font-semibold"
+                            placeholder="Đơn tối thiểu"
+                          />
+                          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-gray-400">đ</span>
+                        </div>
+                      </div>
                       <button
                         onClick={() => {
                           const newValues = config.values.filter((_, i) => i !== idx);
-                          setConfig({ ...config, values: newValues });
+                          const newMinValues = config.minOrderValues.filter((_, i) => i !== idx);
+                          setConfig({ ...config, values: newValues, minOrderValues: newMinValues });
                         }}
                         disabled={config.values.length <= 1}
-                        className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-30"
+                        className="p-2 text-red-400 hover:bg-red-50 hover:text-red-600 rounded-lg transition-colors disabled:opacity-30"
                         title="Xoá mốc này"
                       >
                         ✕
@@ -128,22 +173,7 @@ export default function QRConfigPage() {
                 </div>
               </div>
 
-              {/* Min Order Value */}
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Giá trị đơn hàng tối thiểu (VNĐ)
-                </label>
-                <input
-                  type="number"
-                  value={config.minOrderValue}
-                  onChange={(e) => setConfig({ ...config, minOrderValue: Number(e.target.value) })}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                  placeholder="0"
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  Khách hàng cần đơn tối thiểu {fmtVND(config.minOrderValue)}đ để sử dụng voucher. Đặt 0 nếu không yêu cầu.
-                </p>
-              </div>
+
 
               {/* Display Text on DOCX */}
               <div>

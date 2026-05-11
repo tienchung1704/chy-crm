@@ -1,20 +1,21 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsDateString, IsEmail, IsIn, IsOptional, IsString } from 'class-validator';
+import { IsDateString, IsEmail, IsIn, IsNotEmpty, IsOptional, IsString } from 'class-validator';
 
 export class CreateCustomerDto {
   @ApiProperty({ example: 'Nguyen Van A' })
   @IsString()
+  @IsNotEmpty({ message: 'Họ và tên không được để trống' })
   name: string;
 
   @ApiPropertyOptional({ example: 'customer@example.com' })
   @IsOptional()
-  @IsEmail()
+  @IsEmail({}, { message: 'Email không hợp lệ' })
   email?: string;
 
-  @ApiPropertyOptional({ example: '0912345678' })
-  @IsOptional()
+  @ApiProperty({ example: '0912345678' })
   @IsString()
-  phone?: string;
+  @IsNotEmpty({ message: 'Số điện thoại không được để trống' })
+  phone: string;
 
   @ApiPropertyOptional({ enum: ['MALE', 'FEMALE', 'OTHER'] })
   @IsOptional()

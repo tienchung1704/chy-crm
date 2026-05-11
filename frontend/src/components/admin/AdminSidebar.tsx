@@ -19,6 +19,7 @@ interface AdminSidebarProps {
 }
 
 const ALL_ROLES = ['ADMIN', 'STAFF', 'MODERATOR'];
+const ADMIN_MODERATOR = ['ADMIN', 'MODERATOR'];
 const ADMIN_STAFF = ['ADMIN', 'STAFF'];
 const ADMIN_ONLY = ['ADMIN'];
 
@@ -33,6 +34,7 @@ const navItems = [
     label: 'Quản lý',
     items: [
       { name: 'Khách hàng', href: '/admin/customers', roles: ADMIN_STAFF },
+      { name: 'Nhân viên', href: '/admin/staff', roles: ADMIN_MODERATOR },
       { name: 'Cửa hàng', href: '/admin/stores', roles: ADMIN_ONLY },
       { name: 'Đơn hàng', href: '/admin/orders', roles: ALL_ROLES },
       { name: 'Sản phẩm', href: '/admin/products', roles: ALL_ROLES },
@@ -42,17 +44,17 @@ const navItems = [
   {
     label: 'Chiến dịch',
     items: [
-      { name: 'Voucher', href: '/admin/vouchers', roles: ALL_ROLES },
-      { name: 'Voucher Đơn Hàng', href: '/admin/order-vouchers', roles: ALL_ROLES },
-      { name: 'Referral', href: '/admin/referrals', roles: ADMIN_STAFF },
-      { name: 'Vòng quay', href: '/admin/spin', roles: ADMIN_STAFF },
-      { name: 'Voucher Mã Mời', href: '/admin/referral-vouchers', roles: ADMIN_STAFF },
+      { name: 'Voucher', href: '/admin/vouchers', roles: ADMIN_MODERATOR },
+      { name: 'Voucher Đơn Hàng', href: '/admin/order-vouchers', roles: ADMIN_MODERATOR },
+      { name: 'Referral', href: '/admin/referrals', roles: ADMIN_MODERATOR },
+      { name: 'Vòng quay', href: '/admin/spin', roles: ADMIN_MODERATOR },
+      { name: 'Voucher Mã Mời', href: '/admin/referral-vouchers', roles: ADMIN_MODERATOR },
     ],
   },
   {
     label: 'Hệ thống',
     items: [
-      { name: 'Kết nối', href: '/admin/integrations', roles: ALL_ROLES },
+      { name: 'Kết nối', href: '/admin/integrations', roles: ADMIN_MODERATOR },
       { name: 'Hoa hồng', href: '/admin/commissions', roles: ADMIN_ONLY },
       { name: 'Cấu hình QR', href: '/admin/qr-config', roles: ADMIN_ONLY },
     ],

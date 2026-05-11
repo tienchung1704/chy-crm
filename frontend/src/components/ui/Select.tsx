@@ -91,13 +91,24 @@ export default function Select({
     md: 'px-4 py-2.5 text-base'
   };
 
+  const hasBg = className.includes('bg-');
+  const hasBorder = className.includes('border-');
+  const hasTextColor = className.includes('text-');
+  const hasRounded = className.includes('rounded-');
+
   return (
     <div className={`relative ${className}`} ref={dropdownRef}>
       <button
         type="button"
         disabled={disabled}
         onClick={() => !disabled && setIsOpen(!isOpen)}
-        className={`w-full ${sizeClasses[size]} border border-gray-200 rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow flex items-center justify-between ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+        className={`w-full ${sizeClasses[size]} transition-shadow flex items-center justify-between
+          ${!hasRounded ? 'rounded-lg' : ''}
+          ${!hasBorder ? 'border border-gray-200' : ''}
+          ${!hasBg ? 'bg-white hover:bg-gray-50' : ''}
+          ${!hasTextColor ? 'text-gray-700' : ''}
+          focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent
+          ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
       >
         <span className="truncate">{selectedLabel}</span>
       </button>

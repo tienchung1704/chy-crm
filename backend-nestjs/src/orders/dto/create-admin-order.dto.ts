@@ -32,9 +32,10 @@ class AdminOrderItemDto {
 }
 
 export class CreateAdminOrderDto {
-  @ApiProperty()
+  @ApiPropertyOptional({ description: 'User ID - optional for guest orders' })
+  @IsOptional()
   @IsString()
-  userId: string;
+  userId?: string;
 
   @ApiProperty({ type: [AdminOrderItemDto] })
   @IsArray()

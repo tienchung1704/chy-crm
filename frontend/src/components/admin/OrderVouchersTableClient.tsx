@@ -87,18 +87,18 @@ export default function OrderVouchersTableClient() {
 
   function getStatus(v: any) {
     if (v.totalUsageLimit && v.usedCount >= v.totalUsageLimit) {
-      return { label: 'Đã sử dụng', cls: 'text-gray-500' };
+      return { label: 'Đã sử dụng', cls: 'bg-gray-100 text-gray-700 border border-gray-200' };
     }
     
     switch (v.resolvedStatus) {
       case 'LOCKED':
-        return { label: 'Bị tạm khoá', cls: 'text-red-600 font-medium' };
+        return { label: 'Bị tạm khoá', cls: 'bg-red-100 text-red-700 border border-red-200' };
       case 'ACTIVE':
-        return { label: 'Còn hiệu lực', cls: 'text-green-600 font-semibold' };
+        return { label: 'Còn hiệu lực', cls: 'bg-emerald-100 text-emerald-700 border border-emerald-200' };
       case 'PENDING':
-        return { label: 'Đang chờ', cls: 'text-orange-500 font-semibold' };
+        return { label: 'Đang chờ', cls: 'bg-orange-100 text-orange-700 border border-orange-200' };
       default:
-        return { label: 'Tắt', cls: 'text-gray-600' };
+        return { label: 'Tắt', cls: 'bg-slate-100 text-slate-700 border border-slate-200' };
     }
   }
 
@@ -207,12 +207,14 @@ export default function OrderVouchersTableClient() {
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap">
                       {v.totalUsageLimit && v.usedCount >= v.totalUsageLimit ? (
-                        <span className={status.cls}>{status.label}</span>
+                        <span className={`px-3 py-1 rounded-full text-[11px] font-bold shadow-sm ${status.cls}`}>
+                          {status.label}
+                        </span>
                       ) : (
                         <Select
                           value={v.status || 'AUTO'}
                           onChange={(val) => handleStatusChange(v.id, val)}
-                          className="w-40"
+                          className={`w-40 font-bold rounded-full ${status.cls}`}
                           options={[
                             { value: 'AUTO', label: `Tự động (${status.label})` },
                             { value: 'ACTIVE', label: 'Còn hiệu lực' },

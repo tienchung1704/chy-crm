@@ -67,8 +67,34 @@ export class AuthService {
       },
     });
 
-    // Notify admins about new customer
+    // Prepare display name for notifications
     const displayName = name || phone || email || 'Khách hàng';
+
+    // Auto-link guest orders with matching phone number
+    if (phone) {
+      const linkedCount = await this.prisma.order.updateMany({
+        where: {
+          userId: null, // Guest orders only
+          shippingPhone: phone,
+        },
+        data: {
+          userId: user.id,
+        },
+      });
+
+      if (linkedCount.count > 0) {
+        // Log the auto-link for admin visibility
+        await this.adminNotificationsService.createNotification({
+          type: 'ORDER',
+          title: 'Đơn hàng khách vãng lai đã được liên kết',
+          message: `${linkedCount.count} đơn hàng của ${displayName} (${phone}) đã được tự động liên kết với tài khoản mới`,
+          link: `/admin/customers/${user.id}`,
+          metadata: { userId: user.id, linkedOrdersCount: linkedCount.count },
+        });
+      }
+    }
+
+    // Notify admins about new customer
     await this.adminNotificationsService.createNotification({
       type: 'CUSTOMER',
       title: 'Khách hàng mới đăng ký',

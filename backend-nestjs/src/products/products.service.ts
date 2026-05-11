@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
@@ -8,18 +8,45 @@ import { FilterProductDto } from './dto/filter-product.dto';
 export class ProductsService {
   constructor(private prisma: PrismaService) {}
 
-  async create(userId: string, role: string, createProductDto: CreateProductDto) {
-    const { categoryIds, variants, ...productData } = createProductDto;
+  async create(userId: string, role: string, effectiveStoreId: string | null, createProductDto: CreateProductDto) {
+    const { categoryIds, variants, storeId: providedStoreId, ...productData } = createProductDto;
 
     let storeId: string | undefined;
-    if (role === 'MODERATOR') {
-      const store = await this.prisma.store.findUnique({
-        where: { ownerId: userId },
-      });
-      if (!store) {
-        throw new NotFoundException('Store not found for this moderator');
+    
+    if (role !== 'ADMIN') {
+      // Non-admin roles (MODERATOR, STAFF) MUST use their effectiveStoreId
+      if (!effectiveStoreId) {
+        throw new BadRequestException('User has no assigned store');
       }
-      storeId = store.id;
+      storeId = effectiveStoreId;
+    } else {
+      // ADMIN: use provided storeId or find default store
+      if (providedStoreId) {
+        // Validate store exists
+        const store = await this.prisma.store.findUnique({
+          where: { id: providedStoreId },
+        });
+        if (!store) {
+          throw new NotFoundException('Store not found');
+        }
+        storeId = providedStoreId;
+      } else {
+        // Find default admin store or first active store
+        const defaultStore = await this.prisma.store.findFirst({
+          where: {
+            OR: [
+              { name: { contains: 'Admin' } },
+              { name: { contains: 'Hệ thống' } },
+              { isActive: true },
+            ],
+          },
+          orderBy: { createdAt: 'asc' },
+        });
+        
+        if (defaultStore) {
+          storeId = defaultStore.id;
+        }
+      }
     }
 
     // Generate slug from name
@@ -58,28 +85,22 @@ export class ProductsService {
   async findAdminProducts(params: {
     userId: string;
     role: string;
+    effectiveStoreId: string | null;
     page?: number;
     limit?: number;
     search?: string;
     categoryId?: string;
     isActive?: boolean;
   }) {
-    const { userId, role } = params;
+    const { userId, role, effectiveStoreId } = params;
     const page = params.page || 1;
     const limit = params.limit || 20;
     const skip = (page - 1) * limit;
 
     const where: any = {};
 
-    if (role === 'MODERATOR') {
-      const store = await this.prisma.store.findUnique({
-        where: { ownerId: userId },
-      });
-      if (store) {
-        where.storeId = store.id;
-      } else {
-        where.id = 'no-access';
-      }
+    if (effectiveStoreId) {
+      where.storeId = effectiveStoreId;
     }
 
     if (params.search) {
@@ -388,7 +409,13 @@ export class ProductsService {
     return [...relatedByCategory, ...additionalProducts];
   }
 
-  async update(id: string, updateProductDto: UpdateProductDto, userId: string, role: string) {
+  async update(
+    id: string,
+    updateProductDto: UpdateProductDto,
+    userId: string,
+    role: string,
+    effectiveStoreId: string | null,
+  ) {
     const { categoryIds, variants, ...productData } = updateProductDto;
 
     // Check if product exists and if user has access
@@ -400,13 +427,8 @@ export class ProductsService {
       throw new NotFoundException('Product not found');
     }
 
-    if (role === 'MODERATOR') {
-      const store = await this.prisma.store.findUnique({
-        where: { ownerId: userId },
-      });
-      if (!store || existingProduct.storeId !== store.id) {
-        throw new NotFoundException('Product not found or access denied');
-      }
+    if (role !== 'ADMIN' && effectiveStoreId && existingProduct.storeId !== effectiveStoreId) {
+      throw new BadRequestException('You do not have permission to update this product');
     }
 
     const product = await this.prisma.product.update({
@@ -446,7 +468,7 @@ export class ProductsService {
     return product;
   }
 
-  async remove(id: string, userId: string, role: string) {
+  async remove(id: string, userId: string, role: string, effectiveStoreId: string | null) {
     // Check if product exists and if user has access
     const existingProduct = await this.prisma.product.findUnique({
       where: { id },
@@ -456,13 +478,8 @@ export class ProductsService {
       throw new NotFoundException('Product not found');
     }
 
-    if (role === 'MODERATOR') {
-      const store = await this.prisma.store.findUnique({
-        where: { ownerId: userId },
-      });
-      if (!store || existingProduct.storeId !== store.id) {
-        throw new NotFoundException('Product not found or access denied');
-      }
+    if (role !== 'ADMIN' && effectiveStoreId && existingProduct.storeId !== effectiveStoreId) {
+      throw new BadRequestException('You do not have permission to delete this product');
     }
 
     // Hard delete: remove related records then the product

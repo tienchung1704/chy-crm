@@ -371,7 +371,7 @@ export default function ProductDetailClient({ product, relatedProducts = [], ini
                       <>
                         {product.categories.length > 0 && <span className="text-gray-300 mx-1">|</span>}
                         <div
-                          onClick={() => router.push(`/portal/store/${product.store?.slug}`)}
+                          onClick={() => router.push(`/portal/stores/${product.store?.slug}`)}
                           className="flex items-center gap-2 text-sm text-gray-600 bg-gray-50 px-3 py-1.5 rounded-md cursor-pointer hover:bg-indigo-50 hover:text-indigo-600 transition-colors"
                         >
                           <div className="w-6 h-6 rounded-full bg-white flex items-center justify-center overflow-hidden shadow-sm border border-gray-200">

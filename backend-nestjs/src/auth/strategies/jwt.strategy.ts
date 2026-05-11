@@ -39,6 +39,9 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
         gender: true,
         dob: true,
         isActive: true,
+        staffStoreId: true,
+        staffPermissions: true,
+        store: { select: { id: true } },
       },
     });
 

@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Logger, ForbiddenException } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from '../prisma/prisma.service';
 import { UsersService } from '../users/users.service';
@@ -444,20 +444,7 @@ export class OrdersService {
     let totalAmount = subtotal - discountAmount + parsedShippingFee;
     if (totalAmount < 0) totalAmount = 0;
 
-    // Update user profile if missing information
-    const userUpdateData: any = {};
-    if (!user.name && name) userUpdateData.name = name;
-    if (!user.phone && phone) userUpdateData.phone = phone;
-    if (!user.addressStreet && addressStreet) userUpdateData.addressStreet = addressStreet;
-    if (!user.addressWard && addressWard) userUpdateData.addressWard = addressWard;
-    if (!user.addressProvince && addressProvince) userUpdateData.addressProvince = addressProvince;
-    
-    if (Object.keys(userUpdateData).length > 0) {
-      await this.prisma.user.update({
-        where: { id: user.id },
-        data: userUpdateData,
-      });
-    }
+
 
     const orderCode = this.generateOrderCode();
     const vietqrExpiresAt = paymentMethod === 'VIETQR'
@@ -555,9 +542,10 @@ export class OrdersService {
   async createAdminOrder(params: {
     actorId: string;
     actorRole: string;
+    effectiveStoreId?: string | null;
     createOrderDto: CreateAdminOrderDto;
   }) {
-    const { actorId, actorRole, createOrderDto } = params;
+    const { actorId, actorRole, effectiveStoreId, createOrderDto } = params;
     const {
       userId,
       items,
@@ -577,37 +565,49 @@ export class OrdersService {
       throw new BadRequestException('Order must contain at least one item');
     }
 
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-      select: {
-        id: true,
-        role: true,
-        name: true,
-        phone: true,
-        addressStreet: true,
-        addressWard: true,
-        addressProvince: true,
-      },
-    });
-
-    if (!user || user.role !== 'CUSTOMER') {
-      throw new NotFoundException('Customer not found');
+    // Validate shipping info is provided when no user is selected (guest order)
+    if (!userId && (!shippingName || !shippingPhone)) {
+      throw new BadRequestException('Shipping name and phone are required for guest orders');
     }
 
-    let moderatorStoreId: string | null = null;
-    if (actorRole === 'MODERATOR') {
-      const store = await this.prisma.store.findUnique({
-        where: { ownerId: actorId },
-        select: { id: true },
+    // If userId is provided, validate and fetch user info
+    let user: {
+      id: string;
+      role: string;
+      name: string | null;
+      phone: string | null;
+      addressStreet: string | null;
+      addressWard: string | null;
+      addressProvince: string | null;
+    } | null = null;
+
+    if (userId) {
+      user = await this.prisma.user.findUnique({
+        where: { id: userId },
+        select: {
+          id: true,
+          role: true,
+          name: true,
+          phone: true,
+          addressStreet: true,
+          addressWard: true,
+          addressProvince: true,
+        },
       });
-      if (!store) {
-        throw new BadRequestException('Store not found for moderator');
+
+      if (!user || user.role !== 'CUSTOMER') {
+        throw new NotFoundException('Customer not found');
       }
-      moderatorStoreId = store.id;
+    }
+
+    let orderStoreId: string | null | undefined = effectiveStoreId || undefined;
+
+    // Mutation Anti-Spoofing: If not admin, force storeId to the scoped store
+    if (actorRole !== 'ADMIN' && effectiveStoreId) {
+      orderStoreId = effectiveStoreId;
     }
 
     let subtotal = 0;
-    let orderStoreId: string | null | undefined;
     const orderItemsToCreate: Array<{
       productId: string;
       quantity: number;
@@ -626,8 +626,8 @@ export class OrdersService {
         throw new BadRequestException('Product unavailable');
       }
 
-      if (actorRole === 'MODERATOR' && product.storeId !== moderatorStoreId) {
-        throw new BadRequestException('Moderator can only create orders for their own store');
+      if (actorRole !== 'ADMIN' && effectiveStoreId && product.storeId !== effectiveStoreId) {
+        throw new BadRequestException('You can only create orders for your own store');
       }
 
       const currentStoreId = product.storeId || null;
@@ -691,13 +691,13 @@ export class OrdersService {
 
     const order = await this.prisma.order.create({
       data: {
-        userId: user.id,
+        userId: user?.id || null, // null for guest orders
         orderCode: this.generateOrderCode(),
-        shippingName: shippingName || user.name,
-        shippingPhone: shippingPhone || user.phone,
-        shippingStreet: shippingStreet || user.addressStreet,
-        shippingWard: shippingWard || user.addressWard,
-        shippingProvince: shippingProvince || user.addressProvince,
+        shippingName: shippingName || user?.name || null,
+        shippingPhone: shippingPhone || user?.phone || null,
+        shippingStreet: shippingStreet || user?.addressStreet || null,
+        shippingWard: shippingWard || user?.addressWard || null,
+        shippingProvince: shippingProvince || user?.addressProvince || null,
         subtotal,
         discountAmount: parsedDiscountAmount,
         shippingFee: parsedShippingFee,
@@ -711,6 +711,7 @@ export class OrdersService {
         metadata: {
           createdBy: actorId,
           createdByRole: actorRole,
+          isGuestOrder: !userId, // Flag to identify guest orders
         },
         items: {
           create: orderItemsToCreate,
@@ -724,6 +725,7 @@ export class OrdersService {
   async findAdminOrders(params: {
     userId: string;
     role: string;
+    effectiveStoreId?: string | null;
     page?: number;
     limit?: number;
     status?: string;
@@ -734,7 +736,7 @@ export class OrdersService {
     dateFilterType?: string;
     dateValue?: string;
   }) {
-    const { userId, role } = params;
+    const { userId, role, effectiveStoreId } = params;
     const page = params.page || 1;
     const limit = params.limit || 11;
     const search = params.search || '';
@@ -748,17 +750,9 @@ export class OrdersService {
     const where: any = {};
     const baseWhere: any = {}; // For status counts
 
-    if (role === 'MODERATOR') {
-      const store = await this.prisma.store.findUnique({
-        where: { ownerId: userId },
-      });
-      if (store) {
-        where.storeId = store.id;
-        baseWhere.storeId = store.id;
-      } else {
-        where.id = 'no-access';
-        baseWhere.id = 'no-access';
-      }
+    if (effectiveStoreId) {
+      where.storeId = effectiveStoreId;
+      baseWhere.storeId = effectiveStoreId;
     }
 
     if (search) {
@@ -896,7 +890,12 @@ export class OrdersService {
     });
   }
 
-  async findOne(id: string, userId: string, role: string) {
+  async findOne(
+    id: string,
+    userId: string,
+    role: string,
+    effectiveStoreId?: string | null,
+  ) {
     const order = await this.prisma.order.findUnique({
       where: { id },
       include: {
@@ -921,6 +920,7 @@ export class OrdersService {
             email: true,
             phone: true,
             rank: true,
+            referrerId: true,
             address: true,
             addressStreet: true,
             addressWard: true,
@@ -966,17 +966,15 @@ export class OrdersService {
     };
 
     // Permission check
-    if (role === 'ADMIN' || role === 'STAFF') {
+    if (role === 'ADMIN') {
       return enrichedOrder;
     }
 
-    if (role === 'MODERATOR') {
-      const store = await this.prisma.store.findUnique({
-        where: { ownerId: userId },
-      });
-      if (order.storeId === store?.id) {
+    if (effectiveStoreId) {
+      if (order.storeId === effectiveStoreId) {
         return enrichedOrder;
       }
+      throw new NotFoundException('Order not found or access denied');
     }
 
     if (order.userId === userId) {
@@ -991,44 +989,12 @@ export class OrdersService {
     updateDto: UpdateOrderStatusDto,
     userId?: string,
     role?: string,
+    effectiveStoreId?: string | null,
   ) {
     const { status, paymentStatus } = updateDto;
 
-    // Get current order
-    const currentOrder = await this.prisma.order.findUnique({
-      where: { id },
-      include: {
-        items: {
-          include: {
-            product: true,
-          },
-        },
-        user: {
-          select: {
-            id: true,
-            referrerId: true,
-          },
-        },
-      },
-    });
-
-    if (!currentOrder) {
-      throw new NotFoundException('Order not found');
-    }
-
-    if (role === 'CUSTOMER' && currentOrder.userId !== userId) {
-      throw new NotFoundException('Order not found');
-    }
-
-    // Permission check for MODERATOR
-    if (role === 'MODERATOR' && userId) {
-      const store = await this.prisma.store.findUnique({
-        where: { ownerId: userId },
-      });
-      if (currentOrder.storeId !== store?.id) {
-        throw new NotFoundException('Order not found');
-      }
-    }
+    // Get current order and check permissions
+    const currentOrder = await this.findOne(id, userId || '', role || '', effectiveStoreId);
 
     // Update order
     const updateData: any = { updatedAt: new Date() };
@@ -1140,15 +1106,9 @@ export class OrdersService {
     );
   }
 
-  async markAsRead(id: string, userId?: string, role?: string) {
-    if (role === 'MODERATOR' && userId) {
-      const order = await this.prisma.order.findUnique({ where: { id } });
-      const store = await this.prisma.store.findUnique({
-        where: { ownerId: userId },
-      });
-      if (!order || order.storeId !== store?.id) {
-        throw new NotFoundException('Order not found');
-      }
+  async markAsRead(id: string, userId?: string, role?: string, effectiveStoreId?: string | null) {
+    if (userId && role) {
+      await this.findOne(id, userId, role, effectiveStoreId);
     }
 
     // Use raw query to avoid Prisma auto-updating updatedAt
@@ -1512,15 +1472,12 @@ export class OrdersService {
     };
   }
 
-  async hardDelete(id: string, userId: string, role: string) {
-    if (role !== 'ADMIN') {
-      throw new BadRequestException('Chỉ Admin mới có quyền xóa đơn hàng');
+  async hardDelete(id: string, userId: string, role: string, effectiveStoreId?: string | null) {
+    if (role !== 'ADMIN' && role !== 'MODERATOR') {
+      throw new ForbiddenException('You do not have permission to delete orders');
     }
 
-    const order = await this.prisma.order.findUnique({ where: { id } });
-    if (!order) {
-      throw new NotFoundException('Không tìm thấy đơn hàng');
-    }
+    const order = await this.findOne(id, userId, role, effectiveStoreId);
 
     await this.prisma.$transaction(async (tx) => {
       // Delete commission ledger entries

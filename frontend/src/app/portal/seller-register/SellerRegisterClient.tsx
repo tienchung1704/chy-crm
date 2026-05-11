@@ -178,9 +178,15 @@ export default function SellerRegisterClient() {
               />
             </div>
             <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Mô tả ngắn</label>
+              <div className="flex justify-between items-end mb-1">
+                <label className="block text-sm font-medium text-gray-700">Mô tả ngắn</label>
+                <span className={`text-[10px] font-medium ${description.length > 750 ? 'text-red-500' : 'text-gray-400'}`}>
+                  {description.length}/800
+                </span>
+              </div>
               <textarea
                 value={description}
+                maxLength={800}
                 onChange={e => setDescription(e.target.value)}
                 rows={3}
                 className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none resize-none"

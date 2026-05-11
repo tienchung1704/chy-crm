@@ -208,7 +208,7 @@ export class WebhooksService {
         status: STATUS_NAME || `VTP-${ORDER_STATUS}`,
         key: `VTP_${ORDER_STATUS}`,
         note: [NOTE, location].filter(Boolean).join(' - ') || null,
-        update_at: ORDER_STATUSDATE || new Date().toISOString(),
+        update_at: this.parseProviderDate(ORDER_STATUSDATE)?.toISOString() || new Date().toISOString(),
       };
 
       // Get existing metadata
