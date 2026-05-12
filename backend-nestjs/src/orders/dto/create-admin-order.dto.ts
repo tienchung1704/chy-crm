@@ -94,4 +94,13 @@ export class CreateAdminOrderDto {
   @Type(() => Number)
   @IsNumber()
   discountAmount?: number;
+
+  @ApiPropertyOptional({ description: 'Initial order status' })
+  @IsOptional()
+  @IsString()
+  status?: string;
+
+  @ApiPropertyOptional({ description: 'Additional metadata (staff assignments, carrier, etc.)' })
+  @IsOptional()
+  metadata?: Record<string, any>;
 }

@@ -5,6 +5,10 @@ import DeleteOrderButton from '@/components/admin/DeleteOrderButton';
 import CreateOrderVoucherButton from '@/components/admin/CreateOrderVoucherButton';
 import { apiClient } from '@/lib/apiClient';
 import { Copy } from 'lucide-react';
+import OrderPaymentClient from '@/components/admin/OrderPaymentClient';
+import OrderNotesClient from '@/components/admin/OrderNotesClient';
+import OrderInfoClient from '@/components/admin/OrderInfoClient';
+import { OrderSaveProvider } from '@/components/admin/OrderSaveProvider';
 
 function fmt(amount: number) {
   return new Intl.NumberFormat('vi-VN').format(amount || 0) + ' đ';
@@ -87,11 +91,15 @@ export default async function OrderDetailPage(props: {
   const backUrl = searchParams?.from === 'order-vouchers' ? '/admin/order-vouchers' : '/admin/orders';
 
   let order: any = null;
+  let staffList: any[] = [];
 
   try {
     order = await apiClient.get<any>(`/orders/${params.id}`);
+    if (order?.storeId) {
+      staffList = await apiClient.get<any[]>(`/admin/staff?storeId=${order.storeId}`);
+    }
   } catch (error) {
-    console.error('Error fetching order details:', error);
+    console.error('Error fetching order details or staff:', error);
   }
 
   if (!order) {
@@ -167,7 +175,8 @@ export default async function OrderDetailPage(props: {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <OrderSaveProvider>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left Column */}
         <div className="lg:col-span-2 space-y-6">
           {/* Order Items */}
@@ -300,178 +309,38 @@ export default async function OrderDetailPage(props: {
             </div>
           </div>
 
-          {/* Order Summary / Financials */}
-          <div className="bg-white rounded-xl shadow-sm p-6">
-            <h2 className="text-xl font-bold text-gray-800 mb-4">
-              Chi tiết thanh toán
-            </h2>
-            <div>
-              <div className="flex justify-between text-gray-700">
-                <span>Tiền hàng :</span>
-                <span className="text-gray-800">{fmt(order.subtotal)}</span>
-              </div>
-              {order.discountAmount > 0 && (
-                <div className="flex justify-between text-green-600">
-                  <span>Giảm giá:</span>
-                  <span className="text-gray-800">-{fmt(order.discountAmount)}</span>
-                </div>
-              )}
-              <div className="flex justify-between text-gray-700">
-                <span>Phí vận chuyển:</span>
-                <span className="text-gray-800">{fmt(order.shippingFee)}</span>
-              </div>
-              {order.shippingDiscount > 0 && (
-                <div className="flex justify-between text-green-600">
-                  <span>Giảm phí ship:</span>
-                  <span className="text-gray-800">
-                    -{fmt(order.shippingDiscount)}
-                  </span>
-                </div>
-              )}
-              {isPancake && financial.surcharge > 0 && (
-                <div className="flex justify-between text-gray-700">
-                  <span>Phụ thu:</span>
-                  <span className="font-semibold">{fmt(financial.surcharge)}</span>
-                </div>
-              )}
+          {/* 2-Column Grid for Payment and Notes */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Order Summary / Financials - Pancake style (Dynamic Client Component) */}
+            <OrderPaymentClient order={order} metadata={m} isPancake={isPancake} />
 
-              {/* Payment breakdown for Pancake orders */}
-              {isPancake && payment.totalPaid > 0 && (
-                <div className="border-gray-200">
-                  <div className="grid grid-cols-2 gap-1">
-                    {payment.cod > 0 && (
-                      <div className="flex justify-between py-1.5 col-span-2">
-                        <span className="text-gray-600 flex items-center gap-1.5">
-                          Tiền thu hộ (COD):
-                        </span>
-                        <span className=" text-gray-800">{fmt(order.totalAmount - payment.totalPaid)}</span>
-                      </div>
-                    )}
-                    {payment.cash > 0 && (
-                      <div className="flex justify-between py-1.5 col-span-2">
-                        <span className="text-gray-600 flex items-center gap-1.5">
-                          Tiền mặt:
-                        </span>
-                        <span className=" text-gray-800">{fmt(payment.cash)}</span>
-                      </div>
-                    )}
-                    {payment.transferMoney > 0 && (
-                      <div className="flex justify-between py-1.5 col-span-2">
-                        <span className="text-gray-600 flex items-center gap-1.5">
-                          Chuyển khoản:
-                        </span>
-                        <span className=" text-gray-800">{fmt(payment.transferMoney)}</span>
-                      </div>
-                    )}
-                    {payment.chargedByMomo > 0 && (
-                      <div className="flex justify-between py-1.5 col-span-2">
-                        <span className="text-gray-600 flex items-center gap-1.5">
-                          MoMo:
-                        </span>
-                        <span className="font-semibold text-gray-800">{fmt(payment.chargedByMomo)}</span>
-                      </div>
-                    )}
-                    {payment.chargedByVnpay > 0 && (
-                      <div className="flex justify-between py-1.5 col-span-2">
-                        <span className="text-gray-600 flex items-center gap-1.5">
-                          VNPay:
-                        </span>
-                        <span className="font-semibold text-gray-800">{fmt(payment.chargedByVnpay)}</span>
-                      </div>
-                    )}
-                    {payment.chargedByCard > 0 && (
-                      <div className="flex justify-between py-1.5 col-span-2">
-                        <span className="text-gray-600 flex items-center gap-1.5">
-                          Quẹt thẻ:
-                        </span>
-                        <span className="font-semibold text-gray-800">{fmt(payment.chargedByCard)}</span>
-                      </div>
-                    )}
-                    {payment.chargedByQrpay > 0 && (
-                      <div className="flex justify-between py-1.5 col-span-2">
-                        <span className="text-gray-600 flex items-center gap-1.5">
-                          QR Pay:
-                        </span>
-                        <span className="font-semibold text-gray-800">{fmt(payment.chargedByQrpay)}</span>
-                      </div>
-                    )}
-                    {payment.chargedByFundiin > 0 && (
-                      <div className="flex justify-between py-1.5 col-span-2">
-                        <span className="text-gray-600">Fundiin:</span>
-                        <span className="font-semibold text-gray-800">{fmt(payment.chargedByFundiin)}</span>
-                      </div>
-                    )}
-                    {payment.chargedByKredivo > 0 && (
-                      <div className="flex justify-between py-1.5 col-span-2">
-                        <span className="text-gray-600">Kredivo:</span>
-                        <span className="font-semibold text-gray-800">{fmt(payment.chargedByKredivo)}</span>
-                      </div>
-                    )}
-                    {payment.prepaidByPoint?.money > 0 && (
-                      <div className="flex justify-between py-1.5 col-span-2">
-                        <span className="text-gray-600 flex items-center gap-1.5">
-                          Điểm thưởng ({payment.prepaidByPoint.point} điểm):
-                        </span>
-                        <span className="font-semibold text-gray-800">{fmt(payment.prepaidByPoint.money)}</span>
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-800">Đã thanh toán:</span>
-                    <span className="text-gray-800">{fmt(payment.totalPaid)}</span>
-                  </div>
-                  {payment.moneyToCollect > 0 && (
-                    <div className="mt-1 flex justify-between">
-                      <span className="text-gray-800">Còn cần thu:</span>
-                      <span className="text-gray-800">{fmt(order.totalAmount - payment.totalPaid)}</span>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-
-            {order.appliedVouchers?.length > 0 && (
-              <div className="mt-4 pt-4 border-t border-gray-200">
-                <h3 className="font-semibold text-gray-800 mb-2">
-                  Voucher đã áp dụng:
-                </h3>
-                <div className="space-y-2">
-                  {order.appliedVouchers.map((ov: any) => (
-                    <div
-                      key={ov.id}
-                      className="flex justify-between items-center p-2 bg-gray-50 rounded"
-                    >
-                      <span className="font-mono text-sm font-semibold">
-                        {ov.userVoucher?.voucher?.code || 'Voucher'}
-                      </span>
-                      <span className="text-sm text-green-600 font-semibold">
-                        -{fmt(ov.discountApplied)}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {order.note && (
-              <div className="mt-4 pt-4 border-t border-gray-200">
-                <h3 className="font-semibold text-gray-800 mb-2">Ghi chú nội bộ:</h3>
-                <p className="text-gray-600 text-sm">{order.note}</p>
-              </div>
-            )}
-
-            {order.customerNote && (
-              <div className="mt-4 pt-4 border-t border-gray-200">
-                <h3 className="font-semibold text-gray-800 mb-2 flex items-center gap-2">
-                  <span></span>
-                  Ghi chú từ khách hàng:
-                </h3>
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                  <p className="text-gray-700 text-sm italic">&ldquo;{order.customerNote}&rdquo;</p>
-                </div>
-              </div>
-            )}
+            {/* Notes Section */}
+            <OrderNotesClient order={order} />
           </div>
+
+          {/* Vouchers */}
+          {order.appliedVouchers?.length > 0 && (
+            <div className="bg-white rounded-xl shadow-sm p-6">
+              <h3 className="font-semibold text-gray-800 mb-2">
+                Voucher đã áp dụng:
+              </h3>
+              <div className="space-y-2">
+                {order.appliedVouchers.map((ov: any) => (
+                  <div
+                    key={ov.id}
+                    className="flex justify-between items-center p-2 bg-gray-50 rounded"
+                  >
+                    <span className="font-mono text-sm font-semibold">
+                      {ov.userVoucher?.voucher?.code || 'Voucher'}
+                    </span>
+                    <span className="text-sm text-green-600 font-semibold">
+                      -{fmt(ov.discountApplied)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Shipping Partner / Tracking for Pancake */}
           {isPancake && partner && partner.trackingCode && (
@@ -484,7 +353,7 @@ export default async function OrderDetailPage(props: {
                 <div className="flex items-center justify-between rounded-lg">
                   <div className='flex items-center gap-2'>
                     <p className="font-mono font-bold text-blue-700 text-lg select-all">{partner.trackingCode}</p>
-                    <Copy className='w-4 h-4 text-blue-500' />
+                    <Copy className='w-4 h-4 text-blue-500 cursor-pointer' />
                   </div>
                   <div className="text-right">
                     <p className="text-xs text-gray-500">Phí Ship</p>
@@ -522,20 +391,20 @@ export default async function OrderDetailPage(props: {
                             </div>
                             {/* Content */}
                             <div className="ml-2 pb-1">
-                              <p className={`font-semibold text-sm ${idx === 0 ? 'text-blue-700' : 'text-gray-700'}`}>
-                                {update.status || update.key || 'Cập nhật'}
+                              <p className={`text-sm ${idx === 0 ? 'text-black' : 'text-black'}`}>
+                                <span className='font-semibold text-sm text-black'>Trạng thái VC:</span> {update.status || update.key || 'Cập nhật'}
                               </p>
                               {update.note && (
-                                <p className="text-xs text-gray-500 mt-0.5">{update.note}</p>
+                                <p className="text-xs text-black mt-0.5"><span className='font-semibold text-xs text-black'>Ghi chú: </span>{update.note}</p>
                               )}
                               {update.address && (
-                                <p className="text-xs text-gray-400 mt-0.5">{update.address}</p>
+                                <p className="text-xs text-black mt-0.5"><span className='font-semibold text-xs text-black'>Địa chỉ: </span>{update.address}</p>
                               )}
                               {update.location && (
-                                <p className="text-xs text-gray-400 mt-0.5">{update.location}</p>
+                                <p className="text-xs text-black mt-0.5">Vị trí: {update.location}</p>
                               )}
                               {(update.update_at || update.update_time || update.time) && (
-                                <p className="text-xs text-gray-400 mt-1">{fmtDate(update.update_at || update.update_time || update.time)}</p>
+                                <p className="text-xs text-black mt-1"><span className='font-semibold text-xs text-black'>Cập nhật gần nhất:</span> {fmtDate(update.update_at || update.update_time || update.time)}</p>
                               )}
                             </div>
                           </div>
@@ -583,13 +452,8 @@ export default async function OrderDetailPage(props: {
 
         {/* Right Column */}
         <div className="space-y-6">
-          {/* Status Manager */}
-          <OrderStatusManager
-            orderId={order.id}
-            currentStatus={order.status}
-            currentPaymentStatus={order.paymentStatus}
-          />
-
+          {/* Information Section */}
+          <OrderInfoClient order={order} metadata={m} isPancake={isPancake} staffList={staffList} statusLabel={st.label} />
           {/* Customer Info */}
           <div className="bg-white rounded-xl shadow-sm p-6">
             <h2 className="text-xl font-bold text-gray-800 mb-4">
@@ -740,7 +604,8 @@ export default async function OrderDetailPage(props: {
             </div>
           )}
         </div>
-      </div>
+        </div>
+      </OrderSaveProvider>
     </>
   );
 }

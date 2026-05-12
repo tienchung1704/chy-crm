@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { Bell, ShoppingBag, Users, Check, X } from 'lucide-react';
+import { Bell, ShoppingBag, Users, Truck, Check, X } from 'lucide-react';
 import { io, Socket } from 'socket.io-client';
 import { apiClientClient } from '@/lib/apiClientClient';
 import Link from 'next/link';
@@ -19,7 +19,7 @@ interface Notification {
 
 export default function AdminNotifications() {
   const [isOpen, setIsOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<'ORDER' | 'CUSTOMER'>('ORDER');
+  const [activeTab, setActiveTab] = useState<'ORDER' | 'CUSTOMER' | 'VTP'>('ORDER');
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [socket, setSocket] = useState<Socket | null>(null);
@@ -77,7 +77,7 @@ export default function AdminNotifications() {
   const markAsRead = async (id: string) => {
     try {
       await apiClientClient.patch(`/admin/notifications/${id}/read`, {});
-      setNotifications(prev => 
+      setNotifications(prev =>
         prev.map(n => n.id === id ? { ...n, isRead: true } : n)
       );
       setUnreadCount(prev => Math.max(0, prev - 1));
@@ -89,7 +89,7 @@ export default function AdminNotifications() {
   const markAllAsRead = async () => {
     try {
       await apiClientClient.patch(`/admin/notifications/read-all?type=${activeTab}`, {});
-      setNotifications(prev => 
+      setNotifications(prev =>
         prev.map(n => n.type === activeTab ? { ...n, isRead: true } : n)
       );
       setUnreadCount(prev => {
@@ -117,7 +117,7 @@ export default function AdminNotifications() {
 
   return (
     <div className="relative" ref={dropdownRef}>
-      <button 
+      <button
         onClick={() => setIsOpen(!isOpen)}
         className="relative p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
       >
@@ -134,19 +134,20 @@ export default function AdminNotifications() {
           </div>
 
           <div className="flex border-b border-gray-100">
-            {(['ORDER', 'CUSTOMER'] as const).map((tab) => {
+            {(['ORDER', 'CUSTOMER', 'VTP'] as const).map((tab) => {
               const tabUnread = notifications.filter(n => n.type === tab && !n.isRead).length;
               const isActive = activeTab === tab;
+              const tabIcon = tab === 'ORDER' ? <ShoppingBag size={16} /> : tab === 'VTP' ? <Truck size={16} /> : <Users size={16} />;
+              const tabLabel = tab === 'ORDER' ? 'Đơn' : tab === 'VTP' ? 'VTP' : 'Khách';
               return (
                 <button
                   key={tab}
                   onClick={() => setActiveTab(tab)}
-                  className={`flex-1 py-3 text-sm font-semibold flex items-center justify-center gap-2 transition-colors ${
-                    isActive ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-gray-500 hover:bg-gray-50'
-                  }`}
+                  className={`flex-1 py-3 text-sm font-semibold flex items-center justify-center gap-4 transition-colors ${isActive ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-gray-500 hover:bg-gray-50'
+                    }`}
                 >
-                  {tab === 'ORDER' ? <ShoppingBag size={16} /> : <Users size={16} />}
-                  {tab === 'ORDER' ? 'Đơn hàng' : 'Khách hàng'}
+                  {tabIcon}
+                  {tabLabel}
                   {tabUnread > 0 && (
                     <span className="min-w-[18px] h-[18px] flex items-center justify-center bg-red-500 text-white text-[10px] font-bold rounded-full px-1">
                       {tabUnread > 99 ? '99+' : tabUnread}
@@ -160,11 +161,11 @@ export default function AdminNotifications() {
           {/* Mark all read - only for current tab, only when there are unread */}
           {notifications.filter(n => n.type === activeTab && !n.isRead).length > 0 && (
             <div className="px-4 py-2 border-b border-gray-100 flex justify-end">
-              <button 
+              <button
                 onClick={markAllAsRead}
                 className="text-xs text-indigo-600 hover:text-indigo-800 font-medium flex items-center gap-1"
               >
-                <Check size={14} /> Đã đọc tất cả {activeTab === 'ORDER' ? 'đơn hàng' : 'khách hàng'}
+                <Check size={14} /> Đã đọc tất cả {activeTab === 'ORDER' ? 'đơn hàng' : activeTab === 'VTP' ? 'VTP' : 'khách hàng'}
               </button>
             </div>
           )}
@@ -178,8 +179,8 @@ export default function AdminNotifications() {
             ) : (
               <div className="divide-y divide-gray-50">
                 {filteredNotifications.map((notification) => (
-                  <div 
-                    key={notification.id} 
+                  <div
+                    key={notification.id}
                     className={`relative group/notif p-4 hover:bg-gray-50 transition-colors ${!notification.isRead ? 'bg-indigo-50/30' : ''}`}
                     onClick={() => {
                       if (!notification.isRead) markAsRead(notification.id);

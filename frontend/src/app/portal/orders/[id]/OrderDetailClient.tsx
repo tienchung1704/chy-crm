@@ -322,7 +322,8 @@ export default function PortalOrderDetailClient({ order }: { order: any }) {
 
               {/* Shipping Timeline */}
               {partner.courierUpdates?.length > 0 && (
-                <div className="">
+                <div className="mt-4 pt-4 border-t border-gray-200">
+                  <h3 className="font-semibold text-gray-700 mb-4">Lịch sử vận chuyển</h3>
                   <div className="relative pl-6">
                     {/* Vertical line */}
                     <div className="absolute left-[9px] top-2 bottom-2 w-0.5 bg-gray-200" />
@@ -340,20 +341,20 @@ export default function PortalOrderDetailClient({ order }: { order: any }) {
                           </div>
                           {/* Content */}
                           <div className="ml-2 pb-1">
-                            <p className={`font-semibold text-sm ${idx === 0 ? 'text-blue-700' : 'text-gray-700'}`}>
-                              {update.status || update.key || 'Cập nhật'}
+                            <p className={`text-sm ${idx === 0 ? 'text-black' : 'text-black'}`}>
+                              <span className='font-semibold text-sm text-black'>Trạng thái VC:</span> {update.status || update.key || 'Cập nhật'}
                             </p>
                             {update.note && (
-                              <p className="text-xs text-gray-500 mt-0.5">{update.note}</p>
+                              <p className="text-xs text-black mt-0.5"><span className='font-semibold text-xs text-black'>Ghi chú: </span>{update.note}</p>
                             )}
                             {update.address && (
-                              <p className="text-xs text-gray-400 mt-0.5">{update.address}</p>
+                              <p className="text-xs text-black mt-0.5"><span className='font-semibold text-xs text-black'>Địa chỉ: </span>{update.address}</p>
                             )}
                             {update.location && (
-                              <p className="text-xs text-gray-400 mt-0.5">{update.location}</p>
+                              <p className="text-xs text-black mt-0.5">Vị trí: {update.location}</p>
                             )}
                             {(update.update_at || update.update_time || update.time) && (
-                              <p className="text-xs text-gray-400 mt-1">{fmtDate(update.update_at || update.update_time || update.time)}</p>
+                              <p className="text-xs text-black mt-1"><span className='font-semibold text-xs text-black'>Cập nhật gần nhất:</span> {fmtDate(update.update_at || update.update_time || update.time)}</p>
                             )}
                           </div>
                         </div>

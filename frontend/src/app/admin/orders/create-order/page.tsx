@@ -9,5 +9,5 @@ export default async function CreateOrderPage() {
     return <div className="p-8 text-center text-red-500">Access Denied</div>;
   }
 
-  return <CreateOrderClient />;
+  return <CreateOrderClient currentUser={session} />;
 }

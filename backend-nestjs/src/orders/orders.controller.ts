@@ -243,4 +243,20 @@ export class OrdersController {
   ) {
     return this.ordersService.hardDelete(id, userId, role, effectiveStoreId);
   }
+
+  @Patch(':id/note')
+  @UseGuards(RolesGuard, PermissionsGuard)
+  @Roles('ADMIN', 'STAFF', 'MODERATOR')
+  @Permissions(Permission.ORDERS_MANAGE)
+  @ApiOperation({ summary: 'Update order notes' })
+  @ApiResponse({ status: 200, description: 'Order notes updated' })
+  updateNote(
+    @Param('id') id: string,
+    @GetUser('id') userId: string,
+    @GetUser('role') role: string,
+    @GetEffectiveStoreId() effectiveStoreId: string | null,
+    @Body() body: { note?: string; customerNote?: string },
+  ) {
+    return this.ordersService.updateNote(id, body, userId, role, effectiveStoreId);
+  }
 }

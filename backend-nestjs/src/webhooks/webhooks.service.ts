@@ -189,7 +189,7 @@ export class WebhooksService {
 
       // Fire notification so admin knows a webhook came in
       await this.adminNotificationsService.createNotification({
-        type: 'ORDER',
+        type: 'VTP',
         title: `Cập nhật vận chuyển: ${ORDER_NUMBER}`,
         message: `${STATUS_NAME || `VTP-${ORDER_STATUS}`} (không tìm thấy đơn hàng liên kết)`,
         link: '/admin/orders',
@@ -275,7 +275,7 @@ export class WebhooksService {
 
       // Trigger admin notification
       await this.adminNotificationsService.createNotification({
-        type: 'ORDER',
+        type: 'VTP',
         title: `Đơn hàng ${order.orderCode} cập nhật vận chuyển`,
         message: nMessage,
         link: `/admin/orders/${order.id}`,

@@ -280,9 +280,10 @@ export class PancakeService {
 
     const rawGender = customer?.gender;
     let parsedGender = null;
-    if (rawGender === 1 || String(rawGender).toLowerCase() === 'male') parsedGender = 'MALE';
-    else if (rawGender === 2 || String(rawGender).toLowerCase() === 'female') parsedGender = 'FEMALE';
-    else if (String(rawGender).toLowerCase() === 'other') parsedGender = 'OTHER';
+    const genderStr = String(rawGender).toLowerCase().trim();
+    if (rawGender === 1 || genderStr === '1' || genderStr === 'male' || genderStr === 'nam') parsedGender = 'MALE';
+    else if (rawGender === 2 || genderStr === '2' || genderStr === 'female' || genderStr === 'nữ' || genderStr === 'nu') parsedGender = 'FEMALE';
+    else if (genderStr === 'other' || genderStr === 'khác' || genderStr === 'khac') parsedGender = 'OTHER';
 
     return {
       name: customer?.name || shippingAddr?.full_name || null,
@@ -708,7 +709,7 @@ export class PancakeService {
     if (totalAmount <= 0) return { synced: false, amount: 0 };
 
     const cod = detailData.cod || 0, cash = detailData.cash || 0, transferMoney = detailData.transfer_money || 0, 
-          totalPaid = cod + cash + transferMoney + (detailData.charged_by_momo || 0) + (detailData.charged_by_vnpay || 0) + 
+          totalPaid = cash + transferMoney + (detailData.charged_by_momo || 0) + (detailData.charged_by_vnpay || 0) + 
                      (detailData.charged_by_card || 0) + (detailData.charged_by_qrpay || 0) + (detailData.charged_by_fundiin || 0) + 
                      (detailData.charged_by_kredivo || 0);
     
@@ -891,7 +892,7 @@ export class PancakeService {
     if (isCreditable && user && (!existing || !wasCreditable)) await this.updateUserRankAndSpent(user.id, totalAmount);
     else if (!isCreditable && wasCreditable && user) await this.updateUserRankAndSpent(user.id, -totalAmount);
     
-    return { synced: true, amount: totalAmount, orderId: order.id, isUpdate: !!existing, status: order.status };
+    return { synced: true, amount: totalAmount, orderId: order.id, isUpdate: !!existing, status: order.status, previousStatus: existing?.status || null };
   }
 
   private parsePancakeDate(value?: string | Date | null): Date | null {
@@ -935,7 +936,22 @@ export class PancakeService {
     const result = await this.syncSingleOrder(orderData, integration.store.id);
     if (result.synced) {
       const orderCode = `PCK-${orderData.id}`, existing = await this.prisma.order.findFirst({ where: { orderCode } });
-      await this.adminNotificationsService.createNotification({ type: 'ORDER', title: `Đơn hàng ${orderCode} ${result.isUpdate ? 'cập nhật' : 'mới'}`, message: `Giá trị: ${new Intl.NumberFormat('vi-VN').format(result.amount || 0)} VND`, link: existing ? `/admin/orders/${existing.id}` : '/admin/orders' });
+      const statusLabelMap: Record<string, string> = {
+        PENDING: 'Chờ xác nhận', CONFIRMED: 'Đã xác nhận', WAITING_FOR_GOODS: 'Chờ hàng',
+        PACKAGING: 'Đang đóng gói', WAITING_FOR_SHIPPING: 'Chờ vận chuyển', SHIPPED: 'Đang giao hàng',
+        DELIVERED: 'Đã nhận hàng', PAYMENT_COLLECTED: 'Đã thu tiền', COMPLETED: 'Hoàn thành',
+        CANCELLED: 'Đã hủy', REFUNDED: 'Hoàn trả', RETURNING: 'Đang hoàn',
+      };
+      let nMessage: string;
+      if (result.isUpdate && result.previousStatus && result.previousStatus !== result.status) {
+        const oldLabel = statusLabelMap[result.previousStatus] || result.previousStatus;
+        const newLabel = statusLabelMap[result.status] || result.status;
+        nMessage = `${oldLabel} → ${newLabel}`;
+      } else {
+        const newLabel = statusLabelMap[result.status] || result.status;
+        nMessage = result.isUpdate ? `Trạng thái: ${newLabel}` : `Đơn mới - ${newLabel}`;
+      }
+      await this.adminNotificationsService.createNotification({ type: 'ORDER', title: `Đơn hàng ${orderCode} ${result.isUpdate ? 'cập nhật' : 'mới'}`, message: nMessage, link: existing ? `/admin/orders/${existing.id}` : '/admin/orders' });
     }
     return { processed: true };
   }

@@ -559,6 +559,8 @@ export class OrdersService {
       paymentMethod,
       shippingFee = 0,
       discountAmount = 0,
+      status,
+      metadata: clientMetadata,
     } = createOrderDto;
 
     if (!items || items.length === 0) {
@@ -693,6 +695,7 @@ export class OrdersService {
       data: {
         userId: user?.id || null, // null for guest orders
         orderCode: this.generateOrderCode(),
+        status: (status || 'PENDING') as any,
         shippingName: shippingName || user?.name || null,
         shippingPhone: shippingPhone || user?.phone || null,
         shippingStreet: shippingStreet || user?.addressStreet || null,
@@ -711,7 +714,8 @@ export class OrdersService {
         metadata: {
           createdBy: actorId,
           createdByRole: actorRole,
-          isGuestOrder: !userId, // Flag to identify guest orders
+          isGuestOrder: !userId,
+          ...(clientMetadata || {}),
         },
         items: {
           create: orderItemsToCreate,
@@ -720,6 +724,33 @@ export class OrdersService {
     });
 
     return { success: true, orderId: order.id, orderCode: order.orderCode };
+  }
+
+  async updateNote(
+    orderId: string,
+    body: { note?: string; customerNote?: string },
+    userId: string,
+    role: string,
+    effectiveStoreId?: string | null,
+  ) {
+    const order = await this.prisma.order.findUnique({ where: { id: orderId } });
+    if (!order) throw new NotFoundException('Order not found');
+
+    // Permission check
+    if (role !== 'ADMIN' && effectiveStoreId && order.storeId !== effectiveStoreId) {
+      throw new BadRequestException('You can only update notes for your own store orders');
+    }
+
+    const updateData: any = {};
+    if (body.note !== undefined) updateData.note = body.note;
+    if (body.customerNote !== undefined) updateData.customerNote = body.customerNote;
+
+    await this.prisma.order.update({
+      where: { id: orderId },
+      data: updateData,
+    });
+
+    return { success: true };
   }
 
   async findAdminOrders(params: {
