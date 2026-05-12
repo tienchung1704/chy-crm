@@ -72,38 +72,38 @@ export default async function AdminDashboard() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
         <div className="bg-white p-6 rounded-xl shadow-sm">
           <div className="text-sm text-gray-600 mb-2">Tổng khách hàng</div>
-          <div className="text-3xl font-bold text-gray-800 mb-2">{stats.totalCustomers?.toLocaleString()}</div>
-          <div className="text-xs text-green-600 font-medium">
+          <div className="text-3xl text-gray-800 mb-2">{stats.totalCustomers?.toLocaleString()}</div>
+          <div className="text-xs text-green-600">
             +{stats.newCustomersThisMonth} tháng này
           </div>
         </div>
 
         <div className="bg-white p-6 rounded-xl shadow-sm">
           <div className="text-sm text-gray-600 mb-2">Tổng doanh thu</div>
-          <div className="text-2xl font-bold text-gray-800 mb-2">
+          <div className="text-2xl text-gray-800 mb-2">
             {formatCurrency(stats.totalRevenue)}
           </div>
-          <div className="text-xs text-green-600 font-medium">
+          <div className="text-xs text-green-600 ">
             {stats.completedOrders} đơn hoàn thành
           </div>
         </div>
 
         <div className="bg-white p-6 rounded-xl shadow-sm">
           <div className="text-sm text-gray-600 mb-2">Đơn hàng</div>
-          <div className="text-3xl font-bold text-gray-800 mb-2">{stats.totalOrders?.toLocaleString()}</div>
-          <div className="text-xs text-green-600 font-medium">
+          <div className="text-3xl text-gray-800 mb-2">{stats.totalOrders?.toLocaleString()}</div>
+          <div className="text-xs text-green-600 ">
             {stats.completedOrders} hoàn thành
           </div>
         </div>
 
         <div className="bg-white p-6 rounded-xl shadow-sm">
           <div className="text-sm text-gray-600 mb-2">Voucher hoạt động</div>
-          <div className="text-3xl font-bold text-gray-800">{stats.activeVouchers}</div>
+          <div className="text-3xl text-gray-800">{stats.activeVouchers}</div>
         </div>
 
         <div className="bg-white p-6 rounded-xl shadow-sm">
           <div className="text-sm text-gray-600 mb-2">Hoa hồng chờ duyệt</div>
-          <div className="text-2xl font-bold text-gray-800">
+          <div className="text-2xl text-gray-800">
             {formatCurrency(stats.pendingCommissions)}
           </div>
         </div>
@@ -131,12 +131,11 @@ export default async function AdminDashboard() {
                   <div key={`mob-order-${order.id}`} className="p-4 flex flex-col gap-2">
                     <div className="flex justify-between items-center">
                       <span className="font-mono text-sm font-bold text-gray-800">{order.orderCode}</span>
-                      <span className={`px-2 py-1 rounded-full text-[10px] font-bold ${
-                        statusInfo.class === 'badge-success' ? 'bg-green-100 text-green-700' :
+                      <span className={`px-2 py-1 rounded-full text-[10px] font-bold ${statusInfo.class === 'badge-success' ? 'bg-green-100 text-green-700' :
                         statusInfo.class === 'badge-warning' ? 'bg-yellow-100 text-yellow-700' :
-                        statusInfo.class === 'badge-info' ? 'bg-blue-100 text-blue-700' :
-                        'bg-red-100 text-red-700'
-                      }`}>
+                          statusInfo.class === 'badge-info' ? 'bg-blue-100 text-blue-700' :
+                            'bg-red-100 text-red-700'
+                        }`}>
                         {statusInfo.label}
                       </span>
                     </div>
@@ -188,14 +187,13 @@ export default async function AdminDashboard() {
                             <span className="text-sm">{displayName}</span>
                           </div>
                         </td>
-                        <td className="px-6 py-4 font-semibold">{formatCurrency(order.totalAmount)}</td>
+                        <td className="px-6 py-4 ">{formatCurrency(order.totalAmount)}</td>
                         <td className="px-6 py-4">
-                          <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                            statusInfo.class === 'badge-success' ? 'bg-green-100 text-green-700' :
+                          <span className={`px-3 py-1 rounded-full text-xs  ${statusInfo.class === 'badge-success' ? 'bg-green-100 text-green-700' :
                             statusInfo.class === 'badge-warning' ? 'bg-yellow-100 text-yellow-700' :
-                            statusInfo.class === 'badge-info' ? 'bg-blue-100 text-blue-700' :
-                            'bg-red-100 text-red-700'
-                          }`}>
+                              statusInfo.class === 'badge-info' ? 'bg-blue-100 text-blue-700' :
+                                'bg-red-100 text-red-700'
+                            }`}>
                             {statusInfo.label}
                           </span>
                         </td>
@@ -232,14 +230,13 @@ export default async function AdminDashboard() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex justify-between items-start">
-                          <span className="font-semibold text-sm text-gray-900 truncate pr-2">{displayName}</span>
-                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold whitespace-nowrap ${
-                            customer.rank === 'PLATINUM' ? 'bg-purple-100 text-purple-700' :
+                          <span className="text-sm text-gray-900 truncate pr-2">{displayName}</span>
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold whitespace-nowrap ${customer.rank === 'PLATINUM' ? 'bg-purple-100 text-purple-700' :
                             customer.rank === 'DIAMOND' ? 'bg-blue-100 text-blue-700' :
-                            customer.rank === 'GOLD' ? 'bg-yellow-100 text-yellow-700' :
-                            customer.rank === 'SILVER' ? 'bg-gray-200 text-gray-700' :
-                            'bg-gray-100 text-gray-600'
-                          }`}>
+                              customer.rank === 'GOLD' ? 'bg-yellow-100 text-yellow-700' :
+                                customer.rank === 'SILVER' ? 'bg-gray-200 text-gray-700' :
+                                  'bg-gray-100 text-gray-600'
+                            }`}>
                             {customer.rank}
                           </span>
                         </div>
@@ -285,32 +282,28 @@ export default async function AdminDashboard() {
                     const displayName = customer.name || customer.phone || 'Khách lạ';
                     const displayChar = displayName !== 'Khách lạ' ? displayName.charAt(0).toUpperCase() : '?';
                     return (
-                    <tr key={customer.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-2">
-                          <div className="w-6 h-6 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-xs font-semibold">
-                            {displayChar}
+                      <tr key={customer.id} className="hover:bg-gray-50">
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-2">
+                            <div>
+                              <div className="text-sm">{displayName}</div>
+                              <div className="text-xs text-gray-600">{customer.email || customer.phone}</div>
+                            </div>
                           </div>
-                          <div>
-                            <div className="font-semibold text-sm">{displayName}</div>
-                            <div className="text-xs text-gray-600">{customer.email || customer.phone}</div>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                          customer.rank === 'PLATINUM' ? 'bg-purple-100 text-purple-700' :
-                          customer.rank === 'DIAMOND' ? 'bg-blue-100 text-blue-700' :
-                          customer.rank === 'GOLD' ? 'bg-yellow-100 text-yellow-700' :
-                          customer.rank === 'SILVER' ? 'bg-gray-200 text-gray-700' :
-                          'bg-gray-100 text-gray-600'
-                        }`}>
-                          {customer.rank}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 font-semibold">{formatCurrency(customer.totalSpent)}</td>
-                      <td className="px-6 py-4">{customer._count?.orders || 0}</td>
-                    </tr>
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className={`px-3 py-1 rounded-full text-xs font-semibold ${customer.rank === 'PLATINUM' ? 'bg-purple-100 text-purple-700' :
+                            customer.rank === 'DIAMOND' ? 'bg-blue-100 text-blue-700' :
+                              customer.rank === 'GOLD' ? 'bg-yellow-100 text-yellow-700' :
+                                customer.rank === 'SILVER' ? 'bg-gray-200 text-gray-700' :
+                                  'bg-gray-100 text-gray-600'
+                            }`}>
+                            {customer.rank}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4">{formatCurrency(customer.totalSpent)}</td>
+                        <td className="px-6 py-4">{customer._count?.orders || 0}</td>
+                      </tr>
                     );
                   })
                 )}

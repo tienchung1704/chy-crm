@@ -5,6 +5,7 @@ import { ChevronUp, Calendar, X, ChevronRight } from 'lucide-react';
 import Select from '@/components/ui/Select';
 
 import { useOrderSave } from '@/components/admin/OrderSaveProvider';
+import { apiClientClient } from '@/lib/apiClientClient';
 
 interface OrderInfoClientProps {
   order: any;
@@ -53,23 +54,53 @@ const REASON_GROUPS: ReasonGroup[] = [
 ];
 
 export default function OrderInfoClient({ order, metadata, isPancake, staffList = [], statusLabel }: OrderInfoClientProps) {
-  const { setHasChanges } = useOrderSave();
+  const { setHasChanges, registerSaveAction } = useOrderSave();
   
   const [isExpanded, setIsExpanded] = useState(true);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const finalStatusLabel = metadata?.pancakeStatusName || statusLabel || order.status || 'Chưa cập nhật';
-  const [tags, setTags] = useState<string[]>([finalStatusLabel]);
+  
+  const m = metadata || {};
+  
+  // Tags initialization: use existing tags or the status label as default
+  const [tags, setTags] = useState<string[]>(m.tags || []);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // State for simple selects
-  const [staffValue, setStaffValue] = useState('');
-  const [delayValue, setDelayValue] = useState('');
+  // Staff State
+  const [staffMembers, setStaffMembers] = useState<any[]>([]);
+  const [assigningSellerId, setAssigningSellerId] = useState(order.assigningSellerId || '');
+  const [assigningCareId, setAssigningCareId] = useState(order.assigningCareId || '');
+  const [savingStaff, setSavingStaff] = useState(false);
 
-  // State for reason custom cascading select
-  const [reasonValue, setReasonValue] = useState('');
+  // Reason & Delay State
+  const [reasonValue, setReasonValue] = useState(m.reasonValue || '');
+  const [delayValue, setDelayValue] = useState(m.delayValue || '');
   const [isReasonOpen, setIsReasonOpen] = useState(false);
   const [hoveredReasonGroup, setHoveredReasonGroup] = useState<string | null>(null);
   const reasonRef = useRef<HTMLDivElement>(null);
+
+  // Fetch staff members from API
+  useEffect(() => {
+    async function fetchMembers() {
+      try {
+        const data = await apiClientClient.get<{ staff: any[] }>('/admin/staff/members');
+        setStaffMembers(data?.staff || []);
+      } catch (err) {
+        console.error('Error fetching staff members:', err);
+      }
+    }
+    fetchMembers();
+  }, []);
+
+  // Register Save Action for metadata fields
+  useEffect(() => {
+    registerSaveAction('order-info', async () => {
+      await apiClientClient.patch(`/orders/${order.id}/admin-update`, {
+        reasonValue,
+        delayValue,
+        tags,
+      });
+    });
+  }, [reasonValue, delayValue, tags, order.id]);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -110,6 +141,22 @@ export default function OrderInfoClient({ order, metadata, isPancake, staffList 
     }
   };
 
+  const handleStaffChange = async (sellerId: string, careId: string) => {
+    setAssigningSellerId(sellerId);
+    setAssigningCareId(careId);
+    setSavingStaff(true);
+    try {
+      await apiClientClient.patch(`/orders/${order.id}/assign-staff`, {
+        assigningSellerId: sellerId || null,
+        assigningCareId: careId || null,
+      });
+    } catch (err) {
+      console.error('Error saving staff assignment:', err);
+    } finally {
+      setSavingStaff(false);
+    }
+  };
+
   const createdAtDate = isPancake && metadata?.pancakeCreatedAt ? metadata.pancakeCreatedAt : order.createdAt;
 
   if (!isExpanded) {
@@ -121,9 +168,9 @@ export default function OrderInfoClient({ order, metadata, isPancake, staffList 
     );
   }
 
-  const staffOptions = [
-    { value: '', label: 'Chọn NV chăm sóc' },
-    ...staffList.map(s => ({ value: s.id, label: s.user?.name || s.name || 'Staff' }))
+  const staffMemberOptions = [
+    { value: '', label: 'Chọn NV' },
+    ...(Array.isArray(staffMembers) ? staffMembers : []).map(s => ({ value: s.id, label: s.name || s.phone || 'Staff' }))
   ];
 
   const delayOptions = [
@@ -168,21 +215,35 @@ export default function OrderInfoClient({ order, metadata, isPancake, staffList 
           </div>
         </div>
 
-        {/* Row 3: NV chăm sóc */}
+        {/* Row 3: NV bán hàng */}
+        <div className="flex items-center">
+          <div className="w-1/3 text-sm text-gray-700">NV bán hàng</div>
+          <div className="w-2/3 relative">
+            <Select 
+              value={assigningSellerId}
+              onChange={(v) => handleStaffChange(v, assigningCareId)}
+              options={staffMemberOptions}
+              className={`bg-gray-50 border-gray-100 text-sm ${savingStaff ? 'opacity-60' : ''}`}
+              placeholder="Chọn NV bán hàng"
+            />
+          </div>
+        </div>
+
+        {/* Row 3b: NV chăm sóc */}
         <div className="flex items-center">
           <div className="w-1/3 text-sm text-gray-700">NV chăm sóc</div>
           <div className="w-2/3 relative">
             <Select 
-              value={staffValue}
-              onChange={(v) => { setStaffValue(v); setHasChanges(true); }}
-              options={staffOptions}
-              className="bg-gray-50 border-gray-100 text-sm"
+              value={assigningCareId}
+              onChange={(v) => handleStaffChange(assigningSellerId, v)}
+              options={staffMemberOptions}
+              className={`bg-gray-50 border-gray-100 text-sm ${savingStaff ? 'opacity-60' : ''}`}
               placeholder="Chọn NV chăm sóc"
             />
           </div>
         </div>
 
-        {/* Row 4: Lý do hoàn (Cascading Custom Select) */}
+        {/* Row 4: Lý do hoàn */}
         <div className="flex items-center">
           <div className="w-1/3 text-sm text-gray-700">Lý do hoàn</div>
           <div className="w-2/3 relative" ref={reasonRef}>
@@ -196,6 +257,16 @@ export default function OrderInfoClient({ order, metadata, isPancake, staffList 
 
             {isReasonOpen && (
               <div className="absolute left-0 top-full mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-xl z-50 py-1">
+                <div 
+                  className="px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 cursor-pointer transition-colors border-b border-gray-100 font-medium"
+                  onClick={() => {
+                    setReasonValue('');
+                    setIsReasonOpen(false);
+                    setHasChanges(true);
+                  }}
+                >
+                  Bỏ chọn lý do
+                </div>
                 {REASON_GROUPS.map((group) => (
                   <div
                     key={group.label}

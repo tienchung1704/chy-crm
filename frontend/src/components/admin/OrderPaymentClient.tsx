@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { useOrderSave } from '@/components/admin/OrderSaveProvider';
+import { apiClientClient } from '@/lib/apiClientClient';
 
 function fmt(amount: number) {
   return new Intl.NumberFormat('vi-VN').format(amount || 0) + ' đ';
@@ -43,7 +44,7 @@ interface OrderPaymentClientProps {
 }
 
 export default function OrderPaymentClient({ order, metadata, isPancake }: OrderPaymentClientProps) {
-  const { setHasChanges } = useOrderSave();
+  const { setHasChanges, registerSaveAction } = useOrderSave();
   
   const payment = metadata?.payment || {};
   const financial = metadata?.financial || {};
@@ -72,6 +73,19 @@ export default function OrderPaymentClient({ order, metadata, isPancake }: Order
   const daThanhToan = transferMoney + cash + momo + vnpay + card + qrpay + fundiin + kredivo;
 
   const conThieu = Math.max(0, tienCanThu - daThanhToan);
+
+  // Register save action
+  React.useEffect(() => {
+    registerSaveAction('payment', async () => {
+      await apiClientClient.patch(`/orders/${order.id}/admin-update`, {
+        shippingFee,
+        discountAmount,
+        surcharge,
+        transferMoney,
+        points,
+      });
+    });
+  }, [shippingFee, discountAmount, surcharge, transferMoney, points, order.id]);
 
   return (
     <div className="bg-white rounded-xl shadow-sm p-6">

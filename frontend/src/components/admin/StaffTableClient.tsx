@@ -120,6 +120,7 @@ export default function StaffTableClient() {
               <tr className="border-b border-gray-100 bg-gray-50/60">
                 <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Nhân viên</th>
                 <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Số điện thoại</th>
+                <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap text-center">Đơn hàng</th>
                 <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">Ngày tham gia</th>
                 <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap text-center">Hành động</th>
               </tr>
@@ -141,11 +142,8 @@ export default function StaffTableClient() {
                 <tr key={s.id} className="hover:bg-gray-50/50 transition-colors">
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold shadow-sm">
-                        {s.name?.charAt(0).toUpperCase()}
-                      </div>
                       <div>
-                        <div className="font-bold text-gray-900">{s.name}</div>
+                        <div className="text-gray-900">{s.name}</div>
                         <div className="text-xs text-gray-500">{s.email}</div>
                       </div>
                     </div>
@@ -154,6 +152,11 @@ export default function StaffTableClient() {
                     <div className="flex flex-wrap gap-1 max-w-[300px]">
                       {s.phone}
                     </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-center">
+                    <span className="inline-flex items-center justify-center min-w-[28px] px-2 py-0.5 bg-blue-50 text-blue-700 text-sm font-bold rounded-full">
+                      {s._count?.ordersAsSeller ?? 0}
+                    </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-gray-600 font-medium">
                     {fmtDate(s.createdAt)}

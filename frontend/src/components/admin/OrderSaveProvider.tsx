@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
 import { Save } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 
 interface OrderSaveContextType {
   hasChanges: boolean;
@@ -18,6 +19,7 @@ export function useOrderSave() {
 }
 
 export function OrderSaveProvider({ children }: { children: ReactNode }) {
+  const router = useRouter();
   const [hasChanges, setHasChanges] = useState(false);
   const [isVisible, setIsVisible] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -58,15 +60,18 @@ export function OrderSaveProvider({ children }: { children: ReactNode }) {
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      // Execute all registered save actions
-      const promises = Array.from(saveActions.current.values()).map(action => action());
-      await Promise.all(promises);
+      // Execute all registered save actions SEQUENTIALLY to avoid race conditions on the same record
+      for (const action of Array.from(saveActions.current.values())) {
+        await action();
+      }
       
+      // Refresh the page data
+      window.location.reload();
+
       // Wait a bit for UX
       await new Promise(res => setTimeout(res, 500));
       
       setHasChanges(false);
-      alert('Đã lưu thay đổi thành công!'); // Temporary success message
     } catch (error) {
       console.error('Error saving changes:', error);
       alert('Có lỗi xảy ra khi lưu thay đổi!');
@@ -89,12 +94,12 @@ export function OrderSaveProvider({ children }: { children: ReactNode }) {
             : 'translate-y-[150%] opacity-0 pointer-events-none' // Hide when no changes
         }`}
       >
-        <div className="bg-gray-900 text-white px-6 py-3.5 rounded-full shadow-[0_10px_40px_rgba(0,0,0,0.3)] flex items-center gap-6 border border-gray-700">
+        <div className="bg-white text-gray-800 px-6 py-3.5 rounded-full shadow-[0_10px_40px_rgba(0,0,0,0.15)] flex items-center gap-6 border border-gray-200">
           <span className="text-sm font-medium whitespace-nowrap">Bạn có thay đổi chưa lưu</span>
-          <div className="flex items-center gap-3 border-l border-gray-700 pl-6">
+          <div className="flex items-center gap-3 border-l border-gray-200 pl-6">
             <button 
               onClick={() => setHasChanges(false)}
-              className="px-3 py-1.5 text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-800 rounded-full transition-colors"
+              className="px-3 py-1.5 text-sm font-medium text-gray-500 hover:text-gray-800 hover:bg-gray-50 rounded-full transition-colors"
               disabled={isSaving}
             >
               Hủy
@@ -102,7 +107,7 @@ export function OrderSaveProvider({ children }: { children: ReactNode }) {
             <button 
               onClick={handleSave}
               disabled={isSaving}
-              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white px-5 py-2 rounded-full text-sm font-semibold transition-all shadow-lg shadow-blue-900/20 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white px-5 py-2 rounded-full text-sm font-semibold transition-all shadow-lg shadow-blue-900/10 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Save className="w-4 h-4" />
               {isSaving ? 'Đang lưu...' : 'Lưu thay đổi'}

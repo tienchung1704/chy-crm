@@ -116,19 +116,19 @@ export default function ProductsClient({ products, categories, userRole }: Props
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
         <div className="bg-white p-6 rounded-xl shadow-sm">
           <div className="text-sm text-gray-600 mb-2">Tổng sản phẩm</div>
-          <div className="text-3xl font-bold text-gray-800">{filteredProducts.length}</div>
+          <div className="text-3xl text-gray-800">{filteredProducts.length}</div>
         </div>
         <div className="bg-white p-6 rounded-xl shadow-sm">
           <div className="text-sm text-gray-600 mb-2">Đang hoạt động</div>
-          <div className="text-3xl font-bold text-green-600">{activeProducts.length}</div>
+          <div className="text-3xl text-green-600">{activeProducts.length}</div>
         </div>
         <div className="bg-white p-6 rounded-xl shadow-sm">
           <div className="text-sm text-gray-600 mb-2">Tổng tồn kho</div>
-          <div className="text-3xl font-bold text-gray-800">{totalStock}</div>
+          <div className="text-3xl text-gray-800">{totalStock}</div>
         </div>
         <div className="bg-white p-6 rounded-xl shadow-sm">
           <div className="text-sm text-gray-600 mb-2">Sắp hết hàng</div>
-          <div className="text-3xl font-bold text-orange-600">{lowStock.length}</div>
+          <div className="text-3xl text-orange-600">{lowStock.length}</div>
         </div>
       </div>
 
@@ -212,7 +212,7 @@ export default function ProductsClient({ products, categories, userRole }: Props
                           </div>
                         )}
                         <div>
-                          <div className="font-semibold text-gray-800">{product.name}</div>
+                          <div className="text-gray-800">{product.name}</div>
                           <div className="text-xs text-gray-500 font-mono">{product.slug}</div>
                         </div>
                       </div>
@@ -234,7 +234,7 @@ export default function ProductsClient({ products, categories, userRole }: Props
                       )}
                     </td>
                     <td className="px-6 py-4">
-                      <span className="font-semibold text-gray-800">
+                      <span className="text-gray-800">
                         {formatCurrency(product.salePrice || product.originalPrice)}
                       </span>
                     </td>

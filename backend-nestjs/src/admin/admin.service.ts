@@ -494,6 +494,51 @@ export class AdminService {
         staffStoreId: true,
         staffPermissions: true,
         createdAt: true,
+        _count: {
+          select: { ordersAsSeller: true },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  /**
+   * Get all users with roles ADMIN, MODERATOR, STAFF that are associated with a store.
+   * Used for the "NV xử lý" dropdown in order creation.
+   */
+  async getStoreMembers(storeId?: string) {
+    if (!storeId) {
+      // No storeId provided: find the first available store
+      const firstStore = await this.prisma.store.findFirst({
+        select: { id: true },
+        orderBy: { createdAt: 'asc' },
+      });
+      if (!firstStore) {
+        return [];
+      }
+      storeId = firstStore.id;
+    }
+
+    // With storeId: only users linked to this specific store
+    return this.prisma.user.findMany({
+      where: {
+        OR: [
+          // STAFF assigned to this store
+          { role: 'STAFF', staffStoreId: storeId },
+          // MODERATOR who owns this store
+          { role: 'MODERATOR', store: { id: storeId } },
+          // ADMIN assigned to this store as staff
+          { role: 'ADMIN', staffStoreId: storeId },
+        ],
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        phone: true,
+        role: true,
+        staffStoreId: true,
+        createdAt: true,
       },
       orderBy: { createdAt: 'desc' },
     });

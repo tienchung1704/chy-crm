@@ -47,6 +47,33 @@ interface OrderItem {
   product: Product;
 }
 
+const REASON_GROUPS: { label: string; options?: string[] }[] = [
+  {
+    label: 'Do người nhận',
+    options: [
+      'Không liên lạc được / Thuê bao / Người nhận thuê bao',
+      'Sai sản phẩm / Sai COD / Giao chậm / Đơn ảo / Đổi ý / Hàng lỗi',
+      'Sai địa chỉ/Đổi địa chỉ/Sai SĐT',
+      'Hẹn ngày giao/Hẹn Thời gian giao/Hẹn sau/Hẹn lại ngày'
+    ]
+  },
+  {
+    label: 'Do ĐVVC',
+    options: [
+      'Giao chậm',
+      'Mất hàng',
+      'Hư hỏng'
+    ]
+  },
+  { label: 'Shop yêu cầu hoàn' },
+  { label: 'Lý do khác' },
+  { label: 'Do khách hàng' },
+  { label: 'Do nhân viên' },
+  { label: 'Do sản phẩm lỗi' },
+  { label: 'Do đơn vị VC' },
+  { label: 'Do đổi hàng' }
+];
+
 const ALL_STATUSES = [
   { value: 'PENDING', label: 'Chờ xác nhận' },
   { value: 'WAITING_FOR_GOODS', label: 'Chờ hàng' },
@@ -145,6 +172,10 @@ export default function CreateOrderClient({ currentUser }: { currentUser: { id: 
   const [status, setStatus] = useState('PENDING');
   const [assigningCareId, setAssigningCareId] = useState('');
   const [assigningSellerId, setAssigningSellerId] = useState('');
+  const [reasonValue, setReasonValue] = useState('');
+  const [delayValue, setDelayValue] = useState('');
+  const [isReasonOpen, setIsReasonOpen] = useState(false);
+  const [hoveredReasonGroup, setHoveredReasonGroup] = useState<string | null>(null);
 
   const [shippingName, setShippingName] = useState('');
   const [shippingPhone, setShippingPhone] = useState('');
@@ -176,7 +207,7 @@ export default function CreateOrderClient({ currentUser }: { currentUser: { id: 
   const [activeNoteTab, setActiveNoteTab] = useState<'NOI_BO' | 'DE_IN'>('NOI_BO');
 
   useEffect(() => {
-    apiClientClient.get<{ staff: any[] }>('/admin/staff')
+    apiClientClient.get<{ staff: any[] }>('/admin/staff/members')
       .then(res => {
         const list = res.staff || [];
         setStaffList(list);
@@ -194,7 +225,10 @@ export default function CreateOrderClient({ currentUser }: { currentUser: { id: 
 
   const staffOptions = [
     { value: '', label: 'Không gắn' },
-    ...staffList.map(s => ({ value: s.id, label: s.name || s.phone || 'User' }))
+    ...staffList.map(s => ({
+      value: s.id,
+      label: s.name || s.phone || 'User'
+    }))
   ];
 
   // Address helpers
@@ -395,6 +429,8 @@ export default function CreateOrderClient({ currentUser }: { currentUser: { id: 
         metadata: {
           assigningCareId: assigningCareId || undefined,
           assigningSellerId: assigningSellerId || undefined,
+          reasonValue: reasonValue || undefined,
+          delayValue: delayValue || undefined,
           carrier: carrier || undefined,
           trackingCode: trackingCode || undefined,
         },
@@ -676,6 +712,83 @@ export default function CreateOrderClient({ currentUser }: { currentUser: { id: 
                     options={staffOptions}
                     className="bg-gray-50 border-gray-200 py-1.5"
                   />
+                </div>
+              </div>
+
+              <div className="flex items-center text-gray-700 gap-4">
+                <span className="font-medium text-xs whitespace-nowrap w-20">Trễ giao</span>
+                <div className="flex-1 w-full">
+                  <Select
+                    value={delayValue}
+                    onChange={setDelayValue}
+                    options={[{ value: '', label: 'Chọn' }, { value: 'Chưa xử lý', label: 'Chưa xử lý' }, { value: 'Đang xử lý', label: 'Đang xử lý' }, { value: 'Đã xử lý', label: 'Đã xử lý' }]}
+                    className="bg-gray-50 border-gray-200 py-1.5"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center text-gray-700 gap-4">
+                <span className="font-medium text-xs whitespace-nowrap w-20">Lý do hoàn</span>
+                <div className="flex-1 w-full relative">
+                  <button
+                    onClick={() => setIsReasonOpen(!isReasonOpen)}
+                    className="w-full flex items-center justify-between bg-gray-50 border border-gray-200 hover:bg-white transition-all rounded px-3 py-1.5 text-xs text-gray-800 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  >
+                    <span className="truncate">{reasonValue || 'Chọn lý do'}</span>
+                    <ChevronDown className={`w-3.5 h-3.5 text-gray-400 transition-transform ${isReasonOpen ? 'rotate-180' : ''}`} />
+                  </button>
+
+                  {isReasonOpen && (
+                    <div className="absolute right-0 bottom-full mb-1 w-64 bg-white border border-gray-200 rounded-lg shadow-xl z-[60] py-1">
+                      <div 
+                        className="px-4 py-2 text-xs text-red-600 hover:bg-red-50 cursor-pointer transition-colors border-b border-gray-100 font-medium"
+                        onClick={() => {
+                          setReasonValue('');
+                          setIsReasonOpen(false);
+                        }}
+                      >
+                        Bỏ chọn lý do
+                      </div>
+                      {REASON_GROUPS.map((group) => (
+                        <div
+                          key={group.label}
+                          className="relative"
+                          onMouseEnter={() => setHoveredReasonGroup(group.label)}
+                          onMouseLeave={() => setHoveredReasonGroup(null)}
+                          onClick={() => {
+                            if (!group.options) {
+                              setReasonValue(group.label);
+                              setIsReasonOpen(false);
+                            }
+                          }}
+                        >
+                          <div className={`flex items-center justify-between px-4 py-2 text-xs cursor-pointer transition-colors ${hoveredReasonGroup === group.label ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50'}`}>
+                            <span>{group.label}</span>
+                            {group.options && <X className="w-3 h-3 opacity-30 rotate-45" />}
+                          </div>
+
+                          {group.options && hoveredReasonGroup === group.label && (
+                            <div className="absolute right-full top-0 w-64 bg-white border border-gray-200 rounded-lg shadow-xl py-1 z-[70] mr-1">
+                              {group.options.map((opt) => (
+                                <div
+                                  key={opt}
+                                  className="px-4 py-2 text-xs text-gray-700 hover:bg-blue-50 hover:text-blue-700 cursor-pointer transition-colors"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setReasonValue(opt);
+                                    setIsReasonOpen(false);
+                                    setHoveredReasonGroup(null);
+                                  }}
+                                >
+                                  {opt}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

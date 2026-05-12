@@ -3,6 +3,7 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from '../prisma/prisma.service';
 import { UsersService } from '../users/users.service';
 import { CommissionsService } from '../commissions/commissions.service';
+import { AdminNotificationsService } from '../modules/admin-notifications/admin-notifications.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { CreateAdminOrderDto } from './dto/create-admin-order.dto';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
@@ -16,6 +17,7 @@ export class OrdersService {
     private prisma: PrismaService,
     private usersService: UsersService,
     private commissionsService: CommissionsService,
+    private adminNotificationsService: AdminNotificationsService,
   ) {}
 
   private generateOrderCode(): string {
@@ -711,6 +713,8 @@ export class OrdersService {
         customerNote: customerNote || null,
         source: 'ADMIN_MANUAL',
         storeId: orderStoreId || null,
+        assigningSellerId: clientMetadata?.assigningSellerId || null,
+        assigningCareId: clientMetadata?.assigningCareId || null,
         metadata: {
           createdBy: actorId,
           createdByRole: actorRole,
@@ -744,6 +748,126 @@ export class OrdersService {
     const updateData: any = {};
     if (body.note !== undefined) updateData.note = body.note;
     if (body.customerNote !== undefined) updateData.customerNote = body.customerNote;
+
+    await this.prisma.order.update({
+      where: { id: orderId },
+      data: updateData,
+    });
+
+    return { success: true };
+  }
+
+  async updateStaffAssignment(
+    orderId: string,
+    body: { assigningSellerId?: string | null; assigningCareId?: string | null },
+    userId: string,
+    role: string,
+    effectiveStoreId?: string | null,
+  ) {
+    const order = await this.prisma.order.findUnique({ where: { id: orderId } });
+    if (!order) throw new NotFoundException('Order not found');
+
+    if (role !== 'ADMIN' && effectiveStoreId && order.storeId !== effectiveStoreId) {
+      throw new ForbiddenException('You can only update staff for your own store orders');
+    }
+
+    const updateData: any = {};
+    if (body.assigningSellerId !== undefined) {
+      updateData.assigningSellerId = body.assigningSellerId || null;
+    }
+    if (body.assigningCareId !== undefined) {
+      updateData.assigningCareId = body.assigningCareId || null;
+    }
+
+    // Also update metadata for backward compat
+    const existingMeta = order.metadata && typeof order.metadata === 'object' && !Array.isArray(order.metadata)
+      ? (order.metadata as Record<string, any>)
+      : {};
+    if (body.assigningSellerId !== undefined) {
+      existingMeta.assigningSellerId = body.assigningSellerId || null;
+    }
+    if (body.assigningCareId !== undefined) {
+      existingMeta.assigningCareId = body.assigningCareId || null;
+    }
+    updateData.metadata = existingMeta;
+
+    await this.prisma.order.update({
+      where: { id: orderId },
+      data: updateData,
+    });
+
+    return { success: true };
+  }
+
+  async updateAdminFields(
+    orderId: string,
+    body: {
+      shippingFee?: number;
+      discountAmount?: number;
+      surcharge?: number;
+      transferMoney?: number;
+      points?: number;
+      reasonValue?: string;
+      delayValue?: string;
+      tags?: string[];
+    },
+    userId: string,
+    role: string,
+    effectiveStoreId?: string | null,
+  ) {
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+    });
+    if (!order) throw new NotFoundException('Order not found');
+
+    if (role !== 'ADMIN' && effectiveStoreId && order.storeId !== effectiveStoreId) {
+      throw new ForbiddenException('You can only update orders for your own store');
+    }
+
+    const updateData: any = {};
+    
+    // Core fields
+    if (body.shippingFee !== undefined) updateData.shippingFee = body.shippingFee;
+    if (body.discountAmount !== undefined) updateData.discountAmount = body.discountAmount;
+
+    // Recalculate totalAmount if needed
+    if (body.shippingFee !== undefined || body.discountAmount !== undefined || body.surcharge !== undefined) {
+      const shippingFee = body.shippingFee !== undefined ? body.shippingFee : order.shippingFee;
+      const discountAmount = body.discountAmount !== undefined ? body.discountAmount : order.discountAmount;
+      
+      const existingMeta = order.metadata && typeof order.metadata === 'object' && !Array.isArray(order.metadata)
+        ? (order.metadata as Record<string, any>)
+        : {};
+      const surcharge = body.surcharge !== undefined ? body.surcharge : existingMeta.financial?.surcharge || 0;
+      
+      updateData.totalAmount = Math.max(0, order.subtotal - discountAmount + shippingFee + surcharge);
+    }
+
+    // Metadata update
+    const existingMeta = order.metadata && typeof order.metadata === 'object' && !Array.isArray(order.metadata)
+      ? (order.metadata as Record<string, any>)
+      : {};
+    
+    if (body.reasonValue !== undefined) existingMeta.reasonValue = body.reasonValue;
+    if (body.delayValue !== undefined) existingMeta.delayValue = body.delayValue;
+    if (body.tags !== undefined) existingMeta.tags = body.tags;
+    
+    // Financial/Payment metadata
+    if (body.surcharge !== undefined) {
+      if (!existingMeta.financial) existingMeta.financial = {};
+      existingMeta.financial.surcharge = body.surcharge;
+    }
+    if (body.transferMoney !== undefined) {
+      if (!existingMeta.payment) existingMeta.payment = {};
+      existingMeta.payment.transferMoney = body.transferMoney;
+    }
+    if (body.points !== undefined) {
+      if (!existingMeta.payment) existingMeta.payment = {};
+      if (!existingMeta.payment.prepaidByPoint) existingMeta.payment.prepaidByPoint = {};
+      existingMeta.payment.prepaidByPoint.point = body.points;
+    }
+
+    updateData.metadata = existingMeta;
 
     await this.prisma.order.update({
       where: { id: orderId },
@@ -970,6 +1094,12 @@ export class OrdersService {
             },
           },
         },
+        assigningSeller: {
+          select: { id: true, name: true, phone: true },
+        },
+        assigningCare: {
+          select: { id: true, name: true, phone: true },
+        },
       },
     });
 
@@ -1037,10 +1167,49 @@ export class OrdersService {
       }
     }
 
+    this.logger.log(`Updating status for order ${id}: ${currentOrder.status} -> ${status}. Role: ${role}`);
+
     const updatedOrder = await this.prisma.order.update({
       where: { id },
       data: updateData,
     });
+
+    // Send notification if status changed manually by admin/staff
+    if (status && status !== currentOrder.status && role && (role === 'ADMIN' || role === 'STAFF' || role === 'MODERATOR')) {
+      this.logger.log(`Creating manual update notification for order ${updatedOrder.orderCode}`);
+      const statusLabels: Record<string, string> = {
+        PENDING: 'Chờ xác nhận',
+        WAITING_FOR_GOODS: 'Chờ hàng',
+        CONFIRMED: 'Đã xác nhận',
+        PACKAGING: 'Đang đóng hàng',
+        WAITING_FOR_SHIPPING: 'Chờ vận chuyển',
+        SHIPPED: 'Đã gửi hàng',
+        DELIVERED: 'Đã nhận',
+        PAYMENT_COLLECTED: 'Đã thu tiền',
+        RETURNING: 'Đang hoàn',
+        EXCHANGING: 'Đang đổi',
+        COMPLETED: 'Hoàn thành',
+        CANCELLED: 'Đã hủy',
+        REFUNDED: 'Hoàn trả',
+      };
+
+      const oldLabel = statusLabels[currentOrder.status] || currentOrder.status;
+      const newLabel = statusLabels[status] || status;
+
+      await this.adminNotificationsService.createNotification({
+        type: 'ORDER',
+        title: 'Cập nhật trạng thái thủ công',
+        message: `Cập nhật trạng thái thủ công cho đơn hàng ${updatedOrder.orderCode}: thành công từ ${oldLabel} -> ${newLabel}`,
+        link: `/admin/orders/${updatedOrder.id}`,
+        metadata: {
+          orderId: updatedOrder.id,
+          orderCode: updatedOrder.orderCode,
+          oldStatus: currentOrder.status,
+          newStatus: status,
+          actorId: userId,
+        }
+      });
+    }
 
     // Handle creditable status (COMPLETED, DELIVERED)
     const isCreditable = status === 'COMPLETED' || status === 'DELIVERED';

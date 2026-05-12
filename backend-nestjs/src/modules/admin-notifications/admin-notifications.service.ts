@@ -28,6 +28,7 @@ export class AdminNotificationsService {
 
       // Broadcast to connected admins
       this.gateway.emitNewNotification(notification);
+      this.logger.log(`Admin notification created and emitted: ${notification.id} - ${notification.title}`);
       
       return notification;
     } catch (error) {

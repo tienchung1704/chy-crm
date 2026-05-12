@@ -60,6 +60,28 @@ export class StaffController {
     return this.adminService.assignStaff(dto);
   }
 
+  @Get('members')
+  @Roles('ADMIN', 'MODERATOR', 'STAFF')
+  @ApiOperation({ summary: 'Get all admin/moderator/staff members for order assignment' })
+  async getStoreMembers(
+    @GetUser() user: any,
+    @Query('storeId') storeId?: string,
+  ) {
+    let effectiveStoreId = storeId;
+
+    if (user.role === 'MODERATOR') {
+      effectiveStoreId = user.store?.id;
+    } else if (user.role === 'STAFF') {
+      effectiveStoreId = user.staffStoreId;
+    } else if (user.role === 'ADMIN') {
+      // ADMIN: use query param, or own store/staffStoreId
+      effectiveStoreId = storeId || user.store?.id || user.staffStoreId;
+    }
+
+    const members = await this.adminService.getStoreMembers(effectiveStoreId);
+    return { staff: members };
+  }
+
   @Get()
   @Roles('ADMIN', 'MODERATOR')
   @ApiOperation({ summary: 'Get all staff for a store' })

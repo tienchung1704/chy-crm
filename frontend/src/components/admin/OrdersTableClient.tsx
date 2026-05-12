@@ -3,7 +3,9 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { ArrowDown, ArrowUp, ArrowUpDown, Copy, Check } from 'lucide-react';
+import { ArrowDown, ArrowUp, ArrowUpDown, Copy, Check, ChevronDown, Loader2 } from 'lucide-react';
+import { apiClientClient } from '@/lib/apiClientClient';
+import { toast } from 'react-toastify';
 import ExportQRButton from './ExportQRButton';
 import CreateOrderButton from './CreateOrderButton';
 import OrderSearchInput from './OrderSearchInput';
@@ -100,6 +102,71 @@ export default function OrdersTableClient({ orders, statusCounts }: OrdersTableC
     .filter((o: any) => selectedIds.has(o.id))
     .map((o: any) => ({ id: o.id, orderCode: o.orderCode, totalAmount: o.totalAmount || 0 }));
 
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
+
+  const QuickStatusUpdate = ({ orderId, orderCode, currentStatus }: { orderId: string, orderCode: string, currentStatus: string }) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const [isUpdating, setIsUpdating] = useState(false);
+    const st = statusMap[currentStatus] || { cls: 'bg-gray-100 text-gray-700', label: currentStatus };
+
+    const handleUpdate = async (newStatus: string) => {
+      if (newStatus === currentStatus) {
+        setIsOpen(false);
+        return;
+      }
+
+      setIsUpdating(true);
+      setUpdatingId(orderId);
+      try {
+        await apiClientClient.patch(`/orders/${orderId}/status`, { status: newStatus });
+        const oldLabel = statusMap[currentStatus]?.label || currentStatus;
+        const newLabel = statusMap[newStatus]?.label || newStatus;
+        toast.success(`Đơn hàng ${orderCode} cập nhật thành công: ${oldLabel} -> ${newLabel}`, {
+          autoClose: 6000,
+          hideProgressBar: true,
+          icon: <span>✅</span>,
+          className: 'font-bold text-sm rounded-xl border border-green-100 shadow-lg',
+        });
+        router.refresh();
+      } catch (err) {
+        console.error('Failed to update status', err);
+        alert('Không thể cập nhật trạng thái');
+      } finally {
+        setIsUpdating(false);
+        setUpdatingId(null);
+        setIsOpen(false);
+      }
+    };
+
+    return (
+      <div className="relative inline-block" onClick={(e) => e.stopPropagation()}>
+        <button
+          onClick={() => setIsOpen(!isOpen)}
+          disabled={isUpdating}
+          className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] md:text-xs font-bold shadow-sm transition-all hover:brightness-95 disabled:opacity-70 ${st.cls}`}
+        >
+          {isUpdating ? <Loader2 className="w-3 h-3 animate-spin" /> : st.label}
+          <ChevronDown className={`w-3 h-3 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+        </button>
+
+        {isOpen && (
+          <div className="absolute left-0 mt-1 w-48 bg-white border border-gray-100 rounded-xl shadow-xl z-[60] py-1 max-h-64 overflow-y-auto">
+            {Object.entries(statusMap).map(([code, info]) => (
+              <button
+                key={code}
+                onClick={() => handleUpdate(code)}
+                className={`w-full text-left px-4 py-2 text-xs font-semibold flex items-center justify-between hover:bg-gray-50 transition-colors ${code === currentStatus ? 'text-blue-600 bg-blue-50/50' : 'text-gray-700'}`}
+              >
+                <span>{info.label}</span>
+                {code === currentStatus && <Check className="w-3 h-3" />}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  };
+
   return (
     <>
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
@@ -180,9 +247,7 @@ export default function OrdersTableClient({ orders, statusCounts }: OrdersTableC
                   </div>
                   {isUnread && <span className="w-2 h-2 rounded-full bg-blue-600 animate-pulse flex-shrink-0" />}
 
-                  <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold shadow-sm ${st.cls}`}>
-                    {st.label}
-                  </span>
+                  <QuickStatusUpdate orderId={order.id} orderCode={order.orderCode} currentStatus={order.status} />
                 </div>
 
                 <div className="flex flex-col gap-1">
@@ -345,9 +410,7 @@ export default function OrdersTableClient({ orders, statusCounts }: OrdersTableC
                       </div>
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap">
-                      <span className={`px-3 py-1 rounded-full text-xs font-bold shadow-sm inline-block text-center ${st.cls}`}>
-                        {st.label}
-                      </span>
+                      <QuickStatusUpdate orderId={order.id} orderCode={order.orderCode} currentStatus={order.status} />
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap text-gray-700">{fmtDate(order.createdAt)}</td>
                     <td className="px-4 py-3 whitespace-nowrap text-gray-700">{fmtDate(order.updatedAt)}</td>

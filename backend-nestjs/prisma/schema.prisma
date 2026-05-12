@@ -54,6 +54,8 @@ model User {
   staffStoreId       String?            @map("staff_store_id")
   staffStore         Store?             @relation("StoreStaff", fields: [staffStoreId], references: [id], onDelete: SetNull)
   staffPermissions   Json?              @map("staff_permissions")
+  ordersAsSeller     Order[]            @relation("OrderSeller")
+  ordersAsCare       Order[]            @relation("OrderCare")
   referrer           User?              @relation("ReferralNetwork", fields: [referrerId], references: [id])
   referees           User[]             @relation("ReferralNetwork")
 
@@ -244,10 +246,16 @@ model Order {
   user             User?              @relation(fields: [userId], references: [id], onDelete: Cascade)
   storeId          String?            @map("store_id")
   store            Store?             @relation(fields: [storeId], references: [id], onDelete: SetNull)
+  assigningSellerId String?           @map("assigning_seller_id")
+  assigningSeller  User?              @relation("OrderSeller", fields: [assigningSellerId], references: [id], onDelete: SetNull)
+  assigningCareId  String?            @map("assigning_care_id")
+  assigningCare    User?              @relation("OrderCare", fields: [assigningCareId], references: [id], onDelete: SetNull)
 
   @@index([userId, createdAt])
   @@index([status])
   @@index([storeId])
+  @@index([assigningSellerId])
+  @@index([assigningCareId])
   @@map("orders")
 }
 

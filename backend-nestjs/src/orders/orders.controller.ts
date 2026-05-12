@@ -259,4 +259,36 @@ export class OrdersController {
   ) {
     return this.ordersService.updateNote(id, body, userId, role, effectiveStoreId);
   }
+
+  @Patch(':id/assign-staff')
+  @UseGuards(RolesGuard, PermissionsGuard)
+  @Roles('ADMIN', 'STAFF', 'MODERATOR')
+  @Permissions(Permission.ORDERS_MANAGE)
+  @ApiOperation({ summary: 'Update staff assignment on order' })
+  @ApiResponse({ status: 200, description: 'Staff assignment updated' })
+  updateStaffAssignment(
+    @Param('id') id: string,
+    @GetUser('id') userId: string,
+    @GetUser('role') role: string,
+    @GetEffectiveStoreId() effectiveStoreId: string | null,
+    @Body() body: { assigningSellerId?: string; assigningCareId?: string },
+  ) {
+    return this.ordersService.updateStaffAssignment(id, body, userId, role, effectiveStoreId);
+  }
+
+  @Patch(':id/admin-update')
+  @UseGuards(RolesGuard, PermissionsGuard)
+  @Roles('ADMIN', 'STAFF', 'MODERATOR')
+  @Permissions(Permission.ORDERS_MANAGE)
+  @ApiOperation({ summary: 'Update admin-managed fields on order' })
+  @ApiResponse({ status: 200, description: 'Order updated' })
+  updateAdminFields(
+    @Param('id') id: string,
+    @GetUser('id') userId: string,
+    @GetUser('role') role: string,
+    @GetEffectiveStoreId() effectiveStoreId: string | null,
+    @Body() body: any,
+  ) {
+    return this.ordersService.updateAdminFields(id, body, userId, role, effectiveStoreId);
+  }
 }

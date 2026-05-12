@@ -48,6 +48,13 @@ export default function AdminNotifications() {
       }
     };
 
+    // Request Browser Notification Permission
+    if (typeof window !== 'undefined' && 'Notification' in window) {
+      if (Notification.permission !== 'granted' && Notification.permission !== 'denied') {
+        Notification.requestPermission();
+      }
+    }
+
     fetchNotifications();
 
     // Init Socket
@@ -65,6 +72,14 @@ export default function AdminNotifications() {
     newSocket.on('new_admin_notification', (notification: Notification) => {
       setNotifications(prev => [notification, ...prev]);
       setUnreadCount(prev => prev + 1);
+
+      // Show Native Browser Notification
+      if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+        new Notification(notification.title, {
+          body: notification.message,
+          icon: '/favicon.ico', // You might want to use a specific icon
+        });
+      }
     });
 
     setSocket(newSocket);
